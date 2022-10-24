@@ -1,0 +1,27 @@
+type Default {
+    a:boolean 1
+    b:string 2
+    c:uint8 3
+    d:uint16 4
+    e:uint32 5
+    f:uint64 6
+    g:int8 7
+    h:int16 8
+    i:int32 9
+    j:int64 10
+    k:float32 11
+    l:float64 12
+    m:binary 13
+    n:list(boolean) 14
+    o:list(string) 15
+    p:list(uint8) 16
+    q:list(uint16) 17
+    r:list(uint32) 18
+    s:list(uint64) 19
+    t:list(int8) 20
+    u:list(int16) 21
+    v:list(int32) 22
+    w:list(int64) 23
+    x:list(float32) 24
+    y:list(float64) 25
+}

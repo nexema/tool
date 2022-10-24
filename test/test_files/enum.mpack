@@ -1,0 +1,6 @@
+type EnumType enum {
+    unknown 0
+    value 1
+    second 2
+    random1 3
+}

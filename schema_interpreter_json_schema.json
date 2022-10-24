@@ -1,0 +1,207 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/GenerateInput",
+    "definitions": {
+        "GenerateInput": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "root": {
+                    "type": "string"
+                },
+                "packages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Package"
+                    }
+                }
+            },
+            "required": [
+                "packages",
+                "root"
+            ],
+            "title": "Welcome9"
+        },
+        "Package": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/File"
+                    }
+                },
+                "subPackages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Package"
+                    }
+                },
+                "importTypeIds": {
+                    "type": "array",
+                    "items": {}
+                }
+            },
+            "required": [
+                "files",
+                "importTypeIds",
+                "name",
+                "path",
+                "subPackages"
+            ],
+            "title": "Package"
+        },
+        "File": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "types": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FileType"
+                            }
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "id",
+                "path",
+                "types",
+                "version"
+            ],
+            "title": "File"
+        },
+        "FileType": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "modifier": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Field"
+                    }
+                }
+            },
+            "required": [
+                "fields",
+                "id",
+                "modifier",
+                "name"
+            ],
+            "title": "FileType"
+        },
+        "Field": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/TypeArgumentElement"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "defaultValue": {
+                    "type": "null"
+                },
+                "metadata": {
+                    "type": "null"
+                }
+            },
+            "required": [
+                "index",
+                "name"
+            ],
+            "title": "Field"
+        },
+        "TypeArgumentElement": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "primitive": {
+                    "$ref": "#/definitions/Primitive"
+                },
+                "typeName": {
+                    "type": "string"
+                },
+                "nullable": {
+                    "type": "boolean"
+                },
+                "typeArguments": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/TypeArgumentElement"
+                            }
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "nullable",
+                "primitive",
+                "typeArguments",
+                "typeName"
+            ],
+            "title": "TypeArgumentElement"
+        },
+        "Primitive": {
+            "type": "string",
+            "enum": [
+                "boolean",
+                "string",
+                "uint8",
+                "uint16",
+                "uint32",
+                "uint64",
+                "int8",
+                "int16",
+                "int32",
+                "int64",
+                "float32",
+                "float64",
+                "binary",
+                "list",
+                "map"
+            ],
+            "title": "Primitive"
+        }
+    }
+}

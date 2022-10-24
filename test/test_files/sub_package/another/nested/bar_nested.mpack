@@ -1,0 +1,5 @@
+import "foo_nested.mpack"
+
+type MyBarNested struct {
+    first:MyNestedType 1
+}
