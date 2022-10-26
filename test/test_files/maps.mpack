@@ -1,4 +1,4 @@
-type Default {
+type MapTest {
     a1:map(string,boolean)	1
     a2:map(string,string)	2
     a3:map(string,uint8)	3

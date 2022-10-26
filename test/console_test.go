@@ -14,7 +14,6 @@ func TestConsoleBuild(t *testing.T) {
 }
 
 func TestConsoleGenerate(t *testing.T) {
-	t.Skip()
 	err := internal.ConsoleGenerate(internal.NewBuilder(), "./test_files", "./src/models/dto", "json")
 	assert.NoError(t, err)
 }

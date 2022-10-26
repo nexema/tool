@@ -21,8 +21,9 @@ var ErrEndOfType = errors.New("end of type")
 type Parser struct {
 	structFieldTokenizer *StructFieldTokenizer
 	valueParser          *ValueParser
-
-	schema *MPackSchemaDefinition
+	schema               *MPackSchemaDefinition
+	currentPackage       *PackageDeclarationNode
+	typeCollapseChecker  map[string]string
 }
 
 func NewParser(schema ...*MPackSchemaDefinition) *Parser {
@@ -35,6 +36,7 @@ func NewParser(schema ...*MPackSchemaDefinition) *Parser {
 		structFieldTokenizer: NewStructFieldTokenizer(),
 		valueParser:          NewValueParser(),
 		schema:               schemaArg,
+		typeCollapseChecker:  make(map[string]string),
 	}
 }
 
@@ -44,9 +46,12 @@ func NewParser(schema ...*MPackSchemaDefinition) *Parser {
 func (p *Parser) ParseDirectory(path string, rootPackage string) (result *DeclarationTree, err error) {
 	if err != nil {
 		return nil, err
+
 	}
 
-	tree := NewDeclarationTree(rootPackage, NewPackageDeclarationNode(rootPackage, path), nil)
+	rootPkg := NewPackageDeclarationNode(rootPackage, path)
+	tree := NewDeclarationTree(rootPackage, rootPkg, nil)
+	p.currentPackage = rootPkg
 
 	// iterate over files and directories
 	err = filepath.Walk(path, func(fPath string, d fs.FileInfo, err error) error {
@@ -66,7 +71,9 @@ func (p *Parser) ParseDirectory(path string, rootPackage string) (result *Declar
 			}
 
 			// add package
-			tree.Add(NewPackageDeclarationNode(d.Name(), rel))
+			pkg := NewPackageDeclarationNode(d.Name(), rel)
+			tree.Add(pkg)
+			p.currentPackage = pkg
 
 		} else {
 			// only process .mpack files
@@ -196,12 +203,20 @@ func (p *Parser) internalParse(scanner *Reader, fileName string) (*FileDeclarati
 		}
 
 		if typeDef != nil {
-			typeDef.Id = GetHash(typeDef.Name, fileName)
+			// typeDef.Id = GetHash(typeDef.Name, fileName)
+			typeDef.Id = GetHash(typeDef.Name, p.currentPackage.RelativePath)
 			for _, td := range *fileDefinition.Types {
 				if td.Name == typeDef.Name {
 					return nil, fmt.Errorf("there is already a type named %s in %s", td.Name, fileName)
 				}
 			}
+
+			typeName, ok := p.typeCollapseChecker[typeDef.Id]
+			if ok {
+				return nil, fmt.Errorf("type %s is redeclared in the same package (%s)", typeName, p.currentPackage.Name())
+			}
+
+			p.typeCollapseChecker[typeDef.Id] = typeDef.Name
 
 			*fileDefinition.Types = append(*fileDefinition.Types, typeDef)
 			continue

@@ -63,6 +63,7 @@ func ConsoleBuild(builder *Builder, outputType string, outputDestination string,
 	switch outputDestination {
 	case "console":
 		fmt.Println(outputString)
+		fmt.Printf("BASE 64: %v\n", EncodeBase64(outputString))
 
 	default:
 		// its a file

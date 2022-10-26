@@ -1,4 +1,4 @@
-type Default {
+type AllTypes {
     a:boolean 1
     b:string 2
     c:uint8 3

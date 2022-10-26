@@ -148,6 +148,7 @@ func (t *DeclarationTree) Lookup(key string) (tree *DeclarationTree, ok bool) {
 // is the file where the import is declared, and does not contain any children, so it must reverse to the parent package node.
 func (t *DeclarationTree) ReverseLookup(path string) (tree *DeclarationTree, err error) {
 	path = filepath.ToSlash(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 
 	frags := strings.Split(path, "/")
 	tree, err = t.reverseLookup(frags)
