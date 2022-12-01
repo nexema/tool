@@ -1,8 +1,0 @@
-name: example.com/test_files
-author: ImTheAuthor
-version: 1.0.0
-
-generators:
-  - dart:
-      options:
-        packageName: test_files

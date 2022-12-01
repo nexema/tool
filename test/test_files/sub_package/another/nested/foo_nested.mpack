@@ -1,5 +1,0 @@
-import "..\inside.mpack"
-
-type MyNestedType struct {
-    first:AnotherType 1
-}
