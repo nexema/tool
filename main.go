@@ -60,8 +60,9 @@ Commands:
 				},
 			},
 			{
-				Name:  "generate",
-				Usage: "Builds the project and generates code for a programming language",
+				Name:      "generate",
+				Usage:     "Builds the project and generates code for a programming language",
+				ArgsUsage: "[input-path] [output-path]",
 				Action: func(ctx *cli.Context) error {
 					folderPath := ctx.Args().Get(0)
 					outputPath := ctx.Args().Get(1)

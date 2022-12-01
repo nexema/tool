@@ -49,13 +49,6 @@ func (b *Builder) Build(path string) (result *CompileResult, err error) {
 
 	b.typeResolver = NewTypeResolver()
 
-	//validate types
-	// err = b.validator.Validate(parseResult.Packages)
-
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	// Resolve types
 	err = b.typeResolver.Resolve(tree)
 

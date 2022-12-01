@@ -45,8 +45,6 @@ func ConsoleBuild(builder *Builder, outputType string, outputDestination string,
 	if err != nil {
 		return cli.Exit(err, -1)
 	}
-	fmt.Printf("output type: %v", outputType)
-
 	var outputString string
 	switch outputType {
 	case "json":
