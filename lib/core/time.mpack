@@ -1,0 +1,14 @@
+type Date {
+    year:int32
+    month:int8
+    day:int8
+}
+
+type Timestamp {
+    seconds:int64
+    nanoseconds:int64
+}
+
+type TimeSpan {
+    nanoseconds:int64
+}

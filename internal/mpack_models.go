@@ -33,8 +33,8 @@ type MPackDependency struct {
 type DependencySource string
 
 const (
-	Git   DependencySource = "git"
-	Local DependencySource = "local"
+	DependencySource_Git   DependencySource = "git"
+	DependencySource_Local DependencySource = "local"
 )
 
 func (d *MPackDependency) UnmarshalYAML(value *yaml.Node) error {
@@ -44,11 +44,17 @@ func (d *MPackDependency) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	tokens := strings.Split(input, ":")
+	if tokens[0] == "core" {
+		d.Path = "__core"
+		d.Source = DependencySource_Local
+		return nil
+	}
+
 	source := DependencySource(tokens[0])
 	path := tokens[1]
 
 	switch source {
-	case Git, Local:
+	case DependencySource_Git, DependencySource_Local:
 		break
 
 	default:
