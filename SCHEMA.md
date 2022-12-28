@@ -142,23 +142,23 @@ author: ImTheAuthor
 version: 1.0.0
 
 dependencies:
-    - git:github.com/dep/myDependency
-    - local:../dep/myDependency
+  - git:github.com/dep/myDependency
+  - local:../dep/myDependency
 
 skip:
-	- skip/this/folder
-	- skip/this/file.mpack
-	- skip/all/**
+  - skip/this/folder
+  - skip/this/file
+  - skip/all/**
 
 generators:
-	dart:
-        out: ./dist/dart
-        options:
-            - writeReflection
-	csharp:
-        out: ./dist/csharp
-        options:
-            - omitReflection
+  dart:
+    out: ./dist/dart
+    options:
+      - writeReflection
+  csharp:
+    out: ./dist/csharp
+    options:
+      - omitReflection
 
 ```
 
