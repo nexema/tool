@@ -152,7 +152,13 @@ skip:
 
 generators:
 	dart:
+        out: ./dist/dart
+        options:
+            - writeReflection
 	csharp:
+        out: ./dist/csharp
+        options:
+            - omitReflection
 
 ```
 
