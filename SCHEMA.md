@@ -60,11 +60,11 @@ Indexes are `int32` numbers that are optional in `struct` and `union` but requir
 If you want a field to have a default value, you can specify it after the field index, using the *equals* sign (**=**).
 E.g.:
 ```
-my_amazing_field:string = "here! a default value!"
-another_field:float32 = -242.32
-my_amazing_enum:MyEnum = MyEnum.second
-my_amazing_list:list(string) = ["one", "two", "three"]
-my_amazing_map:map(string,int) = [("one":1), ("two":2), ("three:3")]
+my_amazing_field: string = "here! a default value!"
+another_field: float32 = -242.32
+my_amazing_enum: MyEnum = MyEnum.second
+my_amazing_list: list(string) = ["one", "two", "three"]
+my_amazing_map: map(string,int) = [("one":1), ("two":2), ("three:3")]
 ```
 * `string` fields must declare their default value between quotation marks, as a normal string in many programming languages.
 * `list(T)` fields declare their default values between brackets, each value comma separated.
@@ -80,7 +80,7 @@ my_amazing_map:map(string,int) = [("one":1), ("two":2), ("three:3")]
 Metadata are `map(string, [string|bool|float64])` which can be used to annotate fields/types for later use. You can specify metadata to any field, using **@**, followed by a  `map(string, [string|bool|int])` value signature.
 For example:
 ```
-a_field:string @[("obsolete":true)]
+a_field: string @[("obsolete":true)]
 ```
 
 
