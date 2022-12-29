@@ -25,13 +25,11 @@ func NewScanner(r io.Reader) *Scanner {
 	}
 }
 
-func (s *Scanner) Scan() (pos Position, token Token, literal string) {
+func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal string) {
 	for {
 		ch, _, err := s.r.ReadRune()
-		if err != nil {
-			if err == io.EOF {
-				return s.pos, Token_EOF, ""
-			}
+		if err != nil && err == io.EOF {
+			return s.pos, Token_EOF, ""
 		}
 
 		s.pos.pos++
@@ -72,9 +70,18 @@ func (s *Scanner) Scan() (pos Position, token Token, literal string) {
 		case '?':
 			return s.pos, Token_QuestionMark, string(ch)
 
+		case '"':
+			startPos := s.pos
+			str := s.scanStringIdent()
+			return startPos, Token_String, str
+
 		default:
 			if unicode.IsSpace(ch) {
-				continue
+				if readSpace {
+					return s.pos, Token_Whitespace, string(ch)
+				} else {
+					continue
+				}
 			} else if unicode.IsDigit(ch) {
 				// backup and let scanInt rescan the beginning of the int
 				startPos := s.pos
@@ -130,6 +137,39 @@ func (s *Scanner) scanIdent() string {
 			buf.WriteRune(ch)
 		} else {
 			s.comeback()
+			break
+		}
+	}
+
+	return buf.String()
+}
+
+func (s *Scanner) scanStringIdent() string {
+	var buf bytes.Buffer
+	escaped := false
+	for {
+		ch, _, err := s.r.ReadRune()
+		if err != nil && err == io.EOF {
+			break
+		}
+
+		s.pos.pos++
+
+		// escaping char
+		if ch == '\\' {
+			// omit and read next
+			if !escaped {
+				escaped = true
+			}
+			continue
+		}
+
+		buf.WriteRune(ch)
+		if ch == '"' {
+			if escaped {
+				escaped = false
+				continue
+			}
 			break
 		}
 	}

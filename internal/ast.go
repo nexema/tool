@@ -41,3 +41,12 @@ type mapEntryStmt struct {
 	value     interface{}
 	valueType Primitive
 }
+
+func (m *mapStmt) add(e *mapEntryStmt) {
+	(*m) = append((*m), e)
+}
+
+type identifierStmt struct {
+	value     interface{}
+	valueType Primitive
+}

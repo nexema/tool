@@ -1,23 +1,21 @@
 package main
 
-import "gopkg.in/yaml.v3"
+import (
+	"bytes"
+	"fmt"
+
+	"tomasweigenast.com/schema_interpreter/internal"
+)
 
 func main() {
-	b, _ := yaml.Marshal(map[string]interface{}{
-		"dart": map[string]interface{}{
-			"out": "./dist/dart",
-			"options": []interface{}{
-				"writeReflection",
-				"omitReflection",
-			},
-		},
-		"csharp": map[string]interface{}{
-			"out": "./dist/csharp",
-			"options": []interface{}{
-				"omitReflection",
-			},
-		},
-	})
+	input := `
+	@metadata
+	type MyName struct {}`
+	parser := internal.NewParser(bytes.NewBufferString(input))
+	ast, err := parser.Parse()
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	println(string(b))
+	_ = ast
 }
