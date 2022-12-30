@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"io"
+	"strconv"
 )
 
 type Parser struct {
@@ -176,7 +177,7 @@ func (p *Parser) parseMetadata() error {
 }
 
 func (p *Parser) parseMap() (*mapStmt, error) {
-	tok, lit := p.scan() // @ read, read then [
+	tok, lit := p.scan() // read [
 	if tok != Token_OpenBrackets {
 		return nil, p.expectedError(Token_OpenParens, lit)
 	}
@@ -189,21 +190,53 @@ func (p *Parser) parseMap() (*mapStmt, error) {
 			break
 		}
 
+		// after an entry, we expect a comma
+		if !m.isEmpty() {
+			if tok != Token_Comma {
+				return nil, p.raw("map entries must be comma-separated")
+			}
+
+			// consume
+			tok, lit = p.scan()
+		}
+
 		// read (, expect entry
 		if tok == Token_OpenParens {
 
+			entry := new(mapEntryStmt)
+
 			// read until we found )
 			for {
-				tok, lit = p.scan()
+				tok, _ = p.scan()
 				if tok == Token_CloseParens {
+					m.add(entry)
 					break
-				} else if tok == Token_Ident {
+				} else if tok == Token_Ident || tok == Token_String {
 					p.unscan()
 					identifier, err := p.parseIdentifier()
-					_ = identifier
-					_ = err
+					if err != nil {
+						return nil, err
+					}
+
+					if entry.key == nil {
+						entry.key = identifier
+
+						// next must be colon
+						tok, _ = p.scan()
+						if tok != Token_Colon {
+							return nil, p.raw("key-value pair must be in the format key:value")
+						}
+					} else if entry.value == nil {
+						entry.value = identifier
+					} else {
+						return nil, p.raw("invalid map declaration")
+					}
+				} else {
+					return nil, p.raw("invalid map declaration")
 				}
 			}
+		} else {
+			return nil, p.expectedError(Token_OpenParens, lit)
 		}
 	}
 
@@ -224,8 +257,38 @@ func (p *Parser) parseIdentifier() (*identifierStmt, error) {
 		}
 
 		return &identifierStmt{
-			value:     lit[:len(lit)-1],
+			value:     lit[1 : len(lit)-1],
 			valueType: Primitive_String,
+		}, nil
+	} else {
+		// check if input can be parsed into an int
+		var value interface{}
+		var primitive Primitive
+		var err error
+		value, err = strconv.ParseInt(lit, 10, 64)
+
+		if err != nil {
+			// its not an int, try with float
+			value, err = strconv.ParseFloat(lit, 64)
+			if err != nil {
+				// its not a float, try with bool
+				value, err = strconv.ParseBool(lit)
+				if err != nil {
+					return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
+					// idk
+				} else {
+					primitive = Primitive_Bool
+				}
+			} else {
+				primitive = Primitive_Float64
+			}
+		} else {
+			primitive = Primitive_Int64
+		}
+
+		return &identifierStmt{
+			value:     value,
+			valueType: primitive,
 		}, nil
 	}
 

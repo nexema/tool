@@ -37,13 +37,16 @@ type valueStmt struct {
 
 type mapStmt []*mapEntryStmt
 type mapEntryStmt struct {
-	key       string
-	value     interface{}
-	valueType Primitive
+	key   *identifierStmt
+	value *identifierStmt
 }
 
 func (m *mapStmt) add(e *mapEntryStmt) {
 	(*m) = append((*m), e)
+}
+
+func (m *mapStmt) isEmpty() bool {
+	return len(*m) == 0
 }
 
 type identifierStmt struct {

@@ -72,6 +72,7 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 
 		case '"':
 			startPos := s.pos
+			s.comeback()
 			str := s.scanStringIdent()
 			return startPos, Token_String, str
 
@@ -114,7 +115,7 @@ func (s *Scanner) scanInt() string {
 		}
 
 		s.pos.pos++
-		if unicode.IsDigit(ch) {
+		if unicode.IsDigit(ch) || ch == '.' {
 			lit += string(ch)
 		} else {
 			// scanned something not in the integer
@@ -147,6 +148,7 @@ func (s *Scanner) scanIdent() string {
 func (s *Scanner) scanStringIdent() string {
 	var buf bytes.Buffer
 	escaped := false
+	first := true
 	for {
 		ch, _, err := s.r.ReadRune()
 		if err != nil && err == io.EOF {
@@ -170,7 +172,12 @@ func (s *Scanner) scanStringIdent() string {
 				escaped = false
 				continue
 			}
-			break
+
+			if !first {
+				break
+			}
+
+			first = false
 		}
 	}
 
