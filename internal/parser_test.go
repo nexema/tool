@@ -285,3 +285,72 @@ func TestParseMap(t *testing.T) {
 		})
 	}
 }
+
+func TestParseList(t *testing.T) {
+	type testCase struct {
+		description string
+		input       string
+		err         error
+		expect      *listStmt
+	}
+
+	for _, tt := range []testCase{
+		{
+			description: "empty list",
+			input:       `[]`,
+			expect:      new(listStmt),
+			err:         nil,
+		},
+		{
+			description: "random elements",
+			input:       `["a string", 12.32, 88, true]`,
+			expect: &listStmt{
+				{
+					value:     "a string",
+					valueType: Primitive_String,
+				},
+				{
+					value:     float64(12.32),
+					valueType: Primitive_Float64,
+				},
+				{
+					value:     int64(88),
+					valueType: Primitive_Int64,
+				},
+				{
+					value:     true,
+					valueType: Primitive_Bool,
+				},
+			},
+			err: nil,
+		},
+		{
+			description: "missing comma",
+			input:       `["a string", 12.32, 88 true]`,
+			err:         errors.New("line 1:24 -> list elements must be comma-separated"),
+		},
+		{
+			description: "missing open bracket",
+			input:       `"a string", 12.32, 88]`,
+			err:         errors.New(`line 1:1 -> found "\"a string\"", expected "["`),
+		},
+		{
+			description: "missing close bracket",
+			input:       `["a string", 12.32, 88 `,
+			err:         errors.New(`line 1:23 -> lists must be closed with "]"`),
+		},
+	} {
+
+		testName := tt.description
+		if len(tt.description) == 0 {
+			testName = tt.input
+		}
+
+		t.Run(testName, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.parseList()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}

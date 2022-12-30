@@ -26,13 +26,8 @@ type fieldStmt struct {
 	name         string
 	nullable     bool
 	primitive    Primitive
-	defaultValue *valueStmt
+	defaultValue *identifierStmt
 	metadata     *mapStmt
-}
-
-type valueStmt struct {
-	value     interface{}
-	valueType Primitive
 }
 
 type mapStmt []*mapEntryStmt
@@ -52,4 +47,14 @@ func (m *mapStmt) isEmpty() bool {
 type identifierStmt struct {
 	value     interface{}
 	valueType Primitive
+}
+
+type listStmt []*identifierStmt
+
+func (l *listStmt) add(i *identifierStmt) {
+	(*l) = append((*l), i)
+}
+
+func (l *listStmt) isEmpty() bool {
+	return len(*l) == 0
 }

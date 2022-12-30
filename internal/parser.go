@@ -176,10 +176,57 @@ func (p *Parser) parseMetadata() error {
 	return nil
 }
 
+func (p *Parser) parseList() (*listStmt, error) {
+	tok, lit := p.scan() // read [
+	if tok != Token_OpenBrackets {
+		return nil, p.expectedError(Token_OpenBrackets, lit)
+	}
+
+	l := new(listStmt)
+
+	added := false
+	for {
+		tok, _ = p.scan()
+		if tok == Token_CloseBrackets { // if we read ], then stop
+			break
+		}
+
+		// after a value, we expect a comma
+		if tok == Token_Comma && added {
+			added = false
+			continue
+		}
+
+		if added {
+			if tok == Token_Ident || tok == Token_String {
+				return nil, p.raw("list elements must be comma-separated")
+			} else {
+				return nil, p.raw(`lists must be closed with "]"`)
+			}
+		}
+
+		if tok == Token_Ident || tok == Token_String {
+			p.unscan()
+			identifier, err := p.parseIdentifier()
+			if err != nil {
+				return nil, err
+			}
+
+			// add identifier to stmt
+			l.add(identifier)
+			added = true
+		} else {
+			break
+		}
+	}
+
+	return l, nil
+}
+
 func (p *Parser) parseMap() (*mapStmt, error) {
 	tok, lit := p.scan() // read [
 	if tok != Token_OpenBrackets {
-		return nil, p.expectedError(Token_OpenParens, lit)
+		return nil, p.expectedError(Token_OpenBrackets, lit)
 	}
 
 	m := new(mapStmt)
