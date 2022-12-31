@@ -28,15 +28,15 @@ type fieldsStmt []*fieldStmt
 type fieldStmt struct {
 	index        int
 	name         string
-	valueType    *fieldTypeStmt
-	defaultValue *identifierStmt
+	valueType    *valueTypeStmt
+	defaultValue baseIdentifierStmt
 	metadata     *mapStmt
 }
 
-type fieldTypeStmt struct {
+type valueTypeStmt struct {
 	nullable      bool
 	primitive     Primitive
-	typeArguments *[]*fieldTypeStmt
+	typeArguments *[]*valueTypeStmt
 }
 
 func (f *fieldsStmt) add(field *fieldStmt) {
@@ -57,9 +57,13 @@ func (m *mapStmt) isEmpty() bool {
 	return len(*m) == 0
 }
 
+type baseIdentifierStmt interface {
+	Primitive() Primitive
+}
+
 type identifierStmt struct {
 	value     interface{}
-	valueType Primitive
+	valueType *valueTypeStmt
 }
 
 type listStmt []*identifierStmt
@@ -70,4 +74,16 @@ func (l *listStmt) add(i *identifierStmt) {
 
 func (l *listStmt) isEmpty() bool {
 	return len(*l) == 0
+}
+
+func (i *identifierStmt) Primitive() Primitive {
+	return i.valueType.primitive
+}
+
+func (l *listStmt) Primitive() Primitive {
+	return Primitive_List
+}
+
+func (m *mapStmt) Primitive() Primitive {
+	return Primitive_Map
 }

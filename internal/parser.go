@@ -40,9 +40,22 @@ func (p *Parser) scan() (tok Token, lit string) {
 	return
 }
 
+func (p *Parser) peek() (tok Token, lit string) {
+
+	// scan next token
+	_, tok, lit = p.s.Peek(false)
+
+	return
+}
+
 // unscan pushes the previously read token back onto the buffer
 func (p *Parser) unscan() {
 	p.buf.n = 1
+}
+
+// unscanBuf unreads from the underlying reader
+func (p *Parser) unscanBuf() {
+	p.s.comeback()
 }
 
 // Parse parses the given reader and creates an abstract syntax tree
@@ -177,21 +190,27 @@ func (p *Parser) parseType() (*typeStmt, error) {
 }
 
 func (p *Parser) parseField() (*fieldStmt, error) {
-	tok, lit := p.scan()
 	field := new(fieldStmt)
 
-	// expect ident, because of field's index or name
-	if tok != Token_Ident {
-		return nil, p.expectedError(Token_Ident, lit)
-	}
+	var tok Token
+	var lit string
+	for {
+		tok, lit = p.scan()
 
-	// if lit can be parsed into an int, its the field's index
-	fieldIndex, err := strconv.Atoi(lit)
-	if err == nil {
-		field.index = fieldIndex
-	} else {
-		// it corresponds to the field's name
-		field.name = lit
+		// expect ident, because of field's index or name
+		if tok != Token_Ident {
+			return nil, p.expectedError(Token_Ident, lit)
+		}
+
+		// if lit can be parsed into an int, its the field's index
+		fieldIndex, err := strconv.Atoi(lit)
+		if err == nil {
+			field.index = fieldIndex
+		} else {
+			// it corresponds to the field's name
+			field.name = lit
+			break
+		}
 	}
 
 	// read ":"
@@ -208,11 +227,35 @@ func (p *Parser) parseField() (*fieldStmt, error) {
 
 	field.valueType = fieldType
 
+	// maybe read "=" for default value or "@" for metadata
+	for {
+		tok, _ = p.scan()
+
+		// scan default value
+		if tok == Token_Equals {
+			defaultValue, err := p.parseValue()
+			if err != nil {
+				return nil, err
+			}
+
+			field.defaultValue = defaultValue
+		} else if tok == Token_At {
+			m, err := p.parseMap()
+			if err != nil {
+				return nil, err
+			}
+
+			field.metadata = m
+		} else {
+			break
+		}
+	}
+
 	return field, nil
 }
 
-func (p *Parser) parseFieldType() (*fieldTypeStmt, error) {
-	fieldType := new(fieldTypeStmt)
+func (p *Parser) parseFieldType() (*valueTypeStmt, error) {
+	fieldType := new(valueTypeStmt)
 
 	// read primitive
 	tok, lit := p.scan()
@@ -229,7 +272,7 @@ func (p *Parser) parseFieldType() (*fieldTypeStmt, error) {
 
 	// primitive is list or map, expect type arguments
 	if fieldType.primitive == Primitive_List || fieldType.primitive == Primitive_Map {
-		fieldType.typeArguments = new([]*fieldTypeStmt)
+		fieldType.typeArguments = new([]*valueTypeStmt)
 
 		// read (
 		tok, lit = p.scan()
@@ -318,8 +361,13 @@ func (p *Parser) parseList() (*listStmt, error) {
 				return nil, err
 			}
 
+			primitive := identifier.Primitive()
+			if primitive == Primitive_Map || primitive == Primitive_List {
+				return nil, p.raw("lists cannot contain nested lists or maps")
+			}
+
 			// add identifier to stmt
-			l.add(identifier)
+			l.add(identifier.(*identifierStmt))
 			added = true
 		} else {
 			break
@@ -371,8 +419,13 @@ func (p *Parser) parseMap() (*mapStmt, error) {
 						return nil, err
 					}
 
+					primitive := identifier.Primitive()
+					if primitive == Primitive_Map || primitive == Primitive_List {
+						return nil, p.raw("lists cannot contain nested lists or maps")
+					}
+
 					if entry.key == nil {
-						entry.key = identifier
+						entry.key = identifier.(*identifierStmt)
 
 						// next must be colon
 						tok, _ = p.scan()
@@ -380,7 +433,7 @@ func (p *Parser) parseMap() (*mapStmt, error) {
 							return nil, p.raw("key-value pair must be in the format key:value")
 						}
 					} else if entry.value == nil {
-						entry.value = identifier
+						entry.value = identifier.(*identifierStmt)
 					} else {
 						return nil, p.raw("invalid map declaration")
 					}
@@ -396,7 +449,7 @@ func (p *Parser) parseMap() (*mapStmt, error) {
 	return m, nil
 }
 
-func (p *Parser) parseValue() (*identifierStmt, error) {
+func (p *Parser) parseValue() (baseIdentifierStmt, error) {
 	tok, lit := p.scan()
 
 	// maybe a string
@@ -411,9 +464,9 @@ func (p *Parser) parseValue() (*identifierStmt, error) {
 
 		return &identifierStmt{
 			value:     lit[1 : len(lit)-1],
-			valueType: Primitive_String,
+			valueType: &valueTypeStmt{primitive: Primitive_String},
 		}, nil
-	} else {
+	} else if tok == Token_Ident {
 		// check if input can be parsed into an int
 		var value interface{}
 		var primitive Primitive
@@ -427,8 +480,13 @@ func (p *Parser) parseValue() (*identifierStmt, error) {
 				// its not a float, try with bool
 				value, err = strconv.ParseBool(lit)
 				if err != nil {
-					return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
-					// idk
+					// if not a bool, try with null
+					primitive = primitiveMapping[lit]
+					if primitive == Primitive_Null {
+						value = nil
+					} else {
+						return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
+					}
 				} else {
 					primitive = Primitive_Bool
 				}
@@ -440,8 +498,34 @@ func (p *Parser) parseValue() (*identifierStmt, error) {
 		}
 
 		return &identifierStmt{
-			value:     value,
-			valueType: primitive,
+			value: value,
+			valueType: &valueTypeStmt{
+				primitive: primitive,
+			},
 		}, nil
+	} else if tok == Token_OpenBrackets { // for list or map
+		//p.unscanBuf()
+		p.unscan()
+
+		// if next token is (, then is a map
+		tok, _ = p.peek()
+		if tok == Token_OpenParens {
+			m, err := p.parseMap()
+			if err != nil {
+				return nil, err
+			}
+
+			return m, nil
+		} else {
+
+			l, err := p.parseList()
+			if err != nil {
+				return nil, err
+			}
+
+			return l, nil
+		}
+	} else {
+		return nil, p.expectedRawError("primitive", lit)
 	}
 }

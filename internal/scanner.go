@@ -83,7 +83,7 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 				} else {
 					continue
 				}
-			} else if unicode.IsDigit(ch) {
+			} else if unicode.IsDigit(ch) || ch == '-' {
 				// backup and let scanInt rescan the beginning of the int
 				startPos := s.pos
 				s.comeback()
@@ -104,6 +104,74 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 	}
 }
 
+func (s *Scanner) Peek(readSpace bool) (pos Position, token Token, literal string) {
+	peek := 1
+	for {
+		buf, err := s.r.Peek(peek)
+		if err != nil && err == io.EOF {
+			return s.pos, Token_EOF, ""
+		}
+
+		ch := rune(buf[peek-1])
+
+		s.pos.pos++
+		switch ch {
+		case '\n':
+			s.resetPos()
+
+		case ':':
+			return s.pos, Token_Colon, string(ch)
+
+		case '{':
+			return s.pos, Token_OpenCurlyBraces, string(ch)
+
+		case '}':
+			return s.pos, Token_CloseCurlyBraces, string(ch)
+
+		case '@':
+			return s.pos, Token_At, string(ch)
+
+		case '[':
+			return s.pos, Token_OpenBrackets, string(ch)
+
+		case ']':
+			return s.pos, Token_CloseBrackets, string(ch)
+
+		case '(':
+			return s.pos, Token_OpenParens, string(ch)
+
+		case ')':
+			return s.pos, Token_CloseParens, string(ch)
+
+		case '=':
+			return s.pos, Token_Equals, string(ch)
+
+		case ',':
+			return s.pos, Token_Comma, string(ch)
+
+		case '?':
+			return s.pos, Token_QuestionMark, string(ch)
+
+		case '"':
+			return s.pos, Token_String, string(ch)
+
+		default:
+			if unicode.IsSpace(ch) {
+				if readSpace {
+					return s.pos, Token_Whitespace, string(ch)
+				} else {
+					peek++
+					continue
+				}
+			} else if unicode.IsDigit(ch) {
+				return s.pos, Token_Ident, string(ch)
+			} else if unicode.IsLetter(ch) {
+				return s.pos, Token_Ident, string(ch)
+			}
+		}
+	}
+}
+
 func (s *Scanner) scanInt() string {
 	var lit string
 	for {
@@ -115,7 +183,7 @@ func (s *Scanner) scanInt() string {
 		}
 
 		s.pos.pos++
-		if unicode.IsDigit(ch) || ch == '.' {
+		if unicode.IsDigit(ch) || ch == '.' || ch == '-' {
 			lit += string(ch)
 		} else {
 			// scanned something not in the integer
@@ -134,7 +202,7 @@ func (s *Scanner) scanIdent() string {
 		}
 
 		s.pos.pos++
-		if unicode.IsLetter(ch) || unicode.IsDigit(ch) {
+		if unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' {
 			buf.WriteRune(ch)
 		} else {
 			s.comeback()

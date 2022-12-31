@@ -44,7 +44,7 @@ func TestParseValue(t *testing.T) {
 	type testCase struct {
 		input  string
 		err    error
-		expect *identifierStmt
+		expect baseIdentifierStmt
 	}
 
 	for _, tt := range []testCase{
@@ -52,7 +52,7 @@ func TestParseValue(t *testing.T) {
 			input: `"a random string"`,
 			expect: &identifierStmt{
 				value:     "a random string",
-				valueType: Primitive_String,
+				valueType: &valueTypeStmt{primitive: Primitive_String},
 			},
 			err: nil,
 		},
@@ -64,7 +64,7 @@ func TestParseValue(t *testing.T) {
 			input: `"a random string with numbers 12345 and random characters !?¢∞¬#<"`,
 			expect: &identifierStmt{
 				value:     "a random string with numbers 12345 and random characters !?¢∞¬#<",
-				valueType: Primitive_String,
+				valueType: &valueTypeStmt{primitive: Primitive_String},
 			},
 			err: nil,
 		},
@@ -72,7 +72,7 @@ func TestParseValue(t *testing.T) {
 			input: `"it contains a keyword: type or import inside it!"`,
 			expect: &identifierStmt{
 				value:     "it contains a keyword: type or import inside it!",
-				valueType: Primitive_String,
+				valueType: &valueTypeStmt{primitive: Primitive_String},
 			},
 			err: nil,
 		},
@@ -80,7 +80,7 @@ func TestParseValue(t *testing.T) {
 			input: `"escaping chars? you got it \"string inside string\""`,
 			expect: &identifierStmt{
 				value:     `escaping chars? you got it "string inside string"`,
-				valueType: Primitive_String,
+				valueType: &valueTypeStmt{primitive: Primitive_String},
 			},
 			err: nil,
 		},
@@ -88,7 +88,7 @@ func TestParseValue(t *testing.T) {
 			input: `"single escaping char \""`,
 			expect: &identifierStmt{
 				value:     `single escaping char "`,
-				valueType: Primitive_String,
+				valueType: &valueTypeStmt{primitive: Primitive_String},
 			},
 			err: nil,
 		},
@@ -96,7 +96,7 @@ func TestParseValue(t *testing.T) {
 			input: `"multiple scaping chars \"\" and another \""`,
 			expect: &identifierStmt{
 				value:     `multiple scaping chars "" and another "`,
-				valueType: Primitive_String,
+				valueType: &valueTypeStmt{primitive: Primitive_String},
 			},
 			err: nil,
 		},
@@ -104,7 +104,7 @@ func TestParseValue(t *testing.T) {
 			input: `123456789`,
 			expect: &identifierStmt{
 				value:     int64(123456789),
-				valueType: Primitive_Int64,
+				valueType: &valueTypeStmt{primitive: Primitive_Int64},
 			},
 			err: nil,
 		},
@@ -112,7 +112,7 @@ func TestParseValue(t *testing.T) {
 			input: `12345.6789`,
 			expect: &identifierStmt{
 				value:     float64(12345.6789),
-				valueType: Primitive_Float64,
+				valueType: &valueTypeStmt{primitive: Primitive_Float64},
 			},
 			err: nil,
 		},
@@ -120,7 +120,7 @@ func TestParseValue(t *testing.T) {
 			input: `true`,
 			expect: &identifierStmt{
 				value:     true,
-				valueType: Primitive_Bool,
+				valueType: &valueTypeStmt{primitive: Primitive_Bool},
 			},
 			err: nil,
 		},
@@ -128,7 +128,7 @@ func TestParseValue(t *testing.T) {
 			input: `false`,
 			expect: &identifierStmt{
 				value:     false,
-				valueType: Primitive_Bool,
+				valueType: &valueTypeStmt{primitive: Primitive_Bool},
 			},
 			err: nil,
 		},
@@ -136,7 +136,7 @@ func TestParseValue(t *testing.T) {
 			input: `FALSE`,
 			expect: &identifierStmt{
 				value:     false,
-				valueType: Primitive_Bool,
+				valueType: &valueTypeStmt{primitive: Primitive_Bool},
 			},
 			err: nil,
 		},
@@ -144,7 +144,7 @@ func TestParseValue(t *testing.T) {
 			input: `TRUE`,
 			expect: &identifierStmt{
 				value:     true,
-				valueType: Primitive_Bool,
+				valueType: &valueTypeStmt{primitive: Primitive_Bool},
 			},
 			err: nil,
 		},
@@ -184,11 +184,11 @@ func TestParseMap(t *testing.T) {
 				&mapEntryStmt{
 					key: &identifierStmt{
 						value:     "key",
-						valueType: Primitive_String,
+						valueType: &valueTypeStmt{primitive: Primitive_String},
 					},
 					value: &identifierStmt{
 						value:     float64(12.43),
-						valueType: Primitive_Float64,
+						valueType: &valueTypeStmt{primitive: Primitive_Float64},
 					},
 				},
 			},
@@ -235,31 +235,31 @@ func TestParseMap(t *testing.T) {
 				&mapEntryStmt{
 					key: &identifierStmt{
 						value:     "key",
-						valueType: Primitive_String,
+						valueType: &valueTypeStmt{primitive: Primitive_String},
 					},
 					value: &identifierStmt{
 						value:     float64(12.43),
-						valueType: Primitive_Float64,
+						valueType: &valueTypeStmt{primitive: Primitive_Float64},
 					},
 				},
 				&mapEntryStmt{
 					key: &identifierStmt{
 						value:     "second",
-						valueType: Primitive_String,
+						valueType: &valueTypeStmt{primitive: Primitive_String},
 					},
 					value: &identifierStmt{
 						value:     true,
-						valueType: Primitive_Bool,
+						valueType: &valueTypeStmt{primitive: Primitive_Bool},
 					},
 				},
 				&mapEntryStmt{
 					key: &identifierStmt{
 						value:     "third",
-						valueType: Primitive_String,
+						valueType: &valueTypeStmt{primitive: Primitive_String},
 					},
 					value: &identifierStmt{
 						value:     "yes",
-						valueType: Primitive_String,
+						valueType: &valueTypeStmt{primitive: Primitive_String},
 					},
 				},
 			},
@@ -307,19 +307,19 @@ func TestParseList(t *testing.T) {
 			expect: &listStmt{
 				{
 					value:     "a string",
-					valueType: Primitive_String,
+					valueType: &valueTypeStmt{primitive: Primitive_String},
 				},
 				{
 					value:     float64(12.32),
-					valueType: Primitive_Float64,
+					valueType: &valueTypeStmt{primitive: Primitive_Float64},
 				},
 				{
 					value:     int64(88),
-					valueType: Primitive_Int64,
+					valueType: &valueTypeStmt{primitive: Primitive_Int64},
 				},
 				{
 					value:     true,
-					valueType: Primitive_Bool,
+					valueType: &valueTypeStmt{primitive: Primitive_Bool},
 				},
 			},
 			err: nil,
@@ -394,13 +394,13 @@ func TestParseFieldType(t *testing.T) {
 	type testCase struct {
 		input  string
 		err    error
-		expect *fieldTypeStmt
+		expect *valueTypeStmt
 	}
 
 	for _, tt := range []testCase{
 		{
 			input: `string`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive:     Primitive_String,
 				nullable:      false,
 				typeArguments: nil,
@@ -409,7 +409,7 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `string?`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive:     Primitive_String,
 				nullable:      true,
 				typeArguments: nil,
@@ -418,7 +418,7 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `int`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive:     Primitive_Int32,
 				nullable:      false,
 				typeArguments: nil,
@@ -427,7 +427,7 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `uint`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive:     Primitive_Uint32,
 				nullable:      false,
 				typeArguments: nil,
@@ -436,7 +436,7 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `int8?`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive:     Primitive_Int8,
 				nullable:      true,
 				typeArguments: nil,
@@ -445,7 +445,7 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `binary`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive:     Primitive_Binary,
 				nullable:      false,
 				typeArguments: nil,
@@ -454,10 +454,10 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `list(string)`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive: Primitive_List,
 				nullable:  false,
-				typeArguments: &[]*fieldTypeStmt{
+				typeArguments: &[]*valueTypeStmt{
 					{
 						primitive:     Primitive_String,
 						nullable:      false,
@@ -469,10 +469,10 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `list(string)?`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive: Primitive_List,
 				nullable:  true,
-				typeArguments: &[]*fieldTypeStmt{
+				typeArguments: &[]*valueTypeStmt{
 					{
 						primitive:     Primitive_String,
 						nullable:      false,
@@ -484,10 +484,10 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `list(string?)`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive: Primitive_List,
 				nullable:  false,
-				typeArguments: &[]*fieldTypeStmt{
+				typeArguments: &[]*valueTypeStmt{
 					{
 						primitive:     Primitive_String,
 						nullable:      true,
@@ -499,10 +499,10 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `list(string?)?`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive: Primitive_List,
 				nullable:  true,
-				typeArguments: &[]*fieldTypeStmt{
+				typeArguments: &[]*valueTypeStmt{
 					{
 						primitive:     Primitive_String,
 						nullable:      true,
@@ -514,10 +514,10 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `map(string?, float64?)?`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive: Primitive_Map,
 				nullable:  true,
-				typeArguments: &[]*fieldTypeStmt{
+				typeArguments: &[]*valueTypeStmt{
 					{
 						primitive:     Primitive_String,
 						nullable:      true,
@@ -534,10 +534,10 @@ func TestParseFieldType(t *testing.T) {
 		},
 		{
 			input: `map(string, boolean)`,
-			expect: &fieldTypeStmt{
+			expect: &valueTypeStmt{
 				primitive: Primitive_Map,
 				nullable:  false,
-				typeArguments: &[]*fieldTypeStmt{
+				typeArguments: &[]*valueTypeStmt{
 					{
 						primitive:     Primitive_String,
 						nullable:      false,
@@ -580,6 +580,215 @@ func TestParseFieldType(t *testing.T) {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			ast, err := parser.parseFieldType()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}
+
+func TestParseField(t *testing.T) {
+	type testCase struct {
+		input  string
+		err    error
+		expect *fieldStmt
+	}
+
+	for _, tt := range []testCase{
+		{
+			input: `field_one:string`,
+			expect: &fieldStmt{
+				name:      "field_one",
+				valueType: &valueTypeStmt{primitive: Primitive_String},
+				index:     0,
+			},
+			err: nil,
+		},
+		{
+			input: `3 field_one:string`,
+			expect: &fieldStmt{
+				name:      "field_one",
+				valueType: &valueTypeStmt{primitive: Primitive_String},
+				index:     3,
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:list(float32?)`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive: Primitive_List,
+					typeArguments: &[]*valueTypeStmt{
+						{primitive: Primitive_Float32, nullable: true},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `1 field_one:float32 = 5432.234`,
+			expect: &fieldStmt{
+				name:      "field_one",
+				valueType: &valueTypeStmt{primitive: Primitive_Float32},
+				index:     1,
+				defaultValue: &identifierStmt{
+					value:     float64(5432.234),
+					valueType: &valueTypeStmt{primitive: Primitive_Float64},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:string="hello world, 12131 and \"hola\""`,
+			expect: &fieldStmt{
+				name:      "field_one",
+				valueType: &valueTypeStmt{primitive: Primitive_String},
+				defaultValue: &identifierStmt{
+					value:     `hello world, 12131 and "hola"`,
+					valueType: &valueTypeStmt{primitive: Primitive_String},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:list(boolean) = [true, false, true, true]"`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive:     Primitive_List,
+					typeArguments: &[]*valueTypeStmt{{primitive: Primitive_Bool}},
+				},
+				defaultValue: &listStmt{
+					{
+						value:     true,
+						valueType: &valueTypeStmt{primitive: Primitive_Bool},
+					},
+					{
+						value:     false,
+						valueType: &valueTypeStmt{primitive: Primitive_Bool},
+					},
+					{
+						value:     true,
+						valueType: &valueTypeStmt{primitive: Primitive_Bool},
+					},
+					{
+						value:     true,
+						valueType: &valueTypeStmt{primitive: Primitive_Bool},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:map(string, boolean) = [("hello":true),("another":false)]"`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive:     Primitive_Map,
+					typeArguments: &[]*valueTypeStmt{{primitive: Primitive_String}, {primitive: Primitive_Bool}},
+				},
+				defaultValue: &mapStmt{
+					{
+						key:   &identifierStmt{value: "hello", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					},
+					{
+						key:   &identifierStmt{value: "another", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: false, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:map(string, int8?) = [("hello":null),("another":12),("negative":-2)]"`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive:     Primitive_Map,
+					typeArguments: &[]*valueTypeStmt{{primitive: Primitive_String}, {primitive: Primitive_Int8, nullable: true}},
+				},
+				defaultValue: &mapStmt{
+					{
+						key:   &identifierStmt{value: "hello", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: nil, valueType: &valueTypeStmt{primitive: Primitive_Null}},
+					},
+					{
+						key:   &identifierStmt{value: "another", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: int64(12), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+					},
+					{
+						key:   &identifierStmt{value: "negative", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: int64(-2), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:boolean = true"`,
+			expect: &fieldStmt{
+				name:      "field_one",
+				valueType: &valueTypeStmt{primitive: Primitive_Bool},
+				defaultValue: &identifierStmt{
+					value:     true,
+					valueType: &valueTypeStmt{primitive: Primitive_Bool},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:int64? = null"`,
+			expect: &fieldStmt{
+				name:      "field_one",
+				valueType: &valueTypeStmt{primitive: Primitive_Int64, nullable: true},
+				defaultValue: &identifierStmt{
+					value:     nil,
+					valueType: &valueTypeStmt{primitive: Primitive_Null},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:list(boolean)? = null"`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive: Primitive_List,
+					nullable:  true,
+					typeArguments: &[]*valueTypeStmt{
+						{nullable: false, primitive: Primitive_Bool},
+					},
+				},
+				defaultValue: &identifierStmt{
+					value:     nil,
+					valueType: &valueTypeStmt{primitive: Primitive_Null},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `field_one:list(boolean?) = [null, null, null, true]"`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive:     Primitive_List,
+					nullable:      false,
+					typeArguments: &[]*valueTypeStmt{{nullable: true, primitive: Primitive_Bool}},
+				},
+				defaultValue: &listStmt{
+					&identifierStmt{value: nil, valueType: &valueTypeStmt{primitive: Primitive_Null}},
+					&identifierStmt{value: nil, valueType: &valueTypeStmt{primitive: Primitive_Null}},
+					&identifierStmt{value: nil, valueType: &valueTypeStmt{primitive: Primitive_Null}},
+					&identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+				},
+			},
+			err: nil,
+		},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.parseField()
 			require.Equal(t, tt.err, err)
 			require.Equal(t, tt.expect, ast)
 		})

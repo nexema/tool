@@ -50,6 +50,7 @@ const (
 	Primitive_Type
 	Primitive_List
 	Primitive_Map
+	Primitive_Null
 )
 
 const (
@@ -81,6 +82,7 @@ const (
 	Keyword_List
 	Keyword_Map
 	Keyword_Binary
+	Keyword_Null
 )
 
 var tokenNameMapping map[Token]string = map[Token]string{
@@ -146,6 +148,7 @@ var keywordMapping map[Keyword]string = map[Keyword]string{
 	Keyword_Binary:  "binary",
 	Keyword_Int:     "int",
 	Keyword_Uint:    "uint",
+	Keyword_Null:    "null",
 }
 
 var primitiveMapping map[string]Primitive = map[string]Primitive{
@@ -166,6 +169,7 @@ var primitiveMapping map[string]Primitive = map[string]Primitive{
 	"binary":  Primitive_Binary,
 	"list":    Primitive_List,
 	"map":     Primitive_Map,
+	"null":    Primitive_Null,
 }
 
 func (t Token) String() string {
