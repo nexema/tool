@@ -20,6 +20,10 @@ type typeStmt struct {
 	fields       *fieldsStmt  // type's fields
 }
 
+func (t *typesStmt) add(typestmt *typeStmt) {
+	(*t) = append((*t), typestmt)
+}
+
 type fieldsStmt []*fieldStmt
 type fieldStmt struct {
 	index        int

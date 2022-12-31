@@ -40,23 +40,6 @@ func (p *Parser) scan() (tok Token, lit string) {
 	return
 }
 
-// scanWhitespace returns the next token from the underlying scanner without skipping whitespaces.
-// If a token has been unscanned then read that instead
-func (p *Parser) scanWhitespace() (tok Token, lit string) {
-	// if we have a token on the buffer, return it
-	if p.buf.n != 0 {
-		p.buf.n = 0
-		return p.buf.tok, p.buf.lit
-	}
-
-	// scan next token
-	pos, tok, lit := p.s.Scan(true)
-
-	// save to buffer
-	p.buf.pos, p.buf.tok, p.buf.lit = pos, tok, lit
-	return
-}
-
 // unscan pushes the previously read token back onto the buffer
 func (p *Parser) unscan() {
 	p.buf.n = 1
@@ -77,17 +60,19 @@ func (p *Parser) Parse() (*Ast, error) {
 
 		// to start, only import or type can be specified
 		switch tok {
-		case Token_Import:
-			err := p.parseImport()
-			if err != nil {
-				return nil, err
-			}
+		// case Token_Import:
+		// 	err := p.parseImport()
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
 
-		case Token_Type, Token_At:
-			err := p.parseType()
-			if err != nil {
-				return nil, err
-			}
+		// case Token_Type, Token_At:
+		// 	typeStmt, err := p.parseType()
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+
+		// 	p.ast.types.add(typeStmt)
 
 		default:
 			return nil, p.expectedRawError(`"type" or "import" keywords`, lit)
@@ -109,29 +94,33 @@ func (p *Parser) parseImport() error {
 }
 
 // parseType parses a type
-func (p *Parser) parseType() error {
-	currenTok := p.buf.tok
+func (p *Parser) parseType() (*typeStmt, error) {
+	tok, lit := p.scan()
+
+	typeStmt := new(typeStmt)
 
 	// read metadata first
-	if currenTok == Token_At {
-		err := p.parseMetadata()
+	if tok == Token_At {
+		mapStmt, err := p.parseMap()
 		if err != nil {
-			return err
+			return nil, err
 		}
-	}
 
-	// scan type's name
-	tok, lit := p.scan()
-	if tok != Token_Ident {
-		return p.expectedRawError("identifier", lit)
+		typeStmt.metadata = mapStmt
 	}
 
 	if isKeyword(lit) {
-		return p.keywordGivenErr(lit)
+
 	}
 
-	typeStmt := &typeStmt{
-		name: lit,
+	// scan type's name
+	tok, lit = p.scan()
+	if tok != Token_Ident {
+		return nil, p.expectedRawError("identifier", lit)
+	}
+
+	if isKeyword(lit) {
+		return nil, p.keywordGivenErr(lit)
 	}
 
 	// read modifier
@@ -142,13 +131,13 @@ func (p *Parser) parseType() error {
 		if tok == Token_OpenCurlyBraces {
 			typeStmt.typeModifier = TypeModifierStruct
 		} else {
-			return p.expectedRawError("identifier", lit)
+			return nil, p.expectedRawError("type modifier", lit)
 		}
 	}
 
 	modifier, ok := parseTypeModifier(lit)
 	if !ok {
-		return p.raw(fmt.Sprintf("unknown type modifier: %q", lit))
+		return nil, p.raw(fmt.Sprintf("unknown type modifier: %q", lit))
 	}
 
 	typeStmt.typeModifier = modifier
@@ -156,7 +145,7 @@ func (p *Parser) parseType() error {
 	// read open curly braces
 	tok, lit = p.scan()
 	if tok != Token_OpenCurlyBraces {
-		return p.expectedError(Token_OpenCurlyBraces, lit)
+		return nil, p.expectedError(Token_OpenCurlyBraces, lit)
 	}
 
 	// read next token
@@ -164,16 +153,10 @@ func (p *Parser) parseType() error {
 
 	// stop reading struct
 	if tok == Token_CloseCurlyBraces {
-		return nil
+		return nil, nil
 	}
 
-	(*p.ast.types) = append((*p.ast.types), typeStmt)
-	return nil
-}
-
-func (p *Parser) parseMetadata() error {
-
-	return nil
+	return nil, nil
 }
 
 func (p *Parser) parseList() (*listStmt, error) {

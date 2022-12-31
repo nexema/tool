@@ -354,3 +354,37 @@ func TestParseList(t *testing.T) {
 		})
 	}
 }
+
+func TestParseType(t *testing.T) {
+	type testCase struct {
+		description string
+		input       string
+		err         error
+		expect      *typeStmt
+	}
+
+	for _, tt := range []testCase{
+		{
+			description: "empty list",
+			input:       `type MyType struct{}`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifierStruct,
+			},
+			err: nil,
+		},
+	} {
+
+		testName := tt.description
+		if len(tt.description) == 0 {
+			testName = tt.input
+		}
+
+		t.Run(testName, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.parseType()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}
