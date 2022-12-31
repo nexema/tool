@@ -5,6 +5,7 @@ import (
 )
 
 type Token int
+type Keyword int
 type Primitive int
 type TypeModifier int
 
@@ -15,6 +16,7 @@ const (
 
 	// Literals
 	Token_Ident // fields, struct names
+	Token_Keyword
 
 	// Misc
 	Token_OpenBrackets
@@ -29,13 +31,6 @@ const (
 	Token_Comma
 	Token_Equals
 	Token_String
-
-	// Keywords
-	Token_Import
-	Token_Type
-	Token_Struct
-	Token_Enum
-	Token_Union
 )
 
 const (
@@ -52,24 +47,41 @@ const (
 	Primitive_Float32
 	Primitive_Float64
 	Primitive_Binary
+	Primitive_Type
 	Primitive_List
 	Primitive_Map
-	Primitive_Type
 )
 
 const (
-	TypeModifierStruct TypeModifier = iota
-	TypeModifierUnion
-	TypeModifierEnum
+	TypeModifier_Struct TypeModifier = iota
+	TypeModifier_Union
+	TypeModifier_Enum
 )
 
-var tokenMapping map[string]Token = map[string]Token{
-	"import": Token_Import,
-	"type":   Token_Type,
-	"struct": Token_Struct,
-	"union":  Token_Union,
-	"enum":   Token_Enum,
-}
+const (
+	Keyword_Type Keyword = iota
+	Keyword_Struct
+	Keyword_Enum
+	Keyword_Union
+	Keyword_Import
+	Keyword_String
+	Keyword_Boolean
+	Keyword_Uint
+	Keyword_Int
+	Keyword_Uint8
+	Keyword_Uint16
+	Keyword_Uint32
+	Keyword_Uint64
+	Keyword_Int8
+	Keyword_Int16
+	Keyword_Int32
+	Keyword_Int64
+	Keyword_Float32
+	Keyword_Float64
+	Keyword_List
+	Keyword_Map
+	Keyword_Binary
+)
 
 var tokenNameMapping map[Token]string = map[Token]string{
 	Token_Ident:            "identifier",
@@ -84,34 +96,76 @@ var tokenNameMapping map[Token]string = map[Token]string{
 	Token_CloseCurlyBraces: "}",
 	Token_Comma:            "comma",
 	Token_Equals:           "=",
-	Token_Import:           "import",
-	Token_Type:             "type",
-	Token_Struct:           "struct",
-	Token_Enum:             "enum",
-	Token_Union:            "union",
 }
 
-var keywords map[string]bool = map[string]bool{
-	"struct":  true,
-	"enum":    true,
-	"union":   true,
-	"type":    true,
-	"import":  true,
-	"string":  true,
-	"bool":    true,
-	"uint8":   true,
-	"uint16":  true,
-	"uint32":  true,
-	"uint64":  true,
-	"int8":    true,
-	"int16":   true,
-	"int32":   true,
-	"int64":   true,
-	"float32": true,
-	"float64": true,
-	"list":    true,
-	"map":     true,
-	"binary":  true,
+var inverseKeywordMapping map[string]Keyword = map[string]Keyword{
+	"struct":  Keyword_Struct,
+	"enum":    Keyword_Enum,
+	"union":   Keyword_Union,
+	"type":    Keyword_Type,
+	"import":  Keyword_Import,
+	"string":  Keyword_String,
+	"boolean": Keyword_Boolean,
+	"uint8":   Keyword_Uint8,
+	"uint16":  Keyword_Uint16,
+	"uint32":  Keyword_Uint32,
+	"uint64":  Keyword_Uint64,
+	"int8":    Keyword_Int8,
+	"int16":   Keyword_Int16,
+	"int32":   Keyword_Int32,
+	"int64":   Keyword_Int64,
+	"float32": Keyword_Float32,
+	"float64": Keyword_Float64,
+	"list":    Keyword_List,
+	"map":     Keyword_Map,
+	"binary":  Keyword_Binary,
+	"int":     Keyword_Int,
+	"uint":    Keyword_Uint,
+}
+
+var keywordMapping map[Keyword]string = map[Keyword]string{
+	Keyword_Struct:  "struct",
+	Keyword_Enum:    "enum",
+	Keyword_Union:   "union",
+	Keyword_Type:    "type",
+	Keyword_Import:  "import",
+	Keyword_String:  "string",
+	Keyword_Boolean: "boolean",
+	Keyword_Uint8:   "uint8",
+	Keyword_Uint16:  "uint16",
+	Keyword_Uint32:  "uint32",
+	Keyword_Uint64:  "uint64",
+	Keyword_Int8:    "int8",
+	Keyword_Int16:   "int16",
+	Keyword_Int32:   "int32",
+	Keyword_Int64:   "int64",
+	Keyword_Float32: "float32",
+	Keyword_Float64: "float64",
+	Keyword_List:    "list",
+	Keyword_Map:     "map",
+	Keyword_Binary:  "binary",
+	Keyword_Int:     "int",
+	Keyword_Uint:    "uint",
+}
+
+var primitiveMapping map[string]Primitive = map[string]Primitive{
+	"boolean": Primitive_Bool,
+	"string":  Primitive_String,
+	"uint8":   Primitive_Uint8,
+	"uint16":  Primitive_Uint16,
+	"uint32":  Primitive_Uint32,
+	"uint64":  Primitive_Uint64,
+	"int8":    Primitive_Int8,
+	"int16":   Primitive_Int16,
+	"int32":   Primitive_Int32,
+	"int64":   Primitive_Int64,
+	"int":     Primitive_Int32,
+	"uint":    Primitive_Uint32,
+	"float32": Primitive_Float32,
+	"float64": Primitive_Float64,
+	"binary":  Primitive_Binary,
+	"list":    Primitive_List,
+	"map":     Primitive_Map,
 }
 
 func (t Token) String() string {
@@ -123,20 +177,30 @@ func (t Token) String() string {
 	return v
 }
 
+func (k Keyword) String() string {
+	s := keywordMapping[k]
+	return s
+}
+
 func isKeyword(s string) bool {
-	_, ok := keywords[strings.ToLower(s)]
+	_, ok := inverseKeywordMapping[strings.ToLower(s)]
 	return ok
+}
+
+func isExactKeyword(s string, keyword Keyword) bool {
+	keywordString := keywordMapping[keyword]
+	return keywordString == strings.ToLower(s)
 }
 
 func parseTypeModifier(s string) (TypeModifier, bool) {
 	switch s {
 	case "struct":
-		return TypeModifierStruct, true
+		return TypeModifier_Struct, true
 	case "union":
-		return TypeModifierUnion, true
+		return TypeModifier_Union, true
 	case "enum":
-		return TypeModifierEnum, true
+		return TypeModifier_Enum, true
 	default:
-		return TypeModifierStruct, false
+		return TypeModifier_Struct, false
 	}
 }

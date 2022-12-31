@@ -33,14 +33,14 @@ func TestParse(t *testing.T) {
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
-			ast, err := parser.parseIdentifier()
+			ast, err := parser.parseValue()
 			_ = ast
 			require.Equal(t, tt.err, err)
 		})
 	}
 }
 
-func TestParseIdentifier(t *testing.T) {
+func TestParseValue(t *testing.T) {
 	type testCase struct {
 		input  string
 		err    error
@@ -156,7 +156,7 @@ func TestParseIdentifier(t *testing.T) {
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
-			ast, err := parser.parseIdentifier()
+			ast, err := parser.parseValue()
 			require.Equal(t, tt.err, err)
 			require.Equal(t, tt.expect, ast)
 		})
@@ -356,6 +356,7 @@ func TestParseList(t *testing.T) {
 }
 
 func TestParseType(t *testing.T) {
+	t.Skip()
 	type testCase struct {
 		description string
 		input       string
@@ -366,10 +367,10 @@ func TestParseType(t *testing.T) {
 	for _, tt := range []testCase{
 		{
 			description: "empty list",
-			input:       `type MyType struct{}`,
+			input:       `type MyType struct {}`,
 			expect: &typeStmt{
 				name:         "MyType",
-				typeModifier: TypeModifierStruct,
+				typeModifier: TypeModifier_Struct,
 			},
 			err: nil,
 		},
@@ -383,6 +384,202 @@ func TestParseType(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			ast, err := parser.parseType()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}
+
+func TestParseFieldType(t *testing.T) {
+	type testCase struct {
+		input  string
+		err    error
+		expect *fieldTypeStmt
+	}
+
+	for _, tt := range []testCase{
+		{
+			input: `string`,
+			expect: &fieldTypeStmt{
+				primitive:     Primitive_String,
+				nullable:      false,
+				typeArguments: nil,
+			},
+			err: nil,
+		},
+		{
+			input: `string?`,
+			expect: &fieldTypeStmt{
+				primitive:     Primitive_String,
+				nullable:      true,
+				typeArguments: nil,
+			},
+			err: nil,
+		},
+		{
+			input: `int`,
+			expect: &fieldTypeStmt{
+				primitive:     Primitive_Int32,
+				nullable:      false,
+				typeArguments: nil,
+			},
+			err: nil,
+		},
+		{
+			input: `uint`,
+			expect: &fieldTypeStmt{
+				primitive:     Primitive_Uint32,
+				nullable:      false,
+				typeArguments: nil,
+			},
+			err: nil,
+		},
+		{
+			input: `int8?`,
+			expect: &fieldTypeStmt{
+				primitive:     Primitive_Int8,
+				nullable:      true,
+				typeArguments: nil,
+			},
+			err: nil,
+		},
+		{
+			input: `binary`,
+			expect: &fieldTypeStmt{
+				primitive:     Primitive_Binary,
+				nullable:      false,
+				typeArguments: nil,
+			},
+			err: nil,
+		},
+		{
+			input: `list(string)`,
+			expect: &fieldTypeStmt{
+				primitive: Primitive_List,
+				nullable:  false,
+				typeArguments: &[]*fieldTypeStmt{
+					{
+						primitive:     Primitive_String,
+						nullable:      false,
+						typeArguments: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(string)?`,
+			expect: &fieldTypeStmt{
+				primitive: Primitive_List,
+				nullable:  true,
+				typeArguments: &[]*fieldTypeStmt{
+					{
+						primitive:     Primitive_String,
+						nullable:      false,
+						typeArguments: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(string?)`,
+			expect: &fieldTypeStmt{
+				primitive: Primitive_List,
+				nullable:  false,
+				typeArguments: &[]*fieldTypeStmt{
+					{
+						primitive:     Primitive_String,
+						nullable:      true,
+						typeArguments: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(string?)?`,
+			expect: &fieldTypeStmt{
+				primitive: Primitive_List,
+				nullable:  true,
+				typeArguments: &[]*fieldTypeStmt{
+					{
+						primitive:     Primitive_String,
+						nullable:      true,
+						typeArguments: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `map(string?, float64?)?`,
+			expect: &fieldTypeStmt{
+				primitive: Primitive_Map,
+				nullable:  true,
+				typeArguments: &[]*fieldTypeStmt{
+					{
+						primitive:     Primitive_String,
+						nullable:      true,
+						typeArguments: nil,
+					},
+					{
+						primitive:     Primitive_Float64,
+						nullable:      true,
+						typeArguments: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `map(string, boolean)`,
+			expect: &fieldTypeStmt{
+				primitive: Primitive_Map,
+				nullable:  false,
+				typeArguments: &[]*fieldTypeStmt{
+					{
+						primitive:     Primitive_String,
+						nullable:      false,
+						typeArguments: nil,
+					},
+					{
+						primitive:     Primitive_Bool,
+						nullable:      false,
+						typeArguments: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `boo?`,
+			err:   errors.New(`line 1:1 -> found "boo", expected field type`),
+		},
+		{
+			input: `list`,
+			err:   errors.New(`line 1:4 -> lists expect one type argument, given: `),
+		},
+		{
+			input: `list(string,boolean)`,
+			err:   errors.New(`line 1:12 -> found ",", expected ")"`),
+		},
+		{
+			input: `map(string)`,
+			err:   errors.New(`line 1:11 -> found ")", expected "comma"`),
+		},
+		{
+			input: `map(string,boolean,int)`,
+			err:   errors.New(`line 1:19 -> found ",", expected ")"`),
+		},
+		{
+			input: `map(string boolean)`,
+			err:   errors.New(`line 1:12 -> found "boolean", expected "comma"`),
+		},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.parseFieldType()
 			require.Equal(t, tt.err, err)
 			require.Equal(t, tt.expect, ast)
 		})

@@ -28,10 +28,19 @@ type fieldsStmt []*fieldStmt
 type fieldStmt struct {
 	index        int
 	name         string
-	nullable     bool
-	primitive    Primitive
+	valueType    *fieldTypeStmt
 	defaultValue *identifierStmt
 	metadata     *mapStmt
+}
+
+type fieldTypeStmt struct {
+	nullable      bool
+	primitive     Primitive
+	typeArguments *[]*fieldTypeStmt
+}
+
+func (f *fieldsStmt) add(field *fieldStmt) {
+	(*f) = append((*f), field)
 }
 
 type mapStmt []*mapEntryStmt

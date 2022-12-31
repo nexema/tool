@@ -27,6 +27,8 @@ The MessagePack Schema suports the same MessagePack's data types. They are liste
 | ```int16``` | ```short``` | ```int``` |
 | ```int32``` | ```int``` | ```int``` |
 | ```int64``` | ```long``` | ```int``` |
+| ```uint``` | ```uint``` | ```int``` |
+| ```int``` | ```int``` | ```int``` |
 | ```float32``` | ```float``` | ```double``` |
 | ```float64``` | ```double``` | ```double``` |
 | ```binary``` | ```byte[]``` | ```Uint8List``` |
@@ -43,7 +45,7 @@ When using **MessagePack Schema**, [extensions](https://github.com/msgpack/msgpa
 ```
 @(metadata)
 type [type name] [struct|union|enum] {
-	(index) [field name](?):[primitive] = (default value) @(metadata)
+	(index) [field name]:[primitive](?) = (default value) @(metadata)
 	[...other fields]
 }
 ```
@@ -92,10 +94,10 @@ You can declare a field as nullable simply adding a question mark (**?**)
 ```
 type Address {
     street_name: string
-    building_number?: uint32
+    building_number: uint32?
     name: string = "Default"
-    coordinates?: Coordinates
-    tags?: list(string) 
+    coordinates: Coordinates?
+    tags: list(string)? 
 }
 
 type Coordinates {

@@ -93,9 +93,9 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 				startPos := s.pos
 				s.comeback()
 				lit := s.scanIdent()
-				keyword, ok := tokenMapping[lit]
+				_, ok := inverseKeywordMapping[lit]
 				if ok {
-					return startPos, keyword, lit
+					return startPos, Token_Keyword, lit
 				}
 
 				return startPos, Token_Ident, lit
@@ -134,7 +134,7 @@ func (s *Scanner) scanIdent() string {
 		}
 
 		s.pos.pos++
-		if unicode.IsLetter(ch) {
+		if unicode.IsLetter(ch) || unicode.IsDigit(ch) {
 			buf.WriteRune(ch)
 		} else {
 			s.comeback()

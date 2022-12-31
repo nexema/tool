@@ -8,6 +8,10 @@ func (p *Parser) expectedError(expected Token, lit string) error {
 	return fmt.Errorf("line %v:%v -> found %q, expected %q", p.buf.pos.line, p.buf.pos.pos, lit, expected.String())
 }
 
+func (p *Parser) expectedKeywordErr(expected Keyword, given string) error {
+	return fmt.Errorf("line %v:%v -> found %q, expected %q keyword", p.buf.pos.line, p.buf.pos.pos, given, expected.String())
+}
+
 func (p *Parser) expectedRawError(expected, given string) error {
 	return fmt.Errorf("line %v:%v -> found %q, expected %s", p.buf.pos.line, p.buf.pos.pos, given, expected)
 }

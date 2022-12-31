@@ -97,9 +97,12 @@ func (p *Parser) parseImport() error {
 func (p *Parser) parseType() (*typeStmt, error) {
 	tok, lit := p.scan()
 
-	typeStmt := new(typeStmt)
+	typeStmt := &typeStmt{
+		typeModifier: TypeModifier_Struct,
+		fields:       new(fieldsStmt),
+	}
 
-	// read metadata first
+	// if tok is @, read metadata for incoming type
 	if tok == Token_At {
 		mapStmt, err := p.parseMap()
 		if err != nil {
@@ -109,8 +112,9 @@ func (p *Parser) parseType() (*typeStmt, error) {
 		typeStmt.metadata = mapStmt
 	}
 
-	if isKeyword(lit) {
-
+	// if the next keyword is not "type", error
+	if !isExactKeyword(lit, Keyword_Type) {
+		return nil, p.expectedKeywordErr(Keyword_Type, lit)
 	}
 
 	// scan type's name
@@ -118,45 +122,164 @@ func (p *Parser) parseType() (*typeStmt, error) {
 	if tok != Token_Ident {
 		return nil, p.expectedRawError("identifier", lit)
 	}
+	typeStmt.name = lit
 
+	// cannot create a  struct which name is a keyword
 	if isKeyword(lit) {
 		return nil, p.keywordGivenErr(lit)
 	}
 
 	// read modifier
 	tok, lit = p.scan()
-	if tok == Token_Ident {
-
-		// infer its a struct
-		if tok == Token_OpenCurlyBraces {
-			typeStmt.typeModifier = TypeModifierStruct
-		} else {
-			return nil, p.expectedRawError("type modifier", lit)
+	if tok == Token_Keyword {
+		modifier, ok := parseTypeModifier(lit)
+		if !ok {
+			return nil, p.raw(fmt.Sprintf("unknown type modifier: %q", lit))
 		}
+
+		typeStmt.typeModifier = modifier
+	} else {
+		// unscan because we will infer its "{" and the type modifier become "struct" implicitly
+		// if its not a "{", the next read should return an error
+		p.unscan()
 	}
 
-	modifier, ok := parseTypeModifier(lit)
-	if !ok {
-		return nil, p.raw(fmt.Sprintf("unknown type modifier: %q", lit))
-	}
-
-	typeStmt.typeModifier = modifier
-
-	// read open curly braces
+	// read open curly braces "{"
 	tok, lit = p.scan()
 	if tok != Token_OpenCurlyBraces {
 		return nil, p.expectedError(Token_OpenCurlyBraces, lit)
 	}
 
-	// read next token
-	tok, lit = p.scan()
+	// from here, start reading fields
+	for {
+		// read next token
+		tok, lit = p.scan()
 
-	// stop reading struct
-	if tok == Token_CloseCurlyBraces {
-		return nil, nil
+		if tok == Token_EOF {
+			return nil, p.expectedError(Token_CloseCurlyBraces, lit)
+		}
+
+		// stop reading struct and fields
+		if tok == Token_CloseCurlyBraces {
+			break
+		}
+
+		p.unscan()
+		fieldStmt, err := p.parseField()
+		if err != nil {
+			return nil, err
+		}
+
+		typeStmt.fields.add(fieldStmt)
 	}
 
-	return nil, nil
+	return typeStmt, nil
+}
+
+func (p *Parser) parseField() (*fieldStmt, error) {
+	tok, lit := p.scan()
+	field := new(fieldStmt)
+
+	// expect ident, because of field's index or name
+	if tok != Token_Ident {
+		return nil, p.expectedError(Token_Ident, lit)
+	}
+
+	// if lit can be parsed into an int, its the field's index
+	fieldIndex, err := strconv.Atoi(lit)
+	if err == nil {
+		field.index = fieldIndex
+	} else {
+		// it corresponds to the field's name
+		field.name = lit
+	}
+
+	// read ":"
+	tok, lit = p.scan()
+	if tok != Token_Colon {
+		return nil, p.expectedError(Token_Colon, lit)
+	}
+
+	// read field type
+	fieldType, err := p.parseFieldType()
+	if err != nil {
+		return nil, err
+	}
+
+	field.valueType = fieldType
+
+	return field, nil
+}
+
+func (p *Parser) parseFieldType() (*fieldTypeStmt, error) {
+	fieldType := new(fieldTypeStmt)
+
+	// read primitive
+	tok, lit := p.scan()
+	if tok != Token_Keyword {
+		return nil, p.expectedRawError("field type", lit)
+	}
+
+	// parse primitive
+	primitive, ok := primitiveMapping[lit]
+	if !ok {
+		return nil, p.raw(fmt.Sprintf("unknown field type %s", lit))
+	}
+	fieldType.primitive = primitive
+
+	// primitive is list or map, expect type arguments
+	if fieldType.primitive == Primitive_List || fieldType.primitive == Primitive_Map {
+		fieldType.typeArguments = new([]*fieldTypeStmt)
+
+		// read (
+		tok, lit = p.scan()
+		if tok != Token_OpenParens {
+			if fieldType.primitive == Primitive_List {
+				return nil, p.raw(fmt.Sprintf("lists expect one type argument, given: %s", lit))
+			} else {
+				if fieldType.primitive == Primitive_Map {
+					return nil, p.raw(fmt.Sprintf("maps expect two type arguments, given: %s", lit))
+				}
+			}
+		}
+
+		firstArgument, err := p.parseFieldType()
+		if err != nil {
+			return nil, err
+		}
+		(*fieldType.typeArguments) = append((*fieldType.typeArguments), firstArgument)
+
+		// if map, read next
+		if fieldType.primitive == Primitive_Map {
+			tok, lit = p.scan()
+			if tok != Token_Comma {
+				return nil, p.expectedError(Token_Comma, lit)
+			}
+
+			secondArgument, err := p.parseFieldType()
+			if err != nil {
+				return nil, err
+			}
+
+			(*fieldType.typeArguments) = append((*fieldType.typeArguments), secondArgument)
+		}
+
+		// read close parens )
+		tok, lit = p.scan()
+		if tok != Token_CloseParens {
+			return nil, p.expectedError(Token_CloseParens, lit)
+		}
+	}
+
+	// maybe read "?" for nullable
+	tok, _ = p.scan()
+	if tok != Token_QuestionMark {
+		p.unscan()
+	} else {
+		fieldType.nullable = true
+	}
+
+	return fieldType, nil
 }
 
 func (p *Parser) parseList() (*listStmt, error) {
@@ -190,7 +313,7 @@ func (p *Parser) parseList() (*listStmt, error) {
 
 		if tok == Token_Ident || tok == Token_String {
 			p.unscan()
-			identifier, err := p.parseIdentifier()
+			identifier, err := p.parseValue()
 			if err != nil {
 				return nil, err
 			}
@@ -243,7 +366,7 @@ func (p *Parser) parseMap() (*mapStmt, error) {
 					break
 				} else if tok == Token_Ident || tok == Token_String {
 					p.unscan()
-					identifier, err := p.parseIdentifier()
+					identifier, err := p.parseValue()
 					if err != nil {
 						return nil, err
 					}
@@ -273,7 +396,7 @@ func (p *Parser) parseMap() (*mapStmt, error) {
 	return m, nil
 }
 
-func (p *Parser) parseIdentifier() (*identifierStmt, error) {
+func (p *Parser) parseValue() (*identifierStmt, error) {
 	tok, lit := p.scan()
 
 	// maybe a string
@@ -321,6 +444,4 @@ func (p *Parser) parseIdentifier() (*identifierStmt, error) {
 			valueType: primitive,
 		}, nil
 	}
-
-	return nil, nil
 }
