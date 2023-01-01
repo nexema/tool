@@ -785,10 +785,131 @@ func TestParseField(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			input: `field_one:binary @[("obsolete": true),("another_key":54)]"`,
+			expect: &fieldStmt{
+				name:         "field_one",
+				valueType:    &valueTypeStmt{primitive: Primitive_Binary},
+				defaultValue: nil,
+				metadata: &mapStmt{
+					{
+						key:   &identifierStmt{value: "obsolete", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					},
+					{
+						key:   &identifierStmt{value: "another_key", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: int64(54), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `5 field_one:list(boolean?) = [true, null, false, true] @[("obsolete": true),("another_key":54)]"`,
+			expect: &fieldStmt{
+				name: "field_one",
+				valueType: &valueTypeStmt{
+					primitive: Primitive_List,
+					typeArguments: &[]*valueTypeStmt{
+						{primitive: Primitive_Bool, nullable: true},
+					},
+				},
+				index: 5,
+				defaultValue: &listStmt{
+					&identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					&identifierStmt{value: nil, valueType: &valueTypeStmt{primitive: Primitive_Null}},
+					&identifierStmt{value: false, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					&identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+				},
+				metadata: &mapStmt{
+					{
+						key:   &identifierStmt{value: "obsolete", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					},
+					{
+						key:   &identifierStmt{value: "another_key", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: int64(54), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+					},
+				},
+			},
+			err: nil,
+		},
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			ast, err := parser.parseField()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}
+
+func TestParseImport(t *testing.T) {
+	type testCase struct {
+		input  string
+		err    error
+		expect *importStmt
+	}
+
+	for _, tt := range []testCase{
+		{
+			input: `import "this/file.mpack"`,
+			expect: &importStmt{
+				src: "this/file.mpack",
+			},
+			err: nil,
+		},
+		{
+			input: `import "another.mpack"`,
+			expect: &importStmt{
+				src: "another.mpack",
+			},
+			err: nil,
+		},
+		{
+			input: `import "another.mpack" as a`,
+			expect: &importStmt{
+				src:   "another.mpack",
+				alias: stringPointer("a"),
+			},
+			err: nil,
+		},
+		{
+			input:  `import "another.mpack" as type`,
+			expect: nil,
+			err:    errors.New(`line 1:27 -> found "type", expected import alias`),
+		},
+		{
+			input:  `import "another.mpack" as uint64`,
+			expect: nil,
+			err:    errors.New(`line 1:27 -> found "uint64", expected import alias`),
+		},
+		{
+			input: `import "file/nested/another.mpack" AS nested`,
+			expect: &importStmt{
+				src:   "file/nested/another.mpack",
+				alias: stringPointer("nested"),
+			},
+		},
+		{
+			input:  `import "file/nested/another.mpack" AS`,
+			expect: nil,
+			err:    errors.New(`line 1:37 -> found "", expected import alias`),
+		},
+		{
+			input:  `import`,
+			expect: nil,
+			err:    errors.New(`line 1:6 -> found "", expected import path`),
+		},
+		{
+			input:  `import file.mpack`,
+			expect: nil,
+			err:    errors.New(`line 1:8 -> found "file", expected import path`),
+		},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.parseImport()
 			require.Equal(t, tt.err, err)
 			require.Equal(t, tt.expect, ast)
 		})

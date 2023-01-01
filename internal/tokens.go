@@ -83,6 +83,7 @@ const (
 	Keyword_Map
 	Keyword_Binary
 	Keyword_Null
+	Keyword_As
 )
 
 var tokenNameMapping map[Token]string = map[Token]string{
@@ -123,6 +124,7 @@ var inverseKeywordMapping map[string]Keyword = map[string]Keyword{
 	"binary":  Keyword_Binary,
 	"int":     Keyword_Int,
 	"uint":    Keyword_Uint,
+	"as":      Keyword_As,
 }
 
 var keywordMapping map[Keyword]string = map[Keyword]string{
@@ -149,6 +151,7 @@ var keywordMapping map[Keyword]string = map[Keyword]string{
 	Keyword_Int:     "int",
 	Keyword_Uint:    "uint",
 	Keyword_Null:    "null",
+	Keyword_As:      "as",
 }
 
 var primitiveMapping map[string]Primitive = map[string]Primitive{

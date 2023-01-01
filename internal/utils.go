@@ -23,3 +23,7 @@ func (p *Parser) keywordGivenErr(given string) error {
 func (p *Parser) raw(err string) error {
 	return fmt.Errorf("line %v:%v -> %s", p.buf.pos.line, p.buf.pos.pos, err)
 }
+
+func stringPointer(input string) *string {
+	return &input
+}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"strings"
 	"unicode"
 )
 
@@ -93,7 +94,7 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 				startPos := s.pos
 				s.comeback()
 				lit := s.scanIdent()
-				_, ok := inverseKeywordMapping[lit]
+				_, ok := inverseKeywordMapping[strings.ToLower(lit)]
 				if ok {
 					return startPos, Token_Keyword, lit
 				}

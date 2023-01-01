@@ -96,14 +96,39 @@ func (p *Parser) Parse() (*Ast, error) {
 }
 
 // parseImport parses an import keyword
-func (p *Parser) parseImport() error {
-	// "import" keyword already read, then read identifier
+func (p *Parser) parseImport() (*importStmt, error) {
+
+	// read import keyword
 	tok, lit := p.scan()
-	if tok != Token_Ident {
-		return p.expectedError(Token_Ident, lit)
+	keyword := inverseKeywordMapping[lit]
+	if tok != Token_Keyword || keyword != Keyword_Import {
+		return nil, p.expectedKeywordErr(Keyword_Import, lit)
 	}
 
-	return nil
+	// read string
+	tok, lit = p.scan()
+	if tok != Token_String {
+		return nil, p.expectedRawError("import path", lit)
+	}
+
+	// remove " from string
+	lit = lit[1 : len(lit)-1]
+
+	stmt := &importStmt{src: lit}
+
+	// maybe read alias
+	tok, lit = p.scan()
+	if tok == Token_Keyword && isExactKeyword(lit, Keyword_As) {
+		// read alias
+		tok, lit = p.scan()
+		if tok != Token_Ident {
+			return nil, p.expectedRawError("import alias", lit)
+		}
+
+		stmt.alias = &lit
+	}
+
+	return stmt, nil
 }
 
 // parseType parses a type
