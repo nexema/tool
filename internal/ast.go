@@ -72,10 +72,6 @@ func (l *listStmt) add(i *identifierStmt) {
 	(*l) = append((*l), i)
 }
 
-func (l *listStmt) isEmpty() bool {
-	return len(*l) == 0
-}
-
 func (i *identifierStmt) Primitive() Primitive {
 	return i.valueType.primitive
 }

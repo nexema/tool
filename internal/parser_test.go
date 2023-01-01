@@ -12,7 +12,6 @@ func TestParse(t *testing.T) {
 	type errorTestCases struct {
 		input string
 		err   error
-		skip  bool
 	}
 
 	for _, tt := range []errorTestCases{
@@ -356,7 +355,6 @@ func TestParseList(t *testing.T) {
 }
 
 func TestParseType(t *testing.T) {
-	t.Skip()
 	type testCase struct {
 		description string
 		input       string
@@ -366,11 +364,158 @@ func TestParseType(t *testing.T) {
 
 	for _, tt := range []testCase{
 		{
-			description: "empty list",
+			description: "empty struct",
 			input:       `type MyType struct {}`,
 			expect: &typeStmt{
 				name:         "MyType",
 				typeModifier: TypeModifier_Struct,
+				fields:       new(fieldsStmt),
+			},
+			err: nil,
+		},
+		{
+			description: "empty union",
+			input:       `type MyType union {}`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifier_Union,
+				fields:       new(fieldsStmt),
+			},
+			err: nil,
+		},
+		{
+			description: "empty enum",
+			input:       `type MyType enum {}`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifier_Enum,
+				fields:       new(fieldsStmt),
+			},
+			err: nil,
+		},
+		{
+			description: "empty",
+			input:       `type MyType {}`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifier_Struct,
+				fields:       new(fieldsStmt),
+			},
+			err: nil,
+		},
+		{
+			description: "all primitive types",
+			input: `type MyType {
+				0 bool_field: boolean
+				1 string_field: string
+				2 uint8_field: uint8
+				3 uint16_field: uint16
+				4 uint32_field: uint32
+				5 uint64_field: uint64
+				6 int8_field: int8
+				7 int16_field: int16
+				8 int32_field: int32
+				9 int64_field: int64
+				10 float32_field: float32
+				11 float64_field: float64
+				12 binary_field: binary
+			}`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifier_Struct,
+				fields: &fieldsStmt{
+					{
+						index:        0,
+						name:         "bool_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Bool},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        1,
+						name:         "string_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_String},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        2,
+						name:         "uint8_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint8},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        3,
+						name:         "uint16_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint16},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        4,
+						name:         "uint32_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint32},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        5,
+						name:         "uint64_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint64},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        6,
+						name:         "int8_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int8},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        7,
+						name:         "int16_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int16},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        8,
+						name:         "int32_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int32},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        9,
+						name:         "int64_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int64},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        10,
+						name:         "float32_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Float32},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        11,
+						name:         "float64_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Float64},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+					{
+						index:        12,
+						name:         "binary_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Binary},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+				},
 			},
 			err: nil,
 		},

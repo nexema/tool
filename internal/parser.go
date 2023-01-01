@@ -53,11 +53,6 @@ func (p *Parser) unscan() {
 	p.buf.n = 1
 }
 
-// unscanBuf unreads from the underlying reader
-func (p *Parser) unscanBuf() {
-	p.s.comeback()
-}
-
 // Parse parses the given reader and creates an abstract syntax tree
 func (p *Parser) Parse() (*Ast, error) {
 	p.ast = &Ast{
@@ -194,7 +189,8 @@ func (p *Parser) parseType() (*typeStmt, error) {
 		tok, lit = p.scan()
 
 		if tok == Token_EOF {
-			return nil, p.expectedError(Token_CloseCurlyBraces, lit)
+			continue
+			// return nil, p.expectedError(Token_CloseCurlyBraces, lit)
 		}
 
 		// stop reading struct and fields
@@ -215,7 +211,7 @@ func (p *Parser) parseType() (*typeStmt, error) {
 }
 
 func (p *Parser) parseField() (*fieldStmt, error) {
-	field := new(fieldStmt)
+	field := &fieldStmt{index: -1}
 
 	var tok Token
 	var lit string
@@ -229,7 +225,7 @@ func (p *Parser) parseField() (*fieldStmt, error) {
 
 		// if lit can be parsed into an int, its the field's index
 		fieldIndex, err := strconv.Atoi(lit)
-		if err == nil {
+		if err == nil && field.index == -1 {
 			field.index = fieldIndex
 		} else {
 			// it corresponds to the field's name
@@ -272,10 +268,14 @@ func (p *Parser) parseField() (*fieldStmt, error) {
 
 			field.metadata = m
 		} else {
+			p.unscan()
 			break
 		}
 	}
 
+	if field.index == -1 {
+		field.index = 0
+	}
 	return field, nil
 }
 
