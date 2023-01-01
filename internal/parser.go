@@ -143,6 +143,7 @@ func (p *Parser) parseType() (*typeStmt, error) {
 		}
 
 		typeStmt.metadata = mapStmt
+		_, lit = p.scan()
 	}
 
 	// if the next keyword is not "type", error
@@ -186,7 +187,7 @@ func (p *Parser) parseType() (*typeStmt, error) {
 	// from here, start reading fields
 	for {
 		// read next token
-		tok, lit = p.scan()
+		tok, _ = p.scan()
 
 		if tok == Token_EOF {
 			continue

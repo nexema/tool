@@ -519,6 +519,141 @@ func TestParseType(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			description: "all primitive types with default value",
+			input: `type MyType {
+				0 bool_field: boolean = true
+				1 string_field: string = "hello world"
+				2 uint8_field: uint8 = 12
+				3 uint16_field: uint16 = 15
+				4 uint32_field: uint32 = 25
+				5 uint64_field: uint64 = 32
+				6 int8_field: int8 = -1
+				7 int16_field: int16 = -233
+				8 int32_field: int32 = -25554
+				9 int64_field: int64 = -256789987
+				10 float32_field: float32 = 123.3245
+				11 float64_field: float64 = -153.355
+				12 binary_field: binary
+			}`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifier_Struct,
+				fields: &fieldsStmt{
+					{
+						index:        0,
+						name:         "bool_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Bool},
+						defaultValue: &identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+						metadata:     nil,
+					},
+					{
+						index:        1,
+						name:         "string_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_String},
+						defaultValue: &identifierStmt{value: "hello world", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						metadata:     nil,
+					},
+					{
+						index:        2,
+						name:         "uint8_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint8},
+						defaultValue: &identifierStmt{value: int64(12), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        3,
+						name:         "uint16_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint16},
+						defaultValue: &identifierStmt{value: int64(15), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        4,
+						name:         "uint32_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint32},
+						defaultValue: &identifierStmt{value: int64(25), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        5,
+						name:         "uint64_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Uint64},
+						defaultValue: &identifierStmt{value: int64(32), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        6,
+						name:         "int8_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int8},
+						defaultValue: &identifierStmt{value: int64(-1), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        7,
+						name:         "int16_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int16},
+						defaultValue: &identifierStmt{value: int64(-233), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        8,
+						name:         "int32_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int32},
+						defaultValue: &identifierStmt{value: int64(-25554), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        9,
+						name:         "int64_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Int64},
+						defaultValue: &identifierStmt{value: int64(-256789987), valueType: &valueTypeStmt{primitive: Primitive_Int64}},
+						metadata:     nil,
+					},
+					{
+						index:        10,
+						name:         "float32_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Float32},
+						defaultValue: &identifierStmt{value: float64(123.3245), valueType: &valueTypeStmt{primitive: Primitive_Float64}},
+						metadata:     nil,
+					},
+					{
+						index:        11,
+						name:         "float64_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Float64},
+						defaultValue: &identifierStmt{value: float64(-153.355), valueType: &valueTypeStmt{primitive: Primitive_Float64}},
+						metadata:     nil,
+					},
+					{
+						index:        12,
+						name:         "binary_field",
+						valueType:    &valueTypeStmt{primitive: Primitive_Binary},
+						defaultValue: nil,
+						metadata:     nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			description: "type with metadata",
+			input: `
+				@[("obsolete": true)]
+				type MyType struct {}
+			`,
+			expect: &typeStmt{
+				name:         "MyType",
+				typeModifier: TypeModifier_Struct,
+				fields:       new(fieldsStmt),
+				metadata: &mapStmt{
+					{
+						key:   &identifierStmt{value: "obsolete", valueType: &valueTypeStmt{primitive: Primitive_String}},
+						value: &identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+					},
+				},
+			},
+			err: nil,
+		},
 	} {
 
 		testName := tt.description
