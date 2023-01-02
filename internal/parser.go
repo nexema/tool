@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 type Parser struct {
 	s   *Scanner
-	ast *Ast // the abstract syntax tree we are building
 	buf struct {
 		tok Token    // last read token
 		lit string   // last read literal
@@ -53,41 +53,44 @@ func (p *Parser) unscan() {
 	p.buf.n = 1
 }
 
-// Parse parses the given reader and creates an abstract syntax tree
+// Parse parses the given reader and creates an abstract syntax tree of the input
 func (p *Parser) Parse() (*Ast, error) {
-	p.ast = &Ast{
+	ast := &Ast{
 		imports: new(importsStmt),
 		types:   new(typesStmt),
 	}
+
 	for {
 		tok, lit := p.scan()
 
+		// scan until end of stream
 		if tok == Token_EOF {
 			break
 		}
 
 		// to start, only import or type can be specified
-		switch tok {
-		// case Token_Import:
-		// 	err := p.parseImport()
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
+		keyword := inverseKeywordMapping[lit]
+		p.unscan()
+		if keyword == Keyword_Import {
+			importStmt, err := p.parseImport()
+			if err != nil {
+				return nil, err
+			}
 
-		// case Token_Type, Token_At:
-		// 	typeStmt, err := p.parseType()
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
+			ast.imports.add(importStmt)
+		} else if keyword == Keyword_Type || tok == Token_At {
+			typeStmt, err := p.parseType()
+			if err != nil {
+				return nil, err
+			}
 
-		// 	p.ast.types.add(typeStmt)
-
-		default:
+			ast.types.add(typeStmt)
+		} else {
 			return nil, p.expectedRawError(`"type" or "import" keywords`, lit)
 		}
 	}
 
-	return nil, nil
+	return ast, nil
 }
 
 // parseImport parses an import keyword
@@ -121,6 +124,8 @@ func (p *Parser) parseImport() (*importStmt, error) {
 		}
 
 		stmt.alias = &lit
+	} else {
+		p.unscan()
 	}
 
 	return stmt, nil
@@ -200,7 +205,7 @@ func (p *Parser) parseType() (*typeStmt, error) {
 		}
 
 		p.unscan()
-		fieldStmt, err := p.parseField()
+		fieldStmt, err := p.parseField(typeStmt.typeModifier)
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +216,7 @@ func (p *Parser) parseType() (*typeStmt, error) {
 	return typeStmt, nil
 }
 
-func (p *Parser) parseField() (*fieldStmt, error) {
+func (p *Parser) parseField(forModifier TypeModifier) (*fieldStmt, error) {
 	field := &fieldStmt{index: -1}
 
 	var tok Token
@@ -233,6 +238,14 @@ func (p *Parser) parseField() (*fieldStmt, error) {
 			field.name = lit
 			break
 		}
+	}
+
+	if field.index == -1 {
+		field.index = 0
+	}
+
+	if forModifier == TypeModifier_Enum {
+		return field, nil
 	}
 
 	// read ":"
@@ -274,9 +287,6 @@ func (p *Parser) parseField() (*fieldStmt, error) {
 		}
 	}
 
-	if field.index == -1 {
-		field.index = 0
-	}
 	return field, nil
 }
 
@@ -285,14 +295,16 @@ func (p *Parser) parseFieldType() (*valueTypeStmt, error) {
 
 	// read primitive
 	tok, lit := p.scan()
-	if tok != Token_Keyword {
+	if tok != Token_Keyword && tok != Token_Ident {
 		return nil, p.expectedRawError("field type", lit)
 	}
 
 	// parse primitive
 	primitive, ok := primitiveMapping[lit]
 	if !ok {
-		return nil, p.raw(fmt.Sprintf("unknown field type %s", lit))
+		// if primitive is not recognized, its because its a custom type
+		primitive = Primitive_Type
+		fieldType.customTypeName = &lit
 	}
 	fieldType.primitive = primitive
 
@@ -511,7 +523,14 @@ func (p *Parser) parseValue() (baseIdentifierStmt, error) {
 					if primitive == Primitive_Null {
 						value = nil
 					} else {
-						return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
+						// try to parse a custom enum value
+						p.unscan()
+						stmt, err := p.parseCustomTypeValue()
+						if err != nil {
+							return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
+						}
+
+						return stmt, nil
 					}
 				} else {
 					primitive = Primitive_Bool
@@ -554,4 +573,33 @@ func (p *Parser) parseValue() (baseIdentifierStmt, error) {
 	} else {
 		return nil, p.expectedRawError("primitive", lit)
 	}
+}
+
+func (p *Parser) parseCustomTypeValue() (*customTypeIdentifierStmt, error) {
+	tok, lit := p.scan()
+	if tok != Token_Ident {
+		return nil, p.expectedError(Token_Ident, lit)
+	}
+
+	// custom type values only allows enums, so its format becomes alias.enumName.value
+	// alias is optional, so for now we only split lit
+	toks := strings.Split(lit, ".")
+	if len(toks) < 2 || len(toks) > 3 { // at least two, enumName and value and no more than 3: alias, name and value
+		return nil, p.expectedRawError("enum name and value", lit)
+	}
+
+	var enumIdentifier, value string
+
+	if len(toks) == 3 {
+		enumIdentifier = toks[0] + "." + toks[1]
+		value = toks[2]
+	} else {
+		enumIdentifier = toks[0]
+		value = toks[1]
+	}
+
+	return &customTypeIdentifierStmt{
+		customTypeName: enumIdentifier,
+		value:          value,
+	}, nil
 }

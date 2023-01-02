@@ -8,33 +8,132 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse(t *testing.T) {
+func TestParseAll(t *testing.T) {
 	type errorTestCases struct {
-		input string
-		err   error
+		description string
+		input       string
+		expect      *Ast
+		err         error
 	}
 
 	for _, tt := range []errorTestCases{
 		{
-			input: `"a random string"`,
-			err:   nil,
+			description: "parse input",
+			input: `import "my_file.mpack" AS entry
+			import "another/sub.mpack"
+
+			@[("obsolete": true)]
+			type MyStruct struct {
+				0 my_field: string = "hello world"
+				1 another: list(boolean?) = [true, null, false, false, true]
+				2 color: alias.Colors = alias.Colors.unknown
+			}
+
+			@[("obsolete": false)]
+			type Colors enum {
+				0 unknown
+				1 red
+				2 green
+				3 blue
+			}
+			`,
+			err: nil,
+			expect: &Ast{
+				imports: &importsStmt{
+					{
+						src:   "my_file.mpack",
+						alias: stringPointer("entry"),
+					},
+					{
+						src: "another/sub.mpack",
+					},
+				},
+				types: &typesStmt{
+					{
+						metadata: &mapStmt{
+							{
+								key:   &identifierStmt{value: "obsolete", valueType: &valueTypeStmt{primitive: Primitive_String}},
+								value: &identifierStmt{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+							},
+						},
+						name:         "MyStruct",
+						typeModifier: TypeModifier_Struct,
+						fields: &fieldsStmt{
+							{
+								index:     0,
+								name:      "my_field",
+								valueType: &valueTypeStmt{primitive: Primitive_String},
+								defaultValue: &identifierStmt{
+									value:     "hello world",
+									valueType: &valueTypeStmt{primitive: Primitive_String},
+								},
+							},
+							{
+								index: 1,
+								name:  "another",
+								valueType: &valueTypeStmt{
+									primitive:     Primitive_List,
+									typeArguments: &[]*valueTypeStmt{{primitive: Primitive_Bool, nullable: true}},
+								},
+								defaultValue: &listStmt{
+									{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+									{value: nil, valueType: &valueTypeStmt{primitive: Primitive_Null}},
+									{value: false, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+									{value: false, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+									{value: true, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+								},
+							},
+							{
+								index: 2,
+								name:  "color",
+								valueType: &valueTypeStmt{
+									primitive:      Primitive_Type,
+									customTypeName: stringPointer("alias.Colors"),
+								},
+								defaultValue: &customTypeIdentifierStmt{
+									customTypeName: "alias.Colors",
+									value:          "unknown",
+								},
+							},
+						},
+					},
+					{
+						metadata: &mapStmt{
+							{
+								key:   &identifierStmt{value: "obsolete", valueType: &valueTypeStmt{primitive: Primitive_String}},
+								value: &identifierStmt{value: false, valueType: &valueTypeStmt{primitive: Primitive_Bool}},
+							},
+						},
+						name:         "Colors",
+						typeModifier: TypeModifier_Enum,
+						fields: &fieldsStmt{
+							{
+								index: 0,
+								name:  "unknown",
+							},
+							{
+								index: 1,
+								name:  "red",
+							},
+							{
+								index: 2,
+								name:  "green",
+							},
+							{
+								index: 3,
+								name:  "blue",
+							},
+						},
+					},
+				},
+			},
 		},
-		// {
-		// 	input: `
-		// 	@metadata
-		// 	type MyName struct {}`,
-		// 	err: nil,
-		// },
-		// {
-		// 	input: "MyName",
-		// 	err:   nil,
-		// },
 	} {
-		t.Run(tt.input, func(t *testing.T) {
+		t.Run(tt.description, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
-			ast, err := parser.parseValue()
-			_ = ast
+			ast, err := parser.Parse()
 			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
 		})
 	}
 }
@@ -654,6 +753,40 @@ func TestParseType(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			description: "enum type with fields",
+			input: `
+				type Colors enum {
+					0 unknown
+					1 red
+					2 blue
+					3 green
+				}
+			`,
+			expect: &typeStmt{
+				name:         "Colors",
+				typeModifier: TypeModifier_Enum,
+				fields: &fieldsStmt{
+					{
+						index: 0,
+						name:  "unknown",
+					},
+					{
+						index: 1,
+						name:  "red",
+					},
+					{
+						index: 2,
+						name:  "blue",
+					},
+					{
+						index: 3,
+						name:  "green",
+					},
+				},
+			},
+			err: nil,
+		},
 	} {
 
 		testName := tt.description
@@ -833,10 +966,6 @@ func TestParseFieldType(t *testing.T) {
 			err: nil,
 		},
 		{
-			input: `boo?`,
-			err:   errors.New(`line 1:1 -> found "boo", expected field type`),
-		},
-		{
 			input: `list`,
 			err:   errors.New(`line 1:4 -> lists expect one type argument, given: `),
 		},
@@ -856,6 +985,29 @@ func TestParseFieldType(t *testing.T) {
 			input: `map(string boolean)`,
 			err:   errors.New(`line 1:12 -> found "boolean", expected "comma"`),
 		},
+		{
+			input: `MyEnum`,
+			expect: &valueTypeStmt{
+				primitive:      Primitive_Type,
+				customTypeName: stringPointer("MyEnum"),
+			},
+		},
+		{
+			input: `MyUnion?`,
+			expect: &valueTypeStmt{
+				primitive:      Primitive_Type,
+				customTypeName: stringPointer("MyUnion"),
+				nullable:       true,
+			},
+		},
+		{
+			input: `anotherfile.MyEnum?`,
+			expect: &valueTypeStmt{
+				primitive:      Primitive_Type,
+				customTypeName: stringPointer("anotherfile.MyEnum"),
+				nullable:       true,
+			},
+		},
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
@@ -868,9 +1020,10 @@ func TestParseFieldType(t *testing.T) {
 
 func TestParseField(t *testing.T) {
 	type testCase struct {
-		input  string
-		err    error
-		expect *fieldStmt
+		input       string
+		forModifier TypeModifier
+		err         error
+		expect      *fieldStmt
 	}
 
 	for _, tt := range []testCase{
@@ -1114,10 +1267,28 @@ func TestParseField(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			input:       `5 first`,
+			forModifier: TypeModifier_Enum,
+			expect: &fieldStmt{
+				index: 5,
+				name:  "first",
+			},
+			err: nil,
+		},
+		{
+			input:       `unknown`,
+			forModifier: TypeModifier_Enum,
+			expect: &fieldStmt{
+				index: 0,
+				name:  "unknown",
+			},
+			err: nil,
+		},
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
-			ast, err := parser.parseField()
+			ast, err := parser.parseField(tt.forModifier)
 			require.Equal(t, tt.err, err)
 			require.Equal(t, tt.expect, ast)
 		})
@@ -1184,7 +1355,7 @@ func TestParseImport(t *testing.T) {
 		{
 			input:  `import file.mpack`,
 			expect: nil,
-			err:    errors.New(`line 1:8 -> found "file", expected import path`),
+			err:    errors.New(`line 1:8 -> found "file.mpack", expected import path`),
 		},
 	} {
 		t.Run(tt.input, func(t *testing.T) {

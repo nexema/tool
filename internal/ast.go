@@ -24,6 +24,10 @@ func (t *typesStmt) add(typestmt *typeStmt) {
 	(*t) = append((*t), typestmt)
 }
 
+func (i *importsStmt) add(importStmt *importStmt) {
+	(*i) = append((*i), importStmt)
+}
+
 type fieldsStmt []*fieldStmt
 type fieldStmt struct {
 	index        int
@@ -34,9 +38,10 @@ type fieldStmt struct {
 }
 
 type valueTypeStmt struct {
-	nullable      bool
-	primitive     Primitive
-	typeArguments *[]*valueTypeStmt
+	nullable       bool
+	primitive      Primitive
+	typeArguments  *[]*valueTypeStmt
+	customTypeName *string // the name of the custom type if primitive is Primitive_Type
 }
 
 func (f *fieldsStmt) add(field *fieldStmt) {
@@ -66,6 +71,11 @@ type identifierStmt struct {
 	valueType *valueTypeStmt
 }
 
+type customTypeIdentifierStmt struct {
+	customTypeName string
+	value          string
+}
+
 type listStmt []*identifierStmt
 
 func (l *listStmt) add(i *identifierStmt) {
@@ -82,4 +92,8 @@ func (l *listStmt) Primitive() Primitive {
 
 func (m *mapStmt) Primitive() Primitive {
 	return Primitive_Map
+}
+
+func (c *customTypeIdentifierStmt) Primitive() Primitive {
+	return Primitive_Type
 }

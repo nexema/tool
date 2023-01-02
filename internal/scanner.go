@@ -203,7 +203,7 @@ func (s *Scanner) scanIdent() string {
 		}
 
 		s.pos.pos++
-		if unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' {
+		if unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch == '.' {
 			buf.WriteRune(ch)
 		} else {
 			s.comeback()
