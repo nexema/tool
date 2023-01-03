@@ -1,4 +1,4 @@
-﻿# MessagePack Schema Specification
+﻿# Nexema Specification
 
 ## Table of contents
 1. [Primitive Data Types](#primitive-data-types)
@@ -13,8 +13,7 @@
 4. [Naming conventions](#naming-conventions)
 
 ## Primitive Data Types <a name="primitive-data-types"></a>
-
-The MessagePack Schema suports the same MessagePack's data types. They are listed down:
+:
 | Primitive | C# Type | Dart Type |
 |--- |--- |--- |
 | ```boolean``` | ```bool``` | ```bool``` |
@@ -35,12 +34,10 @@ The MessagePack Schema suports the same MessagePack's data types. They are liste
 | ```list(T)``` | ```List<T>``` | ```List<T> ``` |
 | ```map(TKey, TValue)``` | ```Dictionary<TKey, TValue>``` | ```Map<TKey, TValue>``` |
 
-> It is known that Map and List are not primitives in many programming languages, but for MessagePack Schema they are ;)
+> It is known that Map and List are not primitives in many programming languages, but for Nexema they are ;)
 
 
 ## Types
-When using **MessagePack Schema**, [extensions](https://github.com/msgpack/msgpack/blob/master/spec.md#extension-types) are removed in favor of `types`. 
-
 **Type syntax**:
 ```
 @(metadata)
@@ -135,9 +132,9 @@ type MyEnum enum {
 
 ## Writing schema files
 Schema files can be organized in folders, and, when compiled, the output will replicate the folder structure.
-To define a schema file, create a file with any name but with the extension `.mpack`
+To define a schema file, create a file with any name but with the extension `.nex`
 
-The root directory must contain a single file called `mpack.yaml` which will define some details for the project, it has the following structure:
+The root directory must contain a single file called `nex.yaml` which will define some details for the project, it has the following structure:
 ```yaml
 name: my_amazing_project
 author: ImTheAuthor
@@ -166,9 +163,9 @@ generators:
 
 ### Importing schema files
 You can import schema files  using the `import` keyword.
-For example, you created a file called `identity.mpack` and then another called `common.mpack` which declares a struct called `Address`.
+For example, you created a file called `identity.nex` and then another called `common.nex` which declares a struct called `Address`.
 ```
-import "common" // Here we are importing the common.mpack" file
+import "common" // Here we are importing the common.nex" file
 
 type User {
 	address: common.Address
@@ -195,7 +192,7 @@ type Baz {
 ```
 
 ## Naming conventions
-In order to messagepack-schema generate correct names for different programming languages and match their own naming conventions:
+In order to Nexema generate correct names for different programming languages and match their own naming conventions:
 
 - **Field names:** snake_case
 - **Indexes:** be 0-index
