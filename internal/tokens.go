@@ -31,6 +31,9 @@ const (
 	Token_Comma
 	Token_Equals
 	Token_String
+	Token_Backslash
+	Token_Asterisk
+	Token_Newline
 )
 
 const (

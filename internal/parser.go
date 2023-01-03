@@ -25,7 +25,12 @@ func NewParser(r io.Reader) *Parser {
 
 // scan returns the next token from the underlying scanner.
 // If a token has been unscanned then read that instead
-func (p *Parser) scan() (tok Token, lit string) {
+func (p *Parser) scan(readSpace ...bool) (tok Token, lit string) {
+	readSpaceBool := false
+	if len(readSpace) > 0 {
+		readSpaceBool = readSpace[0]
+	}
+
 	// if we have a token on the buffer, return it
 	if p.buf.n != 0 {
 		p.buf.n = 0
@@ -33,7 +38,7 @@ func (p *Parser) scan() (tok Token, lit string) {
 	}
 
 	// scan next token
-	pos, tok, lit := p.s.Scan(false)
+	pos, tok, lit := p.s.Scan(readSpaceBool)
 
 	// save to buffer
 	p.buf.pos, p.buf.tok, p.buf.lit = pos, tok, lit
@@ -66,6 +71,10 @@ func (p *Parser) Parse() (*Ast, error) {
 		// scan until end of stream
 		if tok == Token_EOF {
 			break
+		} else if tok == Token_Backslash {
+			p.unscan()
+			p.parseComment()
+			continue
 		}
 
 		// to start, only import or type can be specified
@@ -602,4 +611,71 @@ func (p *Parser) parseCustomTypeValue() (*customTypeIdentifierStmt, error) {
 		customTypeName: enumIdentifier,
 		value:          value,
 	}, nil
+}
+
+func (p *Parser) parseComment() (*commentStmt, error) {
+	backlashCount := 0
+	multine := false
+	commentStarted := false
+	commentType := singleline
+
+	sb := new(strings.Builder)
+	for {
+		tok, lit := p.scan(true)
+		if tok == Token_EOF {
+			if !commentStarted {
+				return nil, p.raw("comments must start with double // or with /* for multine comments")
+			} else if commentStarted && multine {
+				return nil, p.raw("multine comments must be closed with */")
+			} else {
+				return &commentStmt{
+					text:        sb.String(),
+					commentType: commentType,
+				}, nil
+			}
+		} else if tok == Token_Backslash {
+			// if last token was a / too, add to backlash count
+			// in order to determine the type of comment
+			if !commentStarted {
+				backlashCount++
+
+				continue
+			}
+		} else if tok == Token_Asterisk {
+			tok, lit = p.scan() // if next tok is /, its closing the comment
+			if tok == Token_Backslash {
+				if multine {
+					return &commentStmt{
+						text:        sb.String(),
+						commentType: commentType,
+					}, nil
+				}
+			} else {
+				p.unscan()
+				if backlashCount > 0 {
+					// start the comment
+					multine = true
+					commentStarted = true
+					commentType = multiline
+					continue
+				}
+			}
+		} else if tok == Token_Newline {
+			if multine {
+				sb.WriteString(lit)
+				continue
+			} else {
+				return &commentStmt{
+					text:        sb.String(),
+					commentType: commentType,
+				}, nil
+			}
+		}
+
+		sb.WriteString(lit)
+
+		if !commentStarted && backlashCount > 1 {
+			commentStarted = true
+		}
+	}
 }

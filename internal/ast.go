@@ -14,10 +14,11 @@ type importStmt struct {
 
 type typesStmt []*typeStmt
 type typeStmt struct {
-	metadata     *mapStmt     // type's metadata
-	name         string       // type's name
-	typeModifier TypeModifier // type's modifier (union,struct,enum)
-	fields       *fieldsStmt  // type's fields
+	metadata     *mapStmt               // type's metadata
+	name         string                 // type's name
+	typeModifier TypeModifier           // type's modifier (union,struct,enum)
+	fields       *fieldsStmt            // type's fields
+	docs         *documentationComments // type's documentation comments
 }
 
 func (t *typesStmt) add(typestmt *typeStmt) {
@@ -35,6 +36,7 @@ type fieldStmt struct {
 	valueType    *valueTypeStmt
 	defaultValue baseIdentifierStmt
 	metadata     *mapStmt
+	docs         *documentationComments
 }
 
 type valueTypeStmt struct {
@@ -96,4 +98,22 @@ func (m *mapStmt) Primitive() Primitive {
 
 func (c *customTypeIdentifierStmt) Primitive() Primitive {
 	return Primitive_Type
+}
+
+type commentStmt struct {
+	text        string
+	commentType commentType
+}
+
+type commentType int8
+
+const (
+	singleline commentType = iota
+	multiline
+)
+
+type documentationComments []*commentStmt
+
+func (d *documentationComments) add(c *commentStmt) {
+	d.add(c)
 }

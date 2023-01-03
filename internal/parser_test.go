@@ -1366,3 +1366,66 @@ func TestParseImport(t *testing.T) {
 		})
 	}
 }
+
+func TestParseComment(t *testing.T) {
+	type testCase struct {
+		input  string
+		err    error
+		expect *commentStmt
+	}
+
+	for _, tt := range []testCase{
+		{
+			input: `// hello this is a simple comment`,
+			expect: &commentStmt{
+				text:        " hello this is a simple comment",
+				commentType: singleline,
+			},
+			err: nil,
+		},
+		{
+			input: `// hello this is//a simple comment`,
+			expect: &commentStmt{
+				text:        " hello this is//a simple comment",
+				commentType: singleline,
+			},
+			err: nil,
+		},
+		{
+			input: `/* this is a
+			multiline comment
+			*/`,
+			expect: &commentStmt{
+				text:        "this is a\n\t\t\tmultiline comment\n\t\t\t",
+				commentType: multiline,
+			},
+			err: nil,
+		},
+		{
+			input: `/* this is a
+			multiline comment`,
+			err: errors.New("line 1:33 -> multine comments must be closed with */"),
+		},
+		{
+			input: `/*multi//line*/`,
+			expect: &commentStmt{
+				text:        "multi//line",
+				commentType: multiline,
+			},
+		},
+		{
+			input: `/// more than two //`,
+			expect: &commentStmt{
+				text:        " more than two //",
+				commentType: singleline,
+			},
+		},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.parseComment()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}

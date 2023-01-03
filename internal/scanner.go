@@ -36,6 +36,9 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 		s.pos.pos++
 		switch ch {
 		case '\n':
+			if readSpace {
+				return s.pos, Token_Newline, string(ch)
+			}
 			s.resetPos()
 
 		case ':':
@@ -70,6 +73,12 @@ func (s *Scanner) Scan(readSpace bool) (pos Position, token Token, literal strin
 
 		case '?':
 			return s.pos, Token_QuestionMark, string(ch)
+
+		case '*':
+			return s.pos, Token_Asterisk, string(ch)
+
+		case '/':
+			return s.pos, Token_Backslash, string(ch)
 
 		case '"':
 			startPos := s.pos

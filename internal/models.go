@@ -86,3 +86,7 @@ func (m *MPackSchemaConfigDependency) UnmarshalYAML(b *yaml.Node) error {
 	m.Path = path
 	return nil
 }
+
+type FileDefinition struct {
+	FileName string `json:"name"`
+}
