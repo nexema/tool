@@ -1,632 +1,681 @@
 package internal
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"log"
-	"os"
-	"path/filepath"
-	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
-var typeNameRegex = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]*$")
-var ErrEndOfType = errors.New("end of type")
-
 type Parser struct {
-	structFieldTokenizer *StructFieldTokenizer
-	valueParser          *ValueParser
-	schema               *MPackSchemaDefinition
-	currentPackage       *PackageDeclarationNode
-	typeCollapseChecker  map[string]string
+	s   *Scanner
+	buf struct {
+		tok Token    // last read token
+		lit string   // last read literal
+		pos Position // last read token's position
+		n   int      // buffer size (max=1)
+	}
 }
 
-func NewParser(schema ...*MPackSchemaDefinition) *Parser {
-	var schemaArg *MPackSchemaDefinition
-	if len(schema) > 0 {
-		schemaArg = schema[0]
-	}
-
+func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		structFieldTokenizer: NewStructFieldTokenizer(),
-		valueParser:          NewValueParser(),
-		schema:               schemaArg,
-		typeCollapseChecker:  make(map[string]string),
+		s: NewScanner(r),
 	}
 }
 
-// ParseDirectory Parses a directory containing .mpack files
-// This is the main method to start parsing .mpack structures, it takes a path to the
-// root directory, and outputs a result containing all the packages read
-func (p *Parser) ParseDirectory(path string, rootPackage string) (result *DeclarationTree, err error) {
-	if err != nil {
-		return nil, err
-
+// scan returns the next token from the underlying scanner.
+// If a token has been unscanned then read that instead
+func (p *Parser) scan(readSpace ...bool) (tok Token, lit string) {
+	readSpaceBool := false
+	if len(readSpace) > 0 {
+		readSpaceBool = readSpace[0]
 	}
 
-	rootPkg := NewPackageDeclarationNode(rootPackage, path)
-	tree := NewDeclarationTree(rootPackage, rootPkg, nil)
-	p.currentPackage = rootPkg
-
-	// iterate over files and directories
-	err = filepath.Walk(path, func(fPath string, d fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			// ignore base package
-			if strings.HasSuffix(fPath, rootPackage) {
-				return nil
-			}
-
-			rel, err := filepath.Rel(path, fPath)
-			if err != nil {
-				return err
-			}
-
-			// add package
-			pkg := NewPackageDeclarationNode(d.Name(), rel)
-			tree.Add(pkg)
-			p.currentPackage = pkg
-
-		} else {
-			// only process .mpack files
-			if filepath.Ext(fPath) != ".mpack" {
-				return nil
-			}
-
-			if p.schema != nil {
-				if p.schema.ShouldSkip(fPath) {
-					return nil
-				}
-			}
-
-			// get dir name
-			dirpath, err := filepath.Rel(path, fPath)
-			if err != nil {
-				return err
-			}
-
-			fileName := d.Name()
-			// fileName = fileName[:strings.LastIndex(fileName, ".")]
-
-			// parse a file
-			file, err := p.ParseFile(fPath, fileName)
-			if err != nil {
-				return err
-			}
-
-			file.FilePath = dirpath
-			file.Id = GetHash(fileName, dirpath)
-
-			tree.Add(NewFileDeclarationNode(file.Id, dirpath, fileName, file.Imports, file.Types))
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
+	// if we have a token on the buffer, return it
+	if p.buf.n != 0 {
+		p.buf.n = 0
+		return p.buf.tok, p.buf.lit
 	}
 
-	return tree, nil
+	// scan next token
+	pos, tok, lit := p.s.Scan(readSpaceBool)
+
+	// save to buffer
+	p.buf.pos, p.buf.tok, p.buf.lit = pos, tok, lit
+	return
 }
 
-// ParseFile Parses a single .mpack file
-func (p *Parser) ParseFile(path string, fileName string) (result *FileDeclarationNode, err error) {
-	file, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
+func (p *Parser) peek() (tok Token, lit string) {
 
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(file)
+	// scan next token
+	_, tok, lit = p.s.Peek(false)
 
-	scanner := bufio.NewScanner(file)
-	definition, err := p.internalParse(NewReader(scanner), fileName)
-	if err != nil {
-		return nil, err
-	}
-
-	definition.FilePath = path
-	return definition, nil
+	return
 }
 
-// ParseString Parses a string containing a .mpack definition
-func (p *Parser) ParseString(s string) (result *FileDeclarationNode, err error) {
-	scanner := bufio.NewScanner(strings.NewReader(s))
-	return p.internalParse(NewReader(scanner), "")
+// unscan pushes the previously read token back onto the buffer
+func (p *Parser) unscan() {
+	p.buf.n = 1
 }
 
-func (p *Parser) internalParse(scanner *Reader, fileName string) (*FileDeclarationNode, error) {
-	fileDefinition := &FileDeclarationNode{
-		FileName: fileName,
-		Types:    new(TypeDefinitionCollection),
+// Parse parses the given reader and creates an abstract syntax tree of the input
+func (p *Parser) Parse() (*Ast, error) {
+	ast := &Ast{
+		imports: new(importsStmt),
+		types:   new(typesStmt),
 	}
 
 	for {
-		token, err := scanner.Next()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return fileDefinition, nil
+		tok, lit := p.scan()
+
+		// scan until end of stream
+		if tok == Token_EOF {
+			break
+		} else if tok == Token_Backslash {
+			p.unscan()
+			p.parseComment()
+			continue
+		}
+
+		// to start, only import or type can be specified
+		keyword := inverseKeywordMapping[lit]
+		p.unscan()
+		if keyword == Keyword_Import {
+			importStmt, err := p.parseImport()
+			if err != nil {
+				return nil, err
 			}
 
+			ast.imports.add(importStmt)
+		} else if keyword == Keyword_Type || tok == Token_At {
+			typeStmt, err := p.parseType()
+			if err != nil {
+				return nil, err
+			}
+
+			ast.types.add(typeStmt)
+		} else {
+			return nil, p.expectedRawError(`"type" or "import" keywords`, lit)
+		}
+	}
+
+	return ast, nil
+}
+
+// parseImport parses an import keyword
+func (p *Parser) parseImport() (*importStmt, error) {
+
+	// read import keyword
+	tok, lit := p.scan()
+	keyword := inverseKeywordMapping[lit]
+	if tok != Token_Keyword || keyword != Keyword_Import {
+		return nil, p.expectedKeywordErr(Keyword_Import, lit)
+	}
+
+	// read string
+	tok, lit = p.scan()
+	if tok != Token_String {
+		return nil, p.expectedRawError("import path", lit)
+	}
+
+	// remove " from string
+	lit = lit[1 : len(lit)-1]
+
+	stmt := &importStmt{src: lit}
+
+	// maybe read alias
+	tok, lit = p.scan()
+	if tok == Token_Keyword && isExactKeyword(lit, Keyword_As) {
+		// read alias
+		tok, lit = p.scan()
+		if tok != Token_Ident {
+			return nil, p.expectedRawError("import alias", lit)
+		}
+
+		stmt.alias = &lit
+	} else {
+		p.unscan()
+	}
+
+	return stmt, nil
+}
+
+// parseType parses a type
+func (p *Parser) parseType() (*typeStmt, error) {
+	tok, lit := p.scan()
+
+	typeStmt := &typeStmt{
+		typeModifier: TypeModifier_Struct,
+		fields:       new(fieldsStmt),
+	}
+
+	// if tok is @, read metadata for incoming type
+	if tok == Token_At {
+		mapStmt, err := p.parseMap()
+		if err != nil {
 			return nil, err
 		}
 
-		token = strings.TrimSpace(token)
+		typeStmt.metadata = mapStmt
+		_, lit = p.scan()
+	}
 
-		// Skip comments
-		if strings.HasPrefix(token, "//") {
-			continue
+	// if the next keyword is not "type", error
+	if !isExactKeyword(lit, Keyword_Type) {
+		return nil, p.expectedKeywordErr(Keyword_Type, lit)
+	}
+
+	// scan type's name
+	tok, lit = p.scan()
+	if tok != Token_Ident {
+		return nil, p.expectedRawError("identifier", lit)
+	}
+	typeStmt.name = lit
+
+	// cannot create a  struct which name is a keyword
+	if isKeyword(lit) {
+		return nil, p.keywordGivenErr(lit)
+	}
+
+	// read modifier
+	tok, lit = p.scan()
+	if tok == Token_Keyword {
+		modifier, ok := parseTypeModifier(lit)
+		if !ok {
+			return nil, p.raw(fmt.Sprintf("unknown type modifier: %q", lit))
 		}
 
-		// Skip empty lines
-		if len(token) == 0 {
+		typeStmt.typeModifier = modifier
+	} else {
+		// unscan because we will infer its "{" and the type modifier become "struct" implicitly
+		// if its not a "{", the next read should return an error
+		p.unscan()
+	}
+
+	// read open curly braces "{"
+	tok, lit = p.scan()
+	if tok != Token_OpenCurlyBraces {
+		return nil, p.expectedError(Token_OpenCurlyBraces, lit)
+	}
+
+	// from here, start reading fields
+	for {
+		// read next token
+		tok, _ = p.scan()
+
+		if tok == Token_EOF {
 			continue
+			// return nil, p.expectedError(Token_CloseCurlyBraces, lit)
 		}
 
-		// read comments
-		if strings.HasPrefix(token, "import") {
-			if fileDefinition.Imports == nil {
-				fileDefinition.Imports = make([]string, 0)
-			}
-
-			importStmt := strings.TrimSpace(token[6:])
-			if importStmt[0] != '"' {
-				return nil, errors.New("import statements must be an string starting and ending with a \"")
-			}
-
-			if importStmt[len(importStmt)-1] != '"' {
-				return nil, errors.New("import statements must be an string starting and ending with a \"")
-			}
-
-			importStmt = importStmt[1 : len(importStmt)-1]
-			fileDefinition.Imports = append(fileDefinition.Imports, importStmt)
-			continue
+		// stop reading struct and fields
+		if tok == Token_CloseCurlyBraces {
+			break
 		}
 
-		// Read types
-		typeDef, err := p.readType(scanner)
+		p.unscan()
+		fieldStmt, err := p.parseField(typeStmt.typeModifier)
 		if err != nil {
 			return nil, err
 		}
 
-		if typeDef != nil {
-			// typeDef.Id = GetHash(typeDef.Name, fileName)
-			typeDef.Id = GetHash(typeDef.Name, p.currentPackage.RelativePath)
-			for _, td := range *fileDefinition.Types {
-				if td.Name == typeDef.Name {
-					return nil, fmt.Errorf("there is already a type named %s in %s", td.Name, fileName)
+		typeStmt.fields.add(fieldStmt)
+	}
+
+	return typeStmt, nil
+}
+
+func (p *Parser) parseField(forModifier TypeModifier) (*fieldStmt, error) {
+	field := &fieldStmt{index: -1}
+
+	var tok Token
+	var lit string
+	for {
+		tok, lit = p.scan()
+
+		// expect ident, because of field's index or name
+		if tok != Token_Ident {
+			return nil, p.expectedError(Token_Ident, lit)
+		}
+
+		// if lit can be parsed into an int, its the field's index
+		fieldIndex, err := strconv.Atoi(lit)
+		if err == nil && field.index == -1 {
+			field.index = fieldIndex
+		} else {
+			// it corresponds to the field's name
+			field.name = lit
+			break
+		}
+	}
+
+	if field.index == -1 {
+		field.index = 0
+	}
+
+	if forModifier == TypeModifier_Enum {
+		return field, nil
+	}
+
+	// read ":"
+	tok, lit = p.scan()
+	if tok != Token_Colon {
+		return nil, p.expectedError(Token_Colon, lit)
+	}
+
+	// read field type
+	fieldType, err := p.parseFieldType()
+	if err != nil {
+		return nil, err
+	}
+
+	field.valueType = fieldType
+
+	// maybe read "=" for default value or "@" for metadata
+	for {
+		tok, _ = p.scan()
+
+		// scan default value
+		if tok == Token_Equals {
+			defaultValue, err := p.parseValue()
+			if err != nil {
+				return nil, err
+			}
+
+			field.defaultValue = defaultValue
+		} else if tok == Token_At {
+			m, err := p.parseMap()
+			if err != nil {
+				return nil, err
+			}
+
+			field.metadata = m
+		} else {
+			p.unscan()
+			break
+		}
+	}
+
+	return field, nil
+}
+
+func (p *Parser) parseFieldType() (*valueTypeStmt, error) {
+	fieldType := new(valueTypeStmt)
+
+	// read primitive
+	tok, lit := p.scan()
+	if tok != Token_Keyword && tok != Token_Ident {
+		return nil, p.expectedRawError("field type", lit)
+	}
+
+	// parse primitive
+	primitive, ok := primitiveMapping[lit]
+	if !ok {
+		// if primitive is not recognized, its because its a custom type
+		primitive = Primitive_Type
+		fieldType.customTypeName = &lit
+	}
+	fieldType.primitive = primitive
+
+	// primitive is list or map, expect type arguments
+	if fieldType.primitive == Primitive_List || fieldType.primitive == Primitive_Map {
+		fieldType.typeArguments = new([]*valueTypeStmt)
+
+		// read (
+		tok, lit = p.scan()
+		if tok != Token_OpenParens {
+			if fieldType.primitive == Primitive_List {
+				return nil, p.raw(fmt.Sprintf("lists expect one type argument, given: %s", lit))
+			} else {
+				if fieldType.primitive == Primitive_Map {
+					return nil, p.raw(fmt.Sprintf("maps expect two type arguments, given: %s", lit))
 				}
 			}
+		}
 
-			typeName, ok := p.typeCollapseChecker[typeDef.Id]
-			if ok {
-				return nil, fmt.Errorf("type %s is redeclared in the same package (%s)", typeName, p.currentPackage.Name())
+		firstArgument, err := p.parseFieldType()
+		if err != nil {
+			return nil, err
+		}
+		(*fieldType.typeArguments) = append((*fieldType.typeArguments), firstArgument)
+
+		// if map, read next
+		if fieldType.primitive == Primitive_Map {
+			tok, lit = p.scan()
+			if tok != Token_Comma {
+				return nil, p.expectedError(Token_Comma, lit)
 			}
 
-			p.typeCollapseChecker[typeDef.Id] = typeDef.Name
+			secondArgument, err := p.parseFieldType()
+			if err != nil {
+				return nil, err
+			}
 
-			*fileDefinition.Types = append(*fileDefinition.Types, typeDef)
+			(*fieldType.typeArguments) = append((*fieldType.typeArguments), secondArgument)
+		}
+
+		// read close parens )
+		tok, lit = p.scan()
+		if tok != Token_CloseParens {
+			return nil, p.expectedError(Token_CloseParens, lit)
+		}
+	}
+
+	// maybe read "?" for nullable
+	tok, _ = p.scan()
+	if tok != Token_QuestionMark {
+		p.unscan()
+	} else {
+		fieldType.nullable = true
+	}
+
+	return fieldType, nil
+}
+
+func (p *Parser) parseList() (*listStmt, error) {
+	tok, lit := p.scan() // read [
+	if tok != Token_OpenBrackets {
+		return nil, p.expectedError(Token_OpenBrackets, lit)
+	}
+
+	l := new(listStmt)
+
+	added := false
+	for {
+		tok, _ = p.scan()
+		if tok == Token_CloseBrackets { // if we read ], then stop
+			break
+		}
+
+		// after a value, we expect a comma
+		if tok == Token_Comma && added {
+			added = false
 			continue
+		}
+
+		if added {
+			if tok == Token_Ident || tok == Token_String {
+				return nil, p.raw("list elements must be comma-separated")
+			} else {
+				return nil, p.raw(`lists must be closed with "]"`)
+			}
+		}
+
+		if tok == Token_Ident || tok == Token_String {
+			p.unscan()
+			identifier, err := p.parseValue()
+			if err != nil {
+				return nil, err
+			}
+
+			primitive := identifier.Primitive()
+			if primitive == Primitive_Map || primitive == Primitive_List {
+				return nil, p.raw("lists cannot contain nested lists or maps")
+			}
+
+			// add identifier to stmt
+			l.add(identifier.(*identifierStmt))
+			added = true
 		} else {
 			break
 		}
 	}
 
-	return fileDefinition, nil
+	return l, nil
 }
 
-func (p *Parser) readType(reader *Reader) (*TypeDefinition, error) {
-	token := reader.Current()
-
-	if !strings.HasPrefix(token, "type") {
-		return nil, nil
+func (p *Parser) parseMap() (*mapStmt, error) {
+	tok, lit := p.scan() // read [
+	if tok != Token_OpenBrackets {
+		return nil, p.expectedError(Token_OpenBrackets, lit)
 	}
 
-	token = token[:len(token)-1]
+	m := new(mapStmt)
 
-	tokens := make([]string, 0)
-	for _, t := range strings.Split(token, " ") {
-		if len(t) > 0 {
-			tokens = append(tokens, t)
-		}
-	}
-
-	tokensLen := len(tokens)
-	if tokensLen < 2 {
-		return nil, fmt.Errorf("invalid type declaration, expected two or more arguments, given: %s", token)
-	}
-
-	typeDef := &TypeDefinition{}
-	typeName := tokens[1]
-
-	// Check for a valid type name
-	matches := typeNameRegex.MatchString(typeName)
-	if !matches {
-		return nil, fmt.Errorf("the name must match the following regex: ^[a-zA-Z][a-zA-Z0-9]*$, given: %v", typeName)
-	}
-
-	typeDef.Name = strings.TrimSpace(typeName)
-
-	if tokensLen == 3 {
-		modifier := tokens[2]
-
-		// Check if modifier is valid
-		ok, modifierType := ParseTypeModifier(modifier)
-		if !ok {
-			return nil, fmt.Errorf("invalid type modifier, given: %s", modifier)
-		}
-
-		typeDef.Modifier = modifierType
-	} else {
-		typeDef.Modifier = Struct
-	}
-
-	// Read fields
-	fields, err := p.readFields(reader, typeDef.Modifier)
-	if err != nil {
-		if !errors.Is(err, ErrEndOfType) {
-			return nil, err
-		}
-	}
-
-	typeDef.Fields = fields
-
-	return typeDef, nil
-}
-
-func (p *Parser) readFields(reader *Reader, modifier TypeModifier) (interface{}, error) {
-	switch modifier {
-	case Struct, Union:
-		return p.readStructUnionFields(reader)
-
-	case Enum:
-		return p.readEnumFields(reader)
-
-	default:
-		return nil, fmt.Errorf("unimplemented field reader for type modifier %v", modifier)
-	}
-}
-
-func (p *Parser) readStructUnionFields(reader *Reader) ([]*StructTypeField, error) {
-	fields := make([]*StructTypeField, 0)
 	for {
-		token, err := reader.Next()
-		tokenLen := len(token)
+		tok, lit = p.scan()
+		if tok == Token_CloseBrackets { // if we read ], then stop
+			break
+		}
 
-		if err != nil {
-
-			// If end of file, return types
-			if errors.Is(err, io.EOF) {
-				return fields, nil
+		// after an entry, we expect a comma
+		if !m.isEmpty() {
+			if tok != Token_Comma {
+				return nil, p.raw("map entries must be comma-separated")
 			}
 
-			return nil, err
+			// consume
+			tok, lit = p.scan()
 		}
 
-		// If current token is empty, continue to the next line
-		if tokenLen == 0 {
-			continue
-		}
+		// read (, expect entry
+		if tok == Token_OpenParens {
 
-		// Check if end of type
-		if token[0] == '}' {
-			return fields, ErrEndOfType
-		}
+			entry := new(mapEntryStmt)
 
-		tokenizeResult, err := p.structFieldTokenizer.Tokenize(token)
-		if err != nil {
-			return nil, err
-		}
+			// read until we found )
+			for {
+				tok, _ = p.scan()
+				if tok == Token_CloseParens {
+					m.add(entry)
+					break
+				} else if tok == Token_Ident || tok == Token_String {
+					p.unscan()
+					identifier, err := p.parseValue()
+					if err != nil {
+						return nil, err
+					}
 
-		field, err := p.readStructField(tokenizeResult)
+					primitive := identifier.Primitive()
+					if primitive == Primitive_Map || primitive == Primitive_List {
+						return nil, p.raw("lists cannot contain nested lists or maps")
+					}
 
-		if err != nil {
-			return nil, err
-		}
+					if entry.key == nil {
+						entry.key = identifier.(*identifierStmt)
 
-		fields = append(fields, field)
-	}
-}
-
-func (p *Parser) readEnumFields(reader *Reader) ([]*EnumTypeField, error) {
-	fields := make([]*EnumTypeField, 0)
-	for {
-		token, err := reader.Next()
-		tokenLen := len(token)
-
-		if err != nil {
-
-			// If end of file, return types
-			if errors.Is(err, io.EOF) {
-				return fields, nil
+						// next must be colon
+						tok, _ = p.scan()
+						if tok != Token_Colon {
+							return nil, p.raw("key-value pair must be in the format key:value")
+						}
+					} else if entry.value == nil {
+						entry.value = identifier.(*identifierStmt)
+					} else {
+						return nil, p.raw("invalid map declaration")
+					}
+				} else {
+					return nil, p.raw("invalid map declaration")
+				}
 			}
-
-			return nil, err
-		}
-
-		// If current token is empty, continue to the next line
-		if tokenLen == 0 {
-			continue
-		}
-
-		// Check if end of type
-		if token[0] == '}' {
-			return fields, ErrEndOfType
-		}
-
-		tokens := strings.Split(token, " ")
-		if len(tokens) != 2 {
-			return nil, fmt.Errorf("invalid enum's value, given: %v", token)
-		}
-
-		valueName := tokens[0]
-		matches := typeNameRegex.MatchString(valueName)
-		if !matches {
-			return nil, fmt.Errorf("the name must match the following regex: ^[a-zA-Z][a-zA-Z0-9]*$, given: %v", valueName)
-		}
-
-		rawIndex := tokens[1]
-
-		// Parse index
-		index, err := strconv.ParseUint(rawIndex, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid enum's value index, expected a positive number, given: %v", rawIndex)
-		}
-
-		fields = append(fields, &EnumTypeField{
-			Name:  valueName,
-			Index: uint32(index),
-		})
-	}
-}
-
-func (p *Parser) readStructField(tokenizeResult *StructFieldTokenizerResult) (*StructTypeField, error) {
-	fieldBuilder := &StructTypeField{}
-
-	// First argument must be the name of the field
-	fieldBuilder.Name = tokenizeResult.FieldName
-	matches := typeNameRegex.MatchString(fieldBuilder.Name)
-	if !matches {
-		return nil, fmt.Errorf("the field's name must match the following regex: ^[a-zA-Z][a-zA-Z0-9]*$, given: %v", fieldBuilder.Name)
-	}
-
-	// Read field's type
-	rawFieldType := tokenizeResult.PrimitiveFieldTypeName
-	//fmt.Printf("field: %+v\n", rawFieldType)
-
-	packageHierarchy, fieldTypeName := p.readPackageHierarchy(rawFieldType)
-	if packageHierarchy != nil {
-		rawFieldType = fieldTypeName
-	}
-
-	// Read field type
-	primitive, nullable, typeArguments, err := p.readFieldType(rawFieldType, tokenizeResult.TypeArguments)
-	if err != nil {
-		return nil, err
-	}
-
-	resolveImport := make([]string, 0)
-	resolveImport = append(resolveImport, packageHierarchy...)
-	resolveImport = append(resolveImport, fieldTypeName)
-
-	fieldBuilder.Type = FieldTypeValue{
-		Primitive:        primitive,
-		Nullable:         nullable,
-		TypeArguments:    typeArguments,
-		PackageHierarchy: packageHierarchy,
-		ResolveImport:    strings.Join(resolveImport, "."),
-	}
-
-	if primitive == Custom {
-		fieldBuilder.Type.TypeName = rawFieldType
-	}
-
-	// Read field index
-	rawFieldIndex := tokenizeResult.FieldIndex
-	fieldIndex, err := strconv.ParseUint(rawFieldIndex, 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse field index, invalid number, given: %s", rawFieldIndex)
-	}
-	fieldBuilder.Index = uint32(fieldIndex)
-
-	if len(tokenizeResult.DefaultValue) > 0 {
-		defaultValue, err := p.readDefaultValue(tokenizeResult.DefaultValue)
-		if err != nil {
-			return nil, err
-		}
-
-		fieldBuilder.DefaultValue = defaultValue
-	}
-
-	if len(tokenizeResult.Metadata) > 0 {
-		metadata, err := p.readMetadata(tokenizeResult.Metadata)
-		if err != nil {
-			return nil, err
-		}
-
-		fieldBuilder.Metadata = metadata
-	}
-
-	return fieldBuilder, nil
-}
-
-func (p *Parser) readPackageHierarchy(rawFieldType string) (packageHierarchy []string, typeName string) {
-	tokens := strings.Split(rawFieldType, ".")
-	tokensLen := len(tokens)
-	if tokensLen > 1 {
-		return tokens[:tokensLen-1], tokens[tokensLen-1]
-	}
-
-	return nil, tokens[0]
-}
-
-func (p *Parser) readFieldType(rawFieldType string, typeParams []string) (primitive FieldTypePrimitive, nullable bool, typeArgs []FieldTypeValue, err error) {
-
-	valid, primitive, nullable := ParseFieldType(rawFieldType)
-	if !valid {
-		return Custom, nullable, nil, nil
-	}
-
-	// now read type arguments
-	var typeArguments []FieldTypeValue
-	if len(typeParams) > 0 {
-		paramsLen := len(typeParams)
-
-		isList := paramsLen == 1
-
-		if isList {
-			argName := typeParams[0]
-			packageHierarchy, argumentName := p.readPackageHierarchy(argName)
-
-			primitive, nullable, _, err := p.readFieldType(argumentName, nil)
-			if err != nil {
-				return UnknownFieldType, false, nil, err
-			}
-
-			typeArguments = append(typeArguments, FieldTypeValue{
-				Primitive:        primitive,
-				TypeArguments:    nil,
-				Nullable:         nullable,
-				PackageHierarchy: packageHierarchy,
-				ResolveImport:    argName,
-			})
-
 		} else {
-			keyArgName := typeParams[0]
-			valueArgName := typeParams[1]
-
-			// Parse key type
-			keyType, nullable, typeArgs, err := p.readFieldType(keyArgName, nil)
-
-			if err != nil {
-				return UnknownFieldType, false, nil, err
-			}
-
-			// Check if a valid key type
-			switch keyType {
-			case String, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float32, Float64:
-				break
-
-			default:
-				return UnknownFieldType, false, nil, fmt.Errorf("a map key only can be of type string, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, float128")
-			}
-
-			if nullable {
-				return UnknownFieldType, false, nil, fmt.Errorf("a map key cannot be nullable")
-			}
-
-			if typeArgs != nil {
-				return UnknownFieldType, false, nil, fmt.Errorf("a map key cannot have type arguments")
-			}
-
-			// Parse value type
-			valueTypePackageHierarchy, valueArgumentName := p.readPackageHierarchy(valueArgName)
-
-			valueType, nullable, typeArgs, err := p.readFieldType(valueArgumentName, nil)
-
-			if err != nil {
-				return UnknownFieldType, false, nil, err
-			}
-
-			if typeArgs != nil {
-				return UnknownFieldType, false, nil, fmt.Errorf("a map value cannot have type arguments")
-			}
-
-			typeArguments = append(typeArguments, FieldTypeValue{
-				Primitive:        keyType,
-				TypeArguments:    nil,
-				Nullable:         false,
-				PackageHierarchy: nil,
-			})
-
-			typeArguments = append(typeArguments, FieldTypeValue{
-				Primitive:        valueType,
-				TypeArguments:    nil,
-				Nullable:         nullable,
-				PackageHierarchy: valueTypePackageHierarchy,
-				ResolveImport:    valueArgName,
-			})
-
+			return nil, p.expectedError(Token_OpenParens, lit)
 		}
 	}
 
-	return primitive, nullable, typeArguments, nil
+	return m, nil
 }
 
-func (p *Parser) readMetadata(rawMetadata string) (map[string]interface{}, error) {
+func (p *Parser) parseValue() (baseIdentifierStmt, error) {
+	tok, lit := p.scan()
 
-	if rawMetadata[0] != '[' {
-		return nil, fmt.Errorf("expected [ for declaring metadata, given: %s", string(rawMetadata[1]))
-	}
-
-	if rawMetadata[len(rawMetadata)-1] != ']' {
-		return nil, fmt.Errorf("expected ] for closing metadata map, given: %v", rawMetadata)
-	}
-
-	// Skip the []
-	rawMetadata = rawMetadata[1 : len(rawMetadata)-1]
-
-	// Split values
-	rawMetadataValues := strings.Split(rawMetadata, ",")
-	if len(rawMetadataValues) == 0 {
-		return nil, errors.New("if you are going to declare a metadata value, you must include at least one value")
-	}
-
-	metadata := make(map[string]interface{})
-	for _, rawMetadataValue := range rawMetadataValues {
-		rawMetadataValue = strings.TrimSpace(rawMetadataValue)
-
-		if rawMetadataValue[0] != '(' {
-			return nil, fmt.Errorf("metadata value must contain the open params at the beginning, given: %v", rawMetadataValue)
+	// maybe a string
+	if tok == Token_String {
+		if len(lit) <= 0 {
+			return nil, p.raw("invalid string format")
 		}
 
-		if rawMetadataValue[len(rawMetadataValue)-1] != ')' {
-			return nil, fmt.Errorf("metadata value must contain the closing params at the end, given: %v", rawMetadataValue)
+		if lit[len(lit)-1] != '"' {
+			return nil, p.raw(`strings must end with quotes (")`)
 		}
 
-		// Parse map
-		mapValue, parsedType, err := p.valueParser.ParseString(rawMetadataValue)
+		return &identifierStmt{
+			value:     lit[1 : len(lit)-1],
+			valueType: &valueTypeStmt{primitive: Primitive_String},
+		}, nil
+	} else if tok == Token_Ident {
+		// check if input can be parsed into an int
+		var value interface{}
+		var primitive Primitive
+		var err error
+		value, err = strconv.ParseInt(lit, 10, 64)
+
 		if err != nil {
-			return nil, err
+			// its not an int, try with float
+			value, err = strconv.ParseFloat(lit, 64)
+			if err != nil {
+				// its not a float, try with bool
+				value, err = strconv.ParseBool(lit)
+				if err != nil {
+					// if not a bool, try with null
+					primitive = primitiveMapping[lit]
+					if primitive == Primitive_Null {
+						value = nil
+					} else {
+						// try to parse a custom enum value
+						p.unscan()
+						stmt, err := p.parseCustomTypeValue()
+						if err != nil {
+							return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
+						}
+
+						return stmt, nil
+					}
+				} else {
+					primitive = Primitive_Bool
+				}
+			} else {
+				primitive = Primitive_Float64
+			}
+		} else {
+			primitive = Primitive_Int64
 		}
 
-		if parsedType != Map {
-			return nil, errors.New("metadata values must be of type map(string,string|int|boolean)")
-		}
+		return &identifierStmt{
+			value: value,
+			valueType: &valueTypeStmt{
+				primitive: primitive,
+			},
+		}, nil
+	} else if tok == Token_OpenBrackets { // for list or map
+		//p.unscanBuf()
+		p.unscan()
 
-		mapR := reflect.TypeOf(mapValue)
-		mapKeyR := mapR.Key()
-		mapValueR := mapR.Elem()
+		// if next token is (, then is a map
+		tok, _ = p.peek()
+		if tok == Token_OpenParens {
+			m, err := p.parseMap()
+			if err != nil {
+				return nil, err
+			}
 
-		if mapKeyR.Kind() != reflect.String {
-			return nil, errors.New("metadata keys cannot be of another type than string")
-		}
+			return m, nil
+		} else {
 
-		mapValueRKind := mapValueR.Kind()
-		switch mapValueRKind {
-		case reflect.String, reflect.Int, reflect.Uint, reflect.Bool:
-		default:
-			return nil, errors.New("metadata values cannot have other type than string, int or boolean")
+			l, err := p.parseList()
+			if err != nil {
+				return nil, err
+			}
+
+			return l, nil
 		}
+	} else {
+		return nil, p.expectedRawError("primitive", lit)
 	}
-
-	return metadata, nil
 }
 
-func (p *Parser) readDefaultValue(rawDefaultValue string) (interface{}, error) {
-	v, _, err := p.valueParser.ParseString(rawDefaultValue)
-	return v, err
+func (p *Parser) parseCustomTypeValue() (*customTypeIdentifierStmt, error) {
+	tok, lit := p.scan()
+	if tok != Token_Ident {
+		return nil, p.expectedError(Token_Ident, lit)
+	}
+
+	// custom type values only allows enums, so its format becomes alias.enumName.value
+	// alias is optional, so for now we only split lit
+	toks := strings.Split(lit, ".")
+	if len(toks) < 2 || len(toks) > 3 { // at least two, enumName and value and no more than 3: alias, name and value
+		return nil, p.expectedRawError("enum name and value", lit)
+	}
+
+	var enumIdentifier, value string
+
+	if len(toks) == 3 {
+		enumIdentifier = toks[0] + "." + toks[1]
+		value = toks[2]
+	} else {
+		enumIdentifier = toks[0]
+		value = toks[1]
+	}
+
+	return &customTypeIdentifierStmt{
+		customTypeName: enumIdentifier,
+		value:          value,
+	}, nil
+}
+
+func (p *Parser) parseComment() (*commentStmt, error) {
+	backlashCount := 0
+	multine := false
+	commentStarted := false
+	commentType := singleline
+
+	sb := new(strings.Builder)
+	for {
+		tok, lit := p.scan(true)
+		if tok == Token_EOF {
+			if !commentStarted {
+				return nil, p.raw("comments must start with double // or with /* for multine comments")
+			} else if commentStarted && multine {
+				return nil, p.raw("multine comments must be closed with */")
+			} else {
+				return &commentStmt{
+					text:        sb.String(),
+					commentType: commentType,
+				}, nil
+			}
+		} else if tok == Token_Backslash {
+			// if last token was a / too, add to backlash count
+			// in order to determine the type of comment
+			if !commentStarted {
+				backlashCount++
+
+				continue
+			}
+		} else if tok == Token_Asterisk {
+			tok, lit = p.scan() // if next tok is /, its closing the comment
+			if tok == Token_Backslash {
+				if multine {
+					return &commentStmt{
+						text:        sb.String(),
+						commentType: commentType,
+					}, nil
+				}
+			} else {
+				p.unscan()
+				if backlashCount > 0 {
+					// start the comment
+					multine = true
+					commentStarted = true
+					commentType = multiline
+					continue
+				}
+			}
+		} else if tok == Token_Newline {
+			if multine {
+				sb.WriteString(lit)
+				continue
+			} else {
+				return &commentStmt{
+					text:        sb.String(),
+					commentType: commentType,
+				}, nil
+			}
+		}
+
+		sb.WriteString(lit)
+
+		if !commentStarted && backlashCount > 1 {
+			commentStarted = true
+		}
+	}
 }
