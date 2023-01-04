@@ -1,21 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
+	"bufio"
+	"os"
 
 	"tomasweigenast.com/schema_interpreter/internal"
 )
 
 func main() {
-	input := `
-	@metadata
-	type MyName struct {}`
-	parser := internal.NewParser(bytes.NewBufferString(input))
-	ast, err := parser.Parse()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	_ = ast
+	f, _ := os.OpenFile("test", os.O_RDONLY, os.ModePerm)
+	internal.NewTokenizer(bufio.NewReader(f))
 }
