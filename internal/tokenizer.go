@@ -14,7 +14,7 @@ type Tokenizer struct {
 	reader *bufio.Reader
 	pos    Position // current reader position
 	ch     rune     // current character
-
+	lit    string   // string representation of ch for debugging
 }
 
 type Position struct {
@@ -40,12 +40,15 @@ func (p Position) String() string {
 func NewTokenizer(r *bufio.Reader) *Tokenizer {
 	return &Tokenizer{
 		reader: r,
-		pos:    Position{offset: 0, line: 1},
+		pos:    Position{offset: -1, line: 1},
 	}
 }
 
 // Scan scans the next token and returns it, with its literal representation
 func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
+	// advance one position
+	t.scan()
+
 	// scan skipping whitespaces
 	t.skipWhitespace()
 	pos = t.pos
@@ -71,6 +74,7 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 			tok, lit = Token_Whitespace, "\n"
 
 		case '"':
+			t.unscan()
 			tok = Token_String
 			lit, err = t.scanString()
 
@@ -112,6 +116,7 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 
 		case '/':
 			if t.ch == '/' || t.ch == '*' { // the next read char (// and /*)
+				t.unscan()
 				lit, err = t.scanComment()
 				if err != nil {
 					return
@@ -140,17 +145,25 @@ func (t *Tokenizer) scan() error {
 		return err
 	}
 
+	t.pos.offset++
 	switch ch {
 	case '\n':
 		t.pos.line++
+		t.pos.offset = 0
 
 	case 0:
 		return t.err("non valid character NULL terminator")
 	}
 
 	t.ch = ch
-	t.pos.offset++
+	t.lit = string(ch)
 	return nil
+}
+
+// goes back 1 position in the reader
+func (t *Tokenizer) unscan() {
+	t.reader.UnreadRune()
+	t.pos.offset--
 }
 
 // peek returns the next rune after t.pos.offset without advancing
@@ -211,6 +224,10 @@ func (t *Tokenizer) scanNumber() (tok Token, lit string, err error) {
 
 	// push the current ch into the buffer
 	buf.WriteRune(t.ch)
+
+	if t.ch == '.' {
+		tok = Token_Float
+	}
 
 	for {
 		err := t.scan()
