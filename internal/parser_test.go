@@ -273,3 +273,35 @@ func TestParseValue(t *testing.T) {
 		})
 	}
 }
+
+func TestParse(t *testing.T) {
+	var tests = []struct {
+		name   string
+		input  string
+		expect *Ast
+		err    error
+	}{
+		{
+			name: "parse imports",
+			input: `
+			import:
+				"my_file.nex"
+				"another.nex" as another`,
+			expect: &Ast{
+				imports: &[]*ImportStmt{
+					{path: &IdentifierStmt{lit: "my_file.nex"}},
+					{path: &IdentifierStmt{lit: "another.nex"}, alias: &IdentifierStmt{lit: "another"}},
+				},
+			},
+			err: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			ast, err := parser.Parse()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, ast)
+		})
+	}
+}

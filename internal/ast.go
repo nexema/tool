@@ -1,7 +1,9 @@
 package internal
 
 // Ast represents the abstract syntax tree of a Nexema file
-type Ast struct{}
+type Ast struct {
+	imports *[]*ImportStmt
+}
 
 // Comment represents a comment read on a file
 type CommentStmt struct {

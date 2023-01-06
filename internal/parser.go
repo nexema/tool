@@ -38,9 +38,9 @@ func (p *Parser) Parse() (*Ast, error) {
 	p.next() // read initial token
 
 	// scan any import
-	if p.tok == Token_Import && p.nextIs(Token_Colon) {
+	if p.tok == Token_Import && p.nextIs(Token_Colon, false) {
 		// comeback one pos to get into :
-		p.undo()
+		p.undo(len(importKeyword))
 		err := p.parseImportGroup()
 		if err != nil {
 			return nil, err
@@ -58,9 +58,12 @@ func (p *Parser) Parse() (*Ast, error) {
 		p.next()
 	}
 
-	return &Ast{}, nil
+	return &Ast{
+		imports: p.imports,
+	}, nil
 }
 
+// parseImportGroup parses a expression in the form import:\n "import1"\n "import2"
 func (p *Parser) parseImportGroup() error {
 	err := p.requireSeq(Token_Import, Token_Colon)
 	if err != nil {
@@ -369,16 +372,28 @@ func (p *Parser) next() error {
 }
 
 // nextIs advances one token and returns true if its equal to tok
-func (p *Parser) nextIs(tok Token) bool {
+func (p *Parser) nextIs(tok Token, advance ...bool) bool {
+	advanceB := true
+	if len(advance) == 1 {
+		advanceB = advance[0]
+	}
+
 	p.next()
-	defer p.next()
+	if advanceB {
+		defer p.next()
+	}
 	return p.tok == tok
 }
 
 // undo unscans a token
-func (p *Parser) undo() {
+func (p *Parser) undo(n ...int) {
+	length := 2
+	if len(n) == 1 {
+		length = n[0] + 1
+	}
+
 	// unscan 2 because if we unscan 1 when we "next", it will stay in the same token
-	p.tokenizer.unscan(2)
+	p.tokenizer.unscan(length)
 	p.next()
 }
 
@@ -493,7 +508,7 @@ func (p *Parser) expectedGiven(txt string) error {
 func (p *Parser) stringToValue() (primitive Primitive, value interface{}) {
 	lit := p.lit
 
-	if lit == null {
+	if lit == nullKeyword {
 		return Primitive_Null, nil
 	}
 

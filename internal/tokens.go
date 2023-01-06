@@ -72,7 +72,8 @@ const (
 	Primitive_Null
 )
 
-const null = "null"
+const nullKeyword = "null"
+const importKeyword = "import"
 
 var tokenMapping map[Token]string = map[Token]string{
 	Token_EOF:      "eof",
