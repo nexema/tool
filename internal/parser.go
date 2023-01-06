@@ -718,10 +718,6 @@ func (p *Parser) expectedErr(tok Token) error {
 	return fmt.Errorf("%s -> expected %q, given %q (%s)", p.pos.String(), tok.String(), p.tok.String(), p.lit)
 }
 
-func (p *Parser) err(txt string) error {
-	return fmt.Errorf("%s -> %s", p.pos.String(), txt)
-}
-
 func (p *Parser) expectedGiven(txt string) error {
 	return fmt.Errorf("%s -> expected %s, given %q", p.pos.String(), txt, p.lit)
 }
