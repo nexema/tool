@@ -262,6 +262,8 @@ func (p *Parser) parseValue() (ValueStmt, error) {
 				value:    enumValue,
 			}, nil
 		} else {
+			p.undo()
+
 			// alias becomes the name, and lit the value
 			return &TypeValueStmt{
 				typeName: &IdentifierStmt{lit: enumName.alias},
@@ -309,6 +311,7 @@ func (p *Parser) nextIs(tok Token) bool {
 	return p.tok == tok
 }
 
+// undo unscans a token
 func (p *Parser) undo() {
 	// unscan 2 because if we unscan 1 when we "next", it will stay in the same token
 	p.tokenizer.unscan(2)
@@ -420,7 +423,7 @@ func (p *Parser) err(txt string) error {
 }
 
 func (p *Parser) expectedGiven(txt string) error {
-	return fmt.Errorf("%s -> %s, given %q", p.pos.String(), txt, p.lit)
+	return fmt.Errorf("%s -> expected %s, given %q", p.pos.String(), txt, p.lit)
 }
 
 func (p *Parser) stringToValue() (primitive Primitive, value interface{}) {
