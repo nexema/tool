@@ -8,6 +8,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestScanPosition(t *testing.T) {
+	content := "1232"
+	tokenizer := NewTokenizer(bytes.NewBufferString(content))
+	pos, _, _, _ := tokenizer.Scan()
+	require.Equal(t, 0, pos.offset)
+
+	content = `h
+o`
+
+	tokenizer = NewTokenizer(bytes.NewBufferString(content))
+	pos, _, lit, _ := tokenizer.Scan()
+	require.Equal(t, 0, pos.offset)
+	require.Equal(t, "h", lit)
+
+	pos, _, lit, _ = tokenizer.Scan()
+	require.Equal(t, 0, pos.offset)
+	require.Equal(t, 2, pos.line)
+	require.Equal(t, "o", lit)
+	require.Equal(t, 1, tokenizer.pos.offset)
+	require.Equal(t, eof, tokenizer.ch)
+}
+
 func TestNext(t *testing.T) {
 	content := "content"
 	tokenizer := NewTokenizer(bytes.NewBufferString(content))
@@ -170,7 +192,7 @@ func TestScanString(t *testing.T) {
 		},
 		{
 			input: `"string`,
-			err:   errors.New("1:6 -> string literal expects to be closed with the \" character"),
+			err:   errors.New("1:7 -> string literal expects to be closed with the \" character"),
 		},
 		{
 			input:  `"it accepts any character @|¢∞¬÷ int keyword, struct. :"`,
@@ -226,7 +248,7 @@ func TestScanComment(t *testing.T) {
 		},
 		{
 			input: `/* oops i missed the end`,
-			err:   errors.New("1:23 -> comment not terminated"),
+			err:   errors.New("1:24 -> comment not terminated"),
 		},
 	}
 	for _, tt := range tests {

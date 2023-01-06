@@ -115,15 +115,15 @@ func TestParseList(t *testing.T) {
 		err    error
 	}{
 		{
-			input: `["my string", true]`,
-			// input: `["my string", true, false, null, 128]`,
+			// input: `["my string", true, 128]`,
+			input: `["my string", true, false, null, 128, 12.4]`,
 			expect: &ListStmt{
 				&PrimitiveValueStmt{value: "my string", kind: Primitive_String},
 				&PrimitiveValueStmt{value: true, kind: Primitive_Bool},
 				&PrimitiveValueStmt{value: false, kind: Primitive_Bool},
 				&PrimitiveValueStmt{value: nil, kind: Primitive_Null},
-				&PrimitiveValueStmt{value: 128, kind: Primitive_Int64},
-				&PrimitiveValueStmt{value: 12.4, kind: Primitive_Float64},
+				&PrimitiveValueStmt{value: int64(128), kind: Primitive_Int64},
+				&PrimitiveValueStmt{value: float64(12.4), kind: Primitive_Float64},
 			},
 			err: nil,
 		},

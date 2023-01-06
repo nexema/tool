@@ -142,7 +142,8 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 // into t.ch
 func (t *Tokenizer) scan() error {
 	t.r++
-	if t.r == t.bufSize {
+	t.pos.offset++
+	if t.r >= t.bufSize {
 		t.ch = eof
 		return io.EOF
 	}
@@ -157,10 +158,18 @@ func (t *Tokenizer) unscan(n ...int) {
 		pos = n[0]
 	}
 
-	for i := 0; i < pos; i++ {
-		t.r--
-		t.processCurrent()
+	t.r -= pos
+	if t.r < 0 {
+		t.r = 0
 	}
+
+	t.pos.offset -= pos
+	if t.pos.offset < 0 {
+		t.pos.line--
+		t.pos.offset = 0
+	}
+
+	t.processCurrent()
 }
 
 // processCurrent processes the current rune at t.r
@@ -174,13 +183,13 @@ func (t *Tokenizer) processCurrent() error {
 		ch, offset = utf8.DecodeRune(t.buf[t.r:])
 	}
 
-	t.r += offset - 1
-	t.pos.offset += offset
+	t.r += offset - 1 // subtract 1 because its the position of the current token
+	t.pos.offset += offset - 1
 
 	switch ch {
 	case '\n':
 		t.pos.line++
-		t.pos.offset = 0
+		t.pos.offset = -1
 
 	case 0:
 		return t.err("non valid character NULL terminator")
@@ -285,6 +294,7 @@ func (t *Tokenizer) scanNumber() (tok Token, lit string, err error) {
 			buf.WriteRune('.')
 			continue
 		} else {
+			t.unscan()
 			break
 		}
 
