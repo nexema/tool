@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -11,10 +10,12 @@ import (
 )
 
 type Tokenizer struct {
-	reader *bufio.Reader
-	pos    Position // current reader position
-	ch     rune     // current character
-	lit    string   // string representation of ch for debugging
+	buf     []byte
+	r       int      // position of the current ch
+	bufSize int      // the buf's length
+	pos     Position // current reader position
+	ch      rune     // current character
+	lit     string   // string representation of ch for debugging
 }
 
 type Position struct {
@@ -24,7 +25,10 @@ type Position struct {
 }
 
 const (
-	eof rune = -1
+	bom     rune = 0xFEFF // byte order mark, only permitted as very first character
+	zero    rune = 0
+	eof     rune = -1
+	invalid rune = -2
 )
 
 // String returns the string representation of a Position
@@ -37,10 +41,13 @@ func (p Position) String() string {
 	return fmt.Sprintf("%d:%d", p.line, p.offset)
 }
 
-func NewTokenizer(r *bufio.Reader) *Tokenizer {
+func NewTokenizer(buf *bytes.Buffer) *Tokenizer {
 	return &Tokenizer{
-		reader: r,
-		pos:    Position{offset: -1, line: 1},
+		buf:     buf.Bytes(),
+		bufSize: buf.Len(),
+		r:       -1,
+		pos:     Position{offset: -1, line: 1},
+		ch:      invalid,
 	}
 }
 
@@ -65,7 +72,7 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 		tok, lit, err = t.scanNumber()
 
 	default:
-		t.scan() // scan
+		// t.scan() // scan
 		switch ch {
 		case eof:
 			tok = Token_EOF
@@ -74,7 +81,6 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 			tok, lit = Token_Whitespace, "\n"
 
 		case '"':
-			t.unscan()
 			tok = Token_String
 			lit, err = t.scanString()
 
@@ -116,7 +122,6 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 
 		case '/':
 			if t.ch == '/' || t.ch == '*' { // the next read char (// and /*)
-				t.unscan()
 				lit, err = t.scanComment()
 				if err != nil {
 					return
@@ -136,16 +141,42 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 // scan moves the reader one position and sets the corresponding
 // into t.ch
 func (t *Tokenizer) scan() error {
-	ch, _, err := t.reader.ReadRune()
-	if err != nil {
-		if err == io.EOF {
-			t.ch = eof
-		}
-
-		return err
+	t.r++
+	if t.r == t.bufSize {
+		t.ch = eof
+		return io.EOF
 	}
 
-	t.pos.offset++
+	return t.processCurrent()
+}
+
+// unscan goes back n positions in the reader
+func (t *Tokenizer) unscan(n ...int) {
+	pos := 1
+	if len(n) == 1 {
+		pos = n[0]
+	}
+
+	for i := 0; i < pos; i++ {
+		t.r--
+		t.processCurrent()
+	}
+}
+
+// processCurrent processes the current rune at t.r
+func (t *Tokenizer) processCurrent() error {
+	if t.r >= t.bufSize {
+		return nil
+	}
+
+	ch, offset := rune(t.buf[t.r]), 1
+	if ch >= utf8.RuneSelf {
+		ch, offset = utf8.DecodeRune(t.buf[t.r:])
+	}
+
+	t.r += offset - 1
+	t.pos.offset += offset
+
 	switch ch {
 	case '\n':
 		t.pos.line++
@@ -160,26 +191,32 @@ func (t *Tokenizer) scan() error {
 	return nil
 }
 
-// goes back 1 position in the reader
-func (t *Tokenizer) unscan() {
-	t.reader.UnreadRune()
-	t.pos.offset--
-}
-
 // peek returns the next rune after t.pos.offset without advancing
 // the scanner
 func (t *Tokenizer) peek() rune {
-	buf, err := t.reader.Peek(1)
-	if err != nil {
+	offset := t.r + 1
+	if offset >= t.bufSize {
 		return eof
 	}
 
-	return rune(buf[0])
+	return rune(t.buf[offset])
 }
 
-// consume advances the scanner n positions
+// consume advances the scanner n positions.
+// if the new position is outside t.bufSize, the scanner is set to the
+// last valid position (not eof)
 func (t *Tokenizer) consume(n int) {
-	t.reader.Discard(n)
+	if t.r == -1 {
+		t.r = 0
+	}
+
+	offset := t.r + n
+	if offset >= t.bufSize {
+		offset = t.bufSize - 1
+	}
+
+	t.r = offset
+	t.processCurrent()
 }
 
 // err reports an error in the current line and column
@@ -210,6 +247,7 @@ func (t *Tokenizer) scanIdentifier() (string, error) {
 		if isLetter(t.ch) || isDigit(t.ch) {
 			buf.WriteRune(t.ch)
 		} else {
+			t.unscan()
 			break
 		}
 	}
@@ -257,7 +295,7 @@ func (t *Tokenizer) scanNumber() (tok Token, lit string, err error) {
 
 // skipWhitespace scan tokens skipping any whitespace character
 func (t *Tokenizer) skipWhitespace() error {
-	for t.ch == ' ' || t.ch == '\t' || t.ch == '\n' || t.ch == '\r' {
+	for isWhitespace(t.ch) {
 		err := t.scan()
 		if err != nil && err != io.EOF {
 			return err
@@ -356,4 +394,8 @@ func lower(ch rune) rune {
 // isDecimal returns true if ch is between 0 and 9
 func isDecimal(ch rune) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+func isWhitespace(ch rune) bool {
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }

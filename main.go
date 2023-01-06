@@ -1,8 +1,15 @@
 package main
 
-func main() {
-	// f, _ := os.OpenFile("test", os.O_RDONLY, os.ModePerm)
-	// internal.NewTokenizer(bufio.NewReader(f))
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+)
 
-	println("\\n")
+func main() {
+	reader := bufio.NewReader(bytes.NewBufferString("¢∞¬÷"))
+	ch, size, err := reader.ReadRune()
+	fmt.Printf("Character: %c\n", ch)
+	fmt.Printf("Size: %d\n", size)
+	fmt.Printf("Error: %s\n", err)
 }

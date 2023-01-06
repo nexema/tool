@@ -5,6 +5,7 @@ import (
 )
 
 type Token int8
+type Primitive int8
 
 const (
 	Token_Illegal Token = iota
@@ -38,12 +39,40 @@ const (
 
 	// Keywords
 	keywords_beg
-	Token_Type   // type
+	Token_Type // type
+
+	modifiers_beg
 	Token_Struct // struct
 	Token_Enum   // enum
 	Token_Union  // union
+	modifiers_end
+	Token_Import // import
+	Token_As
 	keywords_end
 )
+
+const (
+	Primitive_Illegal Primitive = iota
+	Primitive_Uint8
+	Primitive_Uint16
+	Primitive_Uint32
+	Primitive_Uint64
+	Primitive_Int8
+	Primitive_Int16
+	Primitive_Int32
+	Primitive_Int64
+	Primitive_Float32
+	Primitive_Float64
+	Primitive_String
+	Primitive_Bool
+	Primitive_Binary
+	Primitive_Map
+	Primitive_List
+	Primitive_Type
+	Primitive_Null
+)
+
+const null = "null"
 
 var tokenMapping map[Token]string = map[Token]string{
 	Token_EOF:      "eof",
@@ -69,15 +98,42 @@ var tokenMapping map[Token]string = map[Token]string{
 	Token_Union:    "union",
 	Token_Enum:     "enum",
 	Token_Type:     "type",
+	Token_Import:   "import",
+	Token_As:       "as",
+}
+
+var primitiveMapping map[Primitive]string = map[Primitive]string{
+	Primitive_Uint8:   "uint8",
+	Primitive_Uint16:  "uint16",
+	Primitive_Uint32:  "uint32",
+	Primitive_Uint64:  "uint64",
+	Primitive_Int8:    "int8",
+	Primitive_Int16:   "int16",
+	Primitive_Int32:   "int32",
+	Primitive_Int64:   "int64",
+	Primitive_String:  "string",
+	Primitive_Binary:  "binary",
+	Primitive_Bool:    "bool",
+	Primitive_List:    "list",
+	Primitive_Map:     "map",
+	Primitive_Float32: "float32",
+	Primitive_Float64: "float64",
+	Primitive_Type:    "type",
 }
 
 var keywords map[string]Token
+var primitives map[string]Primitive
 var identifierRegex = regexp.MustCompile(`[A-Za-z_][A-Za-z_0-9]*`)
 
 func init() {
 	keywords = make(map[string]Token, keywords_end-(keywords_beg+1))
 	for i := keywords_beg + 1; i < keywords_end; i++ {
 		keywords[tokenMapping[i]] = i
+	}
+
+	primitives = make(map[string]Primitive)
+	for primitive, name := range primitiveMapping {
+		primitives[name] = primitive
 	}
 }
 
@@ -114,6 +170,10 @@ func IsKeyword(s string) bool {
 	return ok
 }
 
+func (tok Token) IsModifier() bool {
+	return modifiers_beg < tok && tok > modifiers_end
+}
+
 // IsIdentifier returns a boolean indicating if the current string is an identifier, that is, a string with
 // matches the following regex: [A-Za-z_][A-Za-z_0-9]* and is not a keyword
 func IsIdentifier(i string) bool {
@@ -122,4 +182,9 @@ func IsIdentifier(i string) bool {
 	}
 
 	return identifierRegex.MatchString(i)
+}
+
+func IsPrimitive(i string) bool {
+	_, ok := primitives[i]
+	return ok
 }

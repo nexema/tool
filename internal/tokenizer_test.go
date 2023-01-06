@@ -1,13 +1,52 @@
 package internal
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestNext(t *testing.T) {
+	content := "content"
+	tokenizer := NewTokenizer(bytes.NewBufferString(content))
+	tokenizer.scan()
+	require.Equal(t, 'c', tokenizer.ch)
+
+	for i := 1; i < 7; i++ {
+		tokenizer.scan()
+		require.Equal(t, rune(content[i]), rune(tokenizer.ch))
+	}
+
+	tokenizer.scan()
+	require.Equal(t, eof, tokenizer.ch)
+
+	tokenizer.unscan(2)
+	require.Equal(t, 'n', tokenizer.ch)
+
+	tokenizer.unscan(1)
+	require.Equal(t, 'e', tokenizer.ch)
+
+	tokenizer.consume(3)
+	require.Equal(t, 't', tokenizer.ch)
+
+	tokenizer.scan()
+	require.Equal(t, eof, tokenizer.ch)
+
+	content = `contains
+	newlines`
+	tokenizer = NewTokenizer(bytes.NewBufferString(content))
+	tokenizer.consume(8)
+	require.Equal(t, '\n', tokenizer.ch)
+
+	tokenizer.ch = invalid
+	tokenizer.r = -1
+	for i := 0; i < len(content); i++ {
+		tokenizer.scan()
+		require.Equal(t, rune(content[i]), rune(tokenizer.ch))
+	}
+}
 
 func TestScanIdentifier(t *testing.T) {
 	var tests = []struct {
@@ -30,7 +69,7 @@ func TestScanIdentifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			tokenizer := NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
+			tokenizer := NewTokenizer(bytes.NewBufferString(tt.input))
 			err := tokenizer.scan()
 			require.Nil(t, err)
 
@@ -102,7 +141,7 @@ func TestScanNumber(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			tokenizer := NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
+			tokenizer := NewTokenizer(bytes.NewBufferString(tt.input))
 			err := tokenizer.scan()
 			require.Nil(t, err)
 			tok, lit, err := tokenizer.scanNumber()
@@ -148,7 +187,7 @@ func TestScanString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			tokenizer := NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
+			tokenizer := NewTokenizer(bytes.NewBufferString(tt.input))
 			err := tokenizer.scan() // scan "
 			require.Nil(t, err)
 
@@ -192,7 +231,7 @@ func TestScanComment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			tokenizer := NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
+			tokenizer := NewTokenizer(bytes.NewBufferString(tt.input))
 			err := tokenizer.scan() // scan /
 			require.Nil(t, err)
 
@@ -342,10 +381,16 @@ func TestScan(t *testing.T) {
 			expectTok: Token_Union,
 			err:       nil,
 		},
+		{
+			input:     `import`,
+			expect:    "import",
+			expectTok: Token_Import,
+			err:       nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			tokenizer := NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
+			tokenizer := NewTokenizer(bytes.NewBufferString(tt.input))
 
 			_, tok, lit, err := tokenizer.Scan()
 			require.Equal(t, tt.err, err)
