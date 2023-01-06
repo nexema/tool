@@ -179,6 +179,49 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 	return stmt, nil
 }
 
+// parseEnumField parses a FieldStmt but using Enum's syntax.
+// Enum's fields uses the same signature as Struct or Union's fields but
+// type is not allowed nor default value
+func (p *Parser) parseEnumField() (*FieldStmt, error) {
+	stmt := new(FieldStmt)
+
+	// maybe read field index
+	if p.tok == Token_Int {
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.index = value
+		p.next()
+	}
+
+	// field's name
+	if p.tok == Token_Ident {
+		value, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.name = value
+	} else {
+		return nil, p.expectedErr(Token_Ident)
+	}
+
+	if p.tok == Token_At { // metadata
+		p.next()
+		value, err := p.parseMap()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.metadata = value
+		p.next()
+	}
+
+	return stmt, nil
+}
+
 // parseType parses a TypeStmt
 func (p *Parser) parseType() (*TypeStmt, error) {
 	stmt := new(TypeStmt)
@@ -247,7 +290,14 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 			stmt.fields = new([]*FieldStmt)
 		}
 
-		fieldStmt, err := p.parseField()
+		var fieldStmt *FieldStmt
+		var err error
+		if stmt.modifier == Token_Enum {
+			fieldStmt, err = p.parseEnumField()
+		} else {
+			fieldStmt, err = p.parseField()
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -536,6 +586,7 @@ func (p *Parser) next() error {
 		}
 
 		(*p.comments) = append((*p.comments), comment)
+		return p.next() // skip the comment
 	}
 
 	return nil

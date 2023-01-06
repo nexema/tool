@@ -405,6 +405,52 @@ func TestParseType(t *testing.T) {
 			run: true,
 			err: nil,
 		},
+		{
+			name: "full enum type",
+			input: `
+			type MyType enum {
+				0 unknown
+				1 first
+				2 second @[("a":23)]
+				last @[("a":23)]
+			}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "MyType"},
+				modifier: Token_Enum,
+				fields: &[]*FieldStmt{
+					{
+						index: &PrimitiveValueStmt{value: int64(0), kind: Primitive_Int64},
+						name:  &IdentifierStmt{lit: "unknown"},
+					},
+					{
+						index: &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64},
+						name:  &IdentifierStmt{lit: "first"},
+					},
+					{
+						index: &PrimitiveValueStmt{value: int64(2), kind: Primitive_Int64},
+						name:  &IdentifierStmt{lit: "second"},
+						metadata: &MapValueStmt{
+							{
+								key:   &PrimitiveValueStmt{value: "a", kind: Primitive_String},
+								value: &PrimitiveValueStmt{value: int64(23), kind: Primitive_Int64},
+							},
+						},
+					},
+					{
+						name: &IdentifierStmt{lit: "last"},
+						metadata: &MapValueStmt{
+							{
+								key:   &PrimitiveValueStmt{value: "a", kind: Primitive_String},
+								value: &PrimitiveValueStmt{value: int64(23), kind: Primitive_Int64},
+							},
+						},
+					},
+				},
+			},
+			run: true,
+			err: nil,
+		},
 	}
 	for _, tt := range tests {
 		// if !tt.run {
