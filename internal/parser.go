@@ -218,7 +218,6 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 	// if read {, then modifier is struct
 	if p.tok == Token_Lbrace {
 		stmt.modifier = Token_Struct
-		p.next()
 	} else {
 		// read modifier
 		if !p.tok.IsModifier() {
@@ -228,13 +227,13 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 		stmt.modifier = p.tok
 
 		p.next()
-		err := p.requireNext(Token_Lbrace)
+		err := p.require(Token_Lbrace)
 		if err != nil {
 			return nil, err
 		}
 	}
-
 	// read fields until "}"
+	p.next()
 	for {
 		if p.tok == Token_Rbrace {
 			goto exit
@@ -243,6 +242,17 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 		if p.tok == Token_EOF {
 			break
 		}
+
+		if stmt.fields == nil {
+			stmt.fields = new([]*FieldStmt)
+		}
+
+		fieldStmt, err := p.parseField()
+		if err != nil {
+			return nil, err
+		}
+
+		(*stmt.fields) = append((*stmt.fields), fieldStmt)
 	}
 
 	return nil, p.require(Token_Rbrace)

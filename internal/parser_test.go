@@ -275,13 +275,15 @@ func TestParseValue(t *testing.T) {
 }
 
 func TestParseType(t *testing.T) {
-	t.Skip()
 	var tests = []struct {
 		input  string
+		name   string
 		expect *TypeStmt
 		err    error
+		run    bool
 	}{
 		{
+			name: "without modifier",
 			input: `
 			type MyType {}
 			`,
@@ -292,6 +294,7 @@ func TestParseType(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "struct modifier",
 			input: `
 			type MyType struct {}
 			`,
@@ -302,6 +305,7 @@ func TestParseType(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "enum modifier",
 			input: `
 			type My_Type enum {}
 			`,
@@ -312,6 +316,7 @@ func TestParseType(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "union modifier",
 			input: `
 			type MyType union {}
 			`,
@@ -322,6 +327,7 @@ func TestParseType(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "with metadata",
 			input: `
 			@[("obsolete": true),("alternative":"MyAnotherType")]
 			type MyType union {}
@@ -337,28 +343,74 @@ func TestParseType(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "full struct type",
 			input: `
 			type MyType struct {
-				1 field_name: string
-				2 field_name: bool = true
-				3 field_name: int32 = 43 @[("obsolete": true)]
-				4 field_name: float32 @[("a": "b")]
-				field_name: list(bool?) = []
+				1 field_1: string
+				2 field_2: bool = true
+				3 field_3: int32 = 43 @[("obsolete": true)]
+				4 field_4: float32 @[("a": "b")]
+				field_5: list(bool?) = [true]
 			}
 			`,
 			expect: &TypeStmt{
 				name:     &IdentifierStmt{lit: "MyType"},
-				modifier: Token_Union,
-				metadata: &MapValueStmt{
-					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
-					{key: &PrimitiveValueStmt{value: "alternative", kind: Primitive_String}, value: &PrimitiveValueStmt{value: "MyAnotherType", kind: Primitive_String}},
+				modifier: Token_Struct,
+				fields: &[]*FieldStmt{
+					{
+						index:     &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64},
+						name:      &IdentifierStmt{lit: "field_1"},
+						valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}},
+					},
+					{
+						index:        &PrimitiveValueStmt{value: int64(2), kind: Primitive_Int64},
+						name:         &IdentifierStmt{lit: "field_2"},
+						valueType:    &ValueTypeStmt{ident: &IdentifierStmt{lit: "bool"}},
+						defaultValue: &PrimitiveValueStmt{value: true, kind: Primitive_Bool},
+					},
+					{
+						index:        &PrimitiveValueStmt{value: int64(3), kind: Primitive_Int64},
+						name:         &IdentifierStmt{lit: "field_3"},
+						valueType:    &ValueTypeStmt{ident: &IdentifierStmt{lit: "int32"}},
+						defaultValue: &PrimitiveValueStmt{value: int64(43), kind: Primitive_Int64},
+						metadata: &MapValueStmt{
+							{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+						},
+					},
+					{
+						index:     &PrimitiveValueStmt{value: int64(4), kind: Primitive_Int64},
+						name:      &IdentifierStmt{lit: "field_4"},
+						valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+						metadata: &MapValueStmt{
+							{key: &PrimitiveValueStmt{value: "a", kind: Primitive_String}, value: &PrimitiveValueStmt{value: "b", kind: Primitive_String}},
+						},
+					},
+					{
+						name: &IdentifierStmt{lit: "field_5"},
+						valueType: &ValueTypeStmt{
+							ident: &IdentifierStmt{lit: "list"},
+							typeArguments: &[]*ValueTypeStmt{
+								{
+									ident:    &IdentifierStmt{lit: "bool"},
+									nullable: true,
+								},
+							},
+						},
+						defaultValue: &ListValueStmt{
+							&PrimitiveValueStmt{value: true, kind: Primitive_Bool},
+						},
+					},
 				},
 			},
+			run: true,
 			err: nil,
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
+		// if !tt.run {
+		// 	continue
+		// }
+		t.Run(tt.name, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			parser.next()
 

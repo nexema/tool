@@ -24,6 +24,7 @@ type TypeStmt struct {
 	modifier      Token // Token_Struct, Token_Enum, Token_Union
 	metadata      *MapValueStmt
 	documentation *[]*CommentStmt
+	fields        *[]*FieldStmt
 }
 
 type FieldStmt struct {
