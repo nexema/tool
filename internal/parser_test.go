@@ -158,6 +158,63 @@ func TestParseList(t *testing.T) {
 	}
 }
 
+func TestParseMap(t *testing.T) {
+	var tests = []struct {
+		input  string
+		expect *MapStmt
+		err    error
+	}{
+		{
+			input: `[("string":22.43),(true: 23),(13.23: "hello world"),(13: null)]`,
+			expect: &MapStmt{
+				{
+					key:   &PrimitiveValueStmt{value: "string", kind: Primitive_String},
+					value: &PrimitiveValueStmt{value: float64(22.43), kind: Primitive_Float64},
+				},
+				{
+					key:   &PrimitiveValueStmt{value: true, kind: Primitive_Bool},
+					value: &PrimitiveValueStmt{value: int64(23), kind: Primitive_Int64},
+				},
+				{
+					key:   &PrimitiveValueStmt{value: float64(13.23), kind: Primitive_Float64},
+					value: &PrimitiveValueStmt{value: "hello world", kind: Primitive_String},
+				},
+				{
+					key:   &PrimitiveValueStmt{value: int64(13), kind: Primitive_Int64},
+					value: &PrimitiveValueStmt{value: nil, kind: Primitive_Null},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `("string":22.43),(true: 23),(13.23: "hello world"),(13: null)]`,
+			err:   errors.New(`1:0 -> expected "[", given "(" (()`),
+		},
+		{
+			input: `["string":22.43),(true: 23),(13.23: "hello world"),(13: null)]`,
+			err:   errors.New(`1:1 -> expected "(", given "string" (string)`),
+		},
+		{
+			input: `[("string":22.43)(true: 23),(13.23: "hello world"),(13: null)]`,
+			err:   errors.New(`1:17 -> expected "]", given "(" (()`),
+		},
+		{
+			input: `[("string"22.43),(true: 23),(13.23: "hello world"),(13: null)]`,
+			err:   errors.New(`1:10 -> expected ":", given "float" (22.43)`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			parser.next()
+
+			m, err := parser.parseMap()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, m)
+		})
+	}
+}
+
 func TestParseValue(t *testing.T) {
 	var tests = []struct {
 		input  string

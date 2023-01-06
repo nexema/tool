@@ -188,13 +188,77 @@ func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
 	}
 }
 
+// pareMap parses an expression in the form: [(entry1),(entry2)]
+// where "entry" means (key:value). This is a special case of list
 func (p *Parser) parseMap() (*MapStmt, error) {
 	err := p.requireNext(Token_Lbrack)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	m := new(MapStmt)
+	value, err := p.parseMapEntry()
+	if err != nil {
+		return nil, err
+	}
+	m.add(value)
+
+	p.next()
+	for p.tok == Token_Comma {
+		p.next()
+		value, err = p.parseMapEntry()
+		if err != nil {
+			return nil, err
+		}
+		m.add(value)
+		p.next()
+	}
+
+	err = p.require(Token_Rbrack)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+// parseMapEntry parses an expression in the form (key:value)
+func (p *Parser) parseMapEntry() (*MapEntryStmt, error) {
+	// (
+	err := p.requireNext(Token_Lparen)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse key
+	key, err := p.parseValue()
+	if err != nil {
+		return nil, err
+	}
+
+	// parse :
+	p.next()
+	err = p.requireNext(Token_Colon)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse value
+	value, err := p.parseValue()
+	if err != nil {
+		return nil, err
+	}
+
+	// )
+	err = p.requireMove(Token_Rparen)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MapEntryStmt{
+		key:   key,
+		value: value,
+	}, nil
 }
 
 // parseList parses an expression in the form: [value1, value2, value3]

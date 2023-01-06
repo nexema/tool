@@ -45,8 +45,12 @@ type TypeValueStmt struct {
 
 type MapStmt []*MapEntryStmt
 type MapEntryStmt struct {
-	key   *ValueStmt
-	value *ValueStmt
+	key   ValueStmt
+	value ValueStmt
+}
+
+func (m *MapStmt) add(stmt *MapEntryStmt) {
+	(*m) = append((*m), stmt)
 }
 
 type ListStmt []ValueStmt
