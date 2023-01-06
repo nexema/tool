@@ -20,9 +20,24 @@ type ImportStmt struct {
 }
 
 type TypeStmt struct {
-	Name     *IdentifierStmt
-	Modifier Token // Token_Struct, Token_Enum, Token_Union
-	Metadata *MapStmt
+	name          *IdentifierStmt
+	modifier      Token // Token_Struct, Token_Enum, Token_Union
+	metadata      *MapValueStmt
+	documentation *[]*CommentStmt
+}
+
+type FieldStmt struct {
+	index        ValueStmt
+	name         *IdentifierStmt
+	valueType    *ValueTypeStmt
+	metadata     *MapValueStmt
+	defaultValue ValueStmt
+}
+
+type ValueTypeStmt struct {
+	ident         *IdentifierStmt
+	nullable      bool
+	typeArguments *[]*ValueTypeStmt
 }
 
 type IdentifierStmt struct {
@@ -45,19 +60,19 @@ type TypeValueStmt struct {
 	value    *IdentifierStmt
 }
 
-type MapStmt []*MapEntryStmt
+type MapValueStmt []*MapEntryStmt
 type MapEntryStmt struct {
 	key   ValueStmt
 	value ValueStmt
 }
 
-func (m *MapStmt) add(stmt *MapEntryStmt) {
+func (m *MapValueStmt) add(stmt *MapEntryStmt) {
 	(*m) = append((*m), stmt)
 }
 
-type ListStmt []ValueStmt
+type ListValueStmt []ValueStmt
 
-func (l *ListStmt) add(stmt ValueStmt) {
+func (l *ListValueStmt) add(stmt ValueStmt) {
 	(*l) = append(*l, stmt)
 }
 
@@ -69,10 +84,10 @@ func (*TypeValueStmt) Kind() Primitive {
 	return Primitive_Type
 }
 
-func (*ListStmt) Kind() Primitive {
+func (*ListValueStmt) Kind() Primitive {
 	return Primitive_List
 }
 
-func (*MapStmt) Kind() Primitive {
+func (*MapValueStmt) Kind() Primitive {
 	return Primitive_Map
 }

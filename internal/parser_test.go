@@ -111,12 +111,12 @@ func TestParseIdentifier(t *testing.T) {
 func TestParseList(t *testing.T) {
 	var tests = []struct {
 		input  string
-		expect *ListStmt
+		expect *ListValueStmt
 		err    error
 	}{
 		{
 			input: `["my string", true, false, null, 128, 12.4]`,
-			expect: &ListStmt{
+			expect: &ListValueStmt{
 				&PrimitiveValueStmt{value: "my string", kind: Primitive_String},
 				&PrimitiveValueStmt{value: true, kind: Primitive_Bool},
 				&PrimitiveValueStmt{value: false, kind: Primitive_Bool},
@@ -132,7 +132,7 @@ func TestParseList(t *testing.T) {
 		},
 		{
 			input: `["my string", true, MyEnum.unknown, null, 128, 12.4]`,
-			expect: &ListStmt{
+			expect: &ListValueStmt{
 				&PrimitiveValueStmt{value: "my string", kind: Primitive_String},
 				&PrimitiveValueStmt{value: true, kind: Primitive_Bool},
 				&TypeValueStmt{value: &IdentifierStmt{lit: "unknown"}, typeName: &IdentifierStmt{lit: "MyEnum"}},
@@ -161,12 +161,12 @@ func TestParseList(t *testing.T) {
 func TestParseMap(t *testing.T) {
 	var tests = []struct {
 		input  string
-		expect *MapStmt
+		expect *MapValueStmt
 		err    error
 	}{
 		{
 			input: `[("string":22.43),(true: 23),(13.23: "hello world"),(13: null)]`,
-			expect: &MapStmt{
+			expect: &MapValueStmt{
 				{
 					key:   &PrimitiveValueStmt{value: "string", kind: Primitive_String},
 					value: &PrimitiveValueStmt{value: float64(22.43), kind: Primitive_Float64},
@@ -270,6 +270,372 @@ func TestParseValue(t *testing.T) {
 			ident, err := parser.parseValue()
 			require.Equal(t, tt.err, err)
 			require.Equal(t, tt.expect, ident)
+		})
+	}
+}
+
+func TestParseType(t *testing.T) {
+	t.Skip()
+	var tests = []struct {
+		input  string
+		expect *TypeStmt
+		err    error
+	}{
+		{
+			input: `
+			type MyType {}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "MyType"},
+				modifier: Token_Struct,
+			},
+			err: nil,
+		},
+		{
+			input: `
+			type MyType struct {}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "MyType"},
+				modifier: Token_Struct,
+			},
+			err: nil,
+		},
+		{
+			input: `
+			type My_Type enum {}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "My_Type"},
+				modifier: Token_Enum,
+			},
+			err: nil,
+		},
+		{
+			input: `
+			type MyType union {}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "MyType"},
+				modifier: Token_Union,
+			},
+			err: nil,
+		},
+		{
+			input: `
+			@[("obsolete": true),("alternative":"MyAnotherType")]
+			type MyType union {}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "MyType"},
+				modifier: Token_Union,
+				metadata: &MapValueStmt{
+					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+					{key: &PrimitiveValueStmt{value: "alternative", kind: Primitive_String}, value: &PrimitiveValueStmt{value: "MyAnotherType", kind: Primitive_String}},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `
+			type MyType struct {
+				1 field_name: string
+				2 field_name: bool = true
+				3 field_name: int32 = 43 @[("obsolete": true)]
+				4 field_name: float32 @[("a": "b")]
+				field_name: list(bool?) = []
+			}
+			`,
+			expect: &TypeStmt{
+				name:     &IdentifierStmt{lit: "MyType"},
+				modifier: Token_Union,
+				metadata: &MapValueStmt{
+					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+					{key: &PrimitiveValueStmt{value: "alternative", kind: Primitive_String}, value: &PrimitiveValueStmt{value: "MyAnotherType", kind: Primitive_String}},
+				},
+			},
+			err: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			parser.next()
+
+			stmt, err := parser.parseType()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, stmt)
+		})
+	}
+}
+
+func TestParseField(t *testing.T) {
+	var tests = []struct {
+		input  string
+		expect *FieldStmt
+		err    error
+	}{
+		{
+			input: `1 field_name: string`,
+			expect: &FieldStmt{
+				index:     &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64},
+				name:      &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}},
+			},
+			err: nil,
+		},
+		{
+			input: `field_name: string`,
+			expect: &FieldStmt{
+				name:      &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}},
+			},
+			err: nil,
+		},
+		{
+			input: `field_name: string?`,
+			expect: &FieldStmt{
+				name:      &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+			},
+			err: nil,
+		},
+		{
+			input: `field_name: string? = null`,
+			expect: &FieldStmt{
+				name:         &IdentifierStmt{lit: "field_name"},
+				valueType:    &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+				defaultValue: &PrimitiveValueStmt{value: nil, kind: Primitive_Null},
+			},
+			err: nil,
+		},
+		{
+			input: `field_name: string? = "hello world"`,
+			expect: &FieldStmt{
+				name:         &IdentifierStmt{lit: "field_name"},
+				valueType:    &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+				defaultValue: &PrimitiveValueStmt{value: "hello world", kind: Primitive_String},
+			},
+			err: nil,
+		},
+		{
+			input: `field_name: binary? @[("obsolete":true)]`,
+			expect: &FieldStmt{
+				name:      &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "binary"}, nullable: true},
+				metadata: &MapValueStmt{
+					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `5 field_name: int = 54 @[("obsolete":true)]`,
+			expect: &FieldStmt{
+				index:     &PrimitiveValueStmt{value: int64(5), kind: Primitive_Int64},
+				name:      &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "int"}},
+				metadata: &MapValueStmt{
+					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+				},
+				defaultValue: &PrimitiveValueStmt{value: int64(54), kind: Primitive_Int64},
+			},
+			err: nil,
+		},
+		{
+			input: `5 field_name: list(string?) = ["hello", null] @[("obsolete":true)]`,
+			expect: &FieldStmt{
+				index: &PrimitiveValueStmt{value: int64(5), kind: Primitive_Int64},
+				name:  &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "list"}, typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+				}},
+				metadata: &MapValueStmt{
+					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+				},
+				defaultValue: &ListValueStmt{
+					&PrimitiveValueStmt{value: "hello", kind: Primitive_String},
+					&PrimitiveValueStmt{value: nil, kind: Primitive_Null},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `5 field_name: map(string, bool?) = [("hello": null), ("second": true)] @[("obsolete":true)]`,
+			expect: &FieldStmt{
+				index: &PrimitiveValueStmt{value: int64(5), kind: Primitive_Int64},
+				name:  &IdentifierStmt{lit: "field_name"},
+				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "map"}, typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}},
+					{ident: &IdentifierStmt{lit: "bool"}, nullable: true},
+				}},
+				metadata: &MapValueStmt{
+					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
+				},
+				defaultValue: &MapValueStmt{
+					{
+						key:   &PrimitiveValueStmt{kind: Primitive_String, value: "hello"},
+						value: &PrimitiveValueStmt{kind: Primitive_Null, value: nil},
+					},
+					{
+						key:   &PrimitiveValueStmt{kind: Primitive_String, value: "second"},
+						value: &PrimitiveValueStmt{kind: Primitive_Bool, value: true},
+					},
+				},
+			},
+			err: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			parser.next()
+
+			stmt, err := parser.parseField()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, stmt)
+		})
+	}
+}
+
+func TestParseValueType(t *testing.T) {
+	var tests = []struct {
+		input  string
+		expect *ValueTypeStmt
+		err    error
+	}{
+		{
+			input:  `string`,
+			expect: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}},
+			err:    nil,
+		},
+		{
+			input:  `string?`,
+			expect: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+			err:    nil,
+		},
+		{
+			input: `list(string)`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(string,bool)`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}},
+					{ident: &IdentifierStmt{lit: "bool"}},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(string?)`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(string?, bool?)`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}, nullable: true},
+					{ident: &IdentifierStmt{lit: "bool"}, nullable: true},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `map(int64, bool?)`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "map"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "int64"}, nullable: false},
+					{ident: &IdentifierStmt{lit: "bool"}, nullable: true},
+				},
+			},
+			err: nil,
+		},
+		{
+			input: `list(int64)?`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "int64"}, nullable: false},
+				},
+				nullable: true,
+			},
+			err: nil,
+		},
+		{
+			input: `list(int64?)?`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "int64"}, nullable: true},
+				},
+				nullable: true,
+			},
+			err: nil,
+		},
+		{
+			input: `list(MyEnum)?`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "MyEnum"}},
+				},
+				nullable: true,
+			},
+			err: nil,
+		},
+		{
+			input: `list(another.MyEnum)?`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "list"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{alias: "another", lit: "MyEnum"}},
+				},
+				nullable: true,
+			},
+			err: nil,
+		},
+		{
+			input: `map(string, another.MyEnum?)?`,
+			expect: &ValueTypeStmt{
+				ident: &IdentifierStmt{lit: "map"},
+				typeArguments: &[]*ValueTypeStmt{
+					{ident: &IdentifierStmt{lit: "string"}},
+					{ident: &IdentifierStmt{alias: "another", lit: "MyEnum"}, nullable: true},
+				},
+				nullable: true,
+			},
+			err: nil,
+		},
+		{
+			input: `map(string, another.MyEnum??`,
+			err:   errors.New(`1:27 -> expected ")", given "?" (?)`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := NewParser(bytes.NewBufferString(tt.input))
+			parser.next()
+
+			stmt, err := parser.parseValueTypeStmt()
+			require.Equal(t, tt.err, err)
+			require.Equal(t, tt.expect, stmt)
 		})
 	}
 }

@@ -172,7 +172,7 @@ func IsKeyword(s string) bool {
 }
 
 func (tok Token) IsModifier() bool {
-	return modifiers_beg < tok && tok > modifiers_end
+	return modifiers_beg < tok && tok < modifiers_end
 }
 
 // IsIdentifier returns a boolean indicating if the current string is an identifier, that is, a string with

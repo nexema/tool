@@ -108,59 +108,199 @@ func (p *Parser) parseImport() (*ImportStmt, error) {
 	return stmt, nil
 }
 
-// parseType parses a TypeStmt
-func (p *Parser) parseType() (*TypeStmt, error) {
-	if p.tok == Token_At { // read metadata first
+// parseField parses a FieldStmt
+func (p *Parser) parseField() (*FieldStmt, error) {
+	stmt := new(FieldStmt)
 
-	}
-
-	if p.tok == Token_Type {
-		stmt := &TypeStmt{}
-
-		// read name
-		ident, err := p.parseIdentifier()
+	// maybe read field index
+	if p.tok == Token_Int {
+		value, err := p.parseValue()
 		if err != nil {
 			return nil, err
 		}
 
-		stmt.Name = ident
+		stmt.index = value
 		p.next()
+	}
 
-		// if read {, then modifier is struct
-		if p.tok == Token_Ident {
-			// read modifier
-			if !p.tok.IsModifier() {
-				return nil, p.expectedGiven("expected type modifier")
-			}
-
-			err := p.requireNext(Token_Lbrace)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			err := p.requireNext(Token_Lbrace)
-			if err != nil {
-				return nil, err
-			}
-			stmt.Modifier = Token_Struct
+	// field's name
+	if p.tok == Token_Ident {
+		value, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
 		}
 
-		// read fields until "}"
-		for {
-			if p.tok == Token_Rbrace {
-				goto exit
-			}
+		stmt.name = value
+	} else {
+		return nil, p.expectedErr(Token_Ident)
+	}
 
-			if p.tok == Token_EOF {
-				break
-			}
+	// read ":" (required)
+	err := p.requireMove(Token_Colon)
+	if err != nil {
+		return nil, err
+	}
+
+	// read value type
+	p.next()
+	if p.tok == Token_Ident {
+		value, err := p.parseValueTypeStmt()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.valueType = value
+	} else {
+		return nil, p.expectedErr(Token_Ident)
+	}
+
+	if p.tok == Token_Assign { // default value
+		p.next()
+		value, err := p.parseGenericValue()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.defaultValue = value
+		p.next()
+	}
+
+	if p.tok == Token_At { // metadata
+		p.next()
+		value, err := p.parseMap()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.metadata = value
+		p.next()
+	}
+
+	return stmt, nil
+}
+
+// parseType parses a TypeStmt
+func (p *Parser) parseType() (*TypeStmt, error) {
+	stmt := new(TypeStmt)
+
+	// if until this moment any comment has been read, add as type's documentation
+	if len(*p.comments) > 0 {
+		stmt.documentation = p.comments
+		p.comments = nil // clear for new comments
+	}
+
+	if p.tok == Token_At { // metadata present
+		p.next()
+		// parse map
+		mapStmt, err := p.parseMap()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.metadata = mapStmt
+		p.next()
+	}
+
+	if p.tok != Token_Type {
+		return nil, p.expectedErr(Token_Type)
+	}
+	p.next()
+
+	// read name
+	ident, err := p.parseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	stmt.name = ident
+	// p.next()
+
+	// if read {, then modifier is struct
+	if p.tok == Token_Lbrace {
+		stmt.modifier = Token_Struct
+		p.next()
+	} else {
+		// read modifier
+		if !p.tok.IsModifier() {
+			return nil, p.expectedGiven("expected type modifier")
+		}
+
+		stmt.modifier = p.tok
+
+		p.next()
+		err := p.requireNext(Token_Lbrace)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// read fields until "}"
+	for {
+		if p.tok == Token_Rbrace {
+			goto exit
+		}
+
+		if p.tok == Token_EOF {
+			break
 		}
 	}
 
 	return nil, p.require(Token_Rbrace)
 
 exit:
-	return nil, nil
+	return stmt, nil
+}
+
+// parseValueTypeStmt parses an ValueTypeStmt.
+func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
+	stmt := new(ValueTypeStmt)
+	var err error
+
+	// first parse type's name
+	stmt.ident, err = p.parseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	// if we read parens, it contains type arguments
+	if p.tok == Token_Lparen {
+		p.next()
+		stmt.typeArguments = new([]*ValueTypeStmt)
+
+		// read first one
+		valueType, err := p.parseValueTypeStmt()
+		if err != nil {
+			return nil, err
+		}
+
+		(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
+
+		for p.tok == Token_Comma {
+			p.next()
+			valueType, err := p.parseValueTypeStmt()
+			if err != nil {
+				return nil, err
+			}
+
+			(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
+		}
+
+		// must read )
+		err = p.require(Token_Rparen)
+		if err != nil {
+			return nil, err
+		}
+
+		p.next()
+	}
+
+	// nullable
+	if p.tok == Token_Nullable {
+		stmt.nullable = true
+		p.next()
+	}
+
+	return stmt, err
 }
 
 // parseIdentifier parses an IdentifierStmt. It can be string,
@@ -181,6 +321,7 @@ func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
 
 			ident.alias = lit
 			ident.lit = p.lit
+			p.next()
 		} else {
 			ident.lit = lit
 		}
@@ -191,15 +332,37 @@ func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
 	}
 }
 
+// parseGenericValue tries to parse first with parseValue, if fails, tries with list,
+// if fails, tries with map, if fails, return the error
+func (p *Parser) parseGenericValue() (ValueStmt, error) {
+	value, err := p.parseValue()
+	if err == nil {
+		return value, nil
+	}
+
+	value, err = p.parseList()
+	if err == nil {
+		return value, nil
+	}
+
+	p.undo() // undo because map expects start with [
+	value, err = p.parseMap()
+	if err == nil {
+		return value, nil
+	}
+
+	return nil, err
+}
+
 // pareMap parses an expression in the form: [(entry1),(entry2)]
 // where "entry" means (key:value). This is a special case of list
-func (p *Parser) parseMap() (*MapStmt, error) {
+func (p *Parser) parseMap() (*MapValueStmt, error) {
 	err := p.requireNext(Token_Lbrack)
 	if err != nil {
 		return nil, err
 	}
 
-	m := new(MapStmt)
+	m := new(MapValueStmt)
 	value, err := p.parseMapEntry()
 	if err != nil {
 		return nil, err
@@ -265,13 +428,13 @@ func (p *Parser) parseMapEntry() (*MapEntryStmt, error) {
 }
 
 // parseList parses an expression in the form: [value1, value2, value3]
-func (p *Parser) parseList() (*ListStmt, error) {
+func (p *Parser) parseList() (*ListValueStmt, error) {
 	err := p.requireNext(Token_Lbrack)
 	if err != nil {
 		return nil, err
 	}
 
-	list := new(ListStmt)
+	list := new(ListValueStmt)
 	value, err := p.parseValue()
 	if err != nil {
 		return nil, err
@@ -311,9 +474,6 @@ func (p *Parser) parseValue() (ValueStmt, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		// next to scan the value
-		p.next()
 
 		// if the next token is a period, we found a declaration in the form
 		// alias.EnumName.enum_value, otherwise, enumName contains the EnumName.enum_value
