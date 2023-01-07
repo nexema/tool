@@ -1029,6 +1029,8 @@ func TestParse(t *testing.T) {
 				// this is not documentation too
 			}
 
+			// This is a multi
+			// line comment
 			type Colors enum {
 				red
 				green
@@ -1077,7 +1079,22 @@ func TestParse(t *testing.T) {
 								name: &IdentifierStmt{lit: "blue"},
 							},
 						},
-						documentation: new([]*CommentStmt),
+						documentation: &[]*CommentStmt{
+							{
+								text:      "This is a multi",
+								posStart:  3,
+								posEnd:    18,
+								lineStart: 17,
+								lineEnd:   17,
+							},
+							{
+								text:      "line comment",
+								posStart:  3,
+								posEnd:    15,
+								lineStart: 18,
+								lineEnd:   18,
+							},
+						},
 					},
 				},
 			},
