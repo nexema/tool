@@ -132,9 +132,11 @@ type MyEnum enum {
 
 ## Writing schema files
 Schema files can be organized in folders, and, when compiled, the output will replicate the folder structure.
+> A folder becomes automatically a package, and, as in many languages, you can't define two structures with the same name in the same package.
+
 To define a schema file, create a file with any name but with the extension `.nex`
 
-The root directory must contain a single file called `nex.yaml` which will define some details for the project, it has the following structure:
+The root directory must contain a single file called `nexema.yaml` which will define some details for the project, it has the following structure:
 ```yaml
 name: my_amazing_project
 author: ImTheAuthor
@@ -161,12 +163,12 @@ generators:
 
 ```
 
-### Importing schema files
-You can import schema files  using the `import` keyword.
-For example, you created a file called `identity.nex` and then another called `common.nex` which declares a struct called `Address`.
+### Importing schema packages
+You can import schema packages using the `import` keyword. Import paths must be relative to `nexema.yaml`.
+For example, you created a folder called `common` and another called `identity`:
 ```
 import: 
-  "common" // Here we are importing the common.nex" file 
+  "common" // Here we are importing the common package with all its files 
 
 type User {
 	address: common.Address

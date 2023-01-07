@@ -2,8 +2,15 @@ package internal
 
 // Ast represents the abstract syntax tree of a single Nexema file
 type Ast struct {
+	file    *File
 	imports *[]*ImportStmt
 	types   *[]*TypeStmt
+}
+
+// File represents the origin file which was used to build an Ast
+type File struct {
+	name string // file name
+	pkg  string // package path, relative to nexema.yaml
 }
 
 // Comment represents a comment read on a file
