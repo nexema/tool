@@ -28,6 +28,9 @@ func TestResolve(t *testing.T) {
 	}
 	cAst := &Ast{
 		file: &File{name: "c.nex", pkg: "C"},
+		imports: &[]*ImportStmt{
+			{path: &IdentifierStmt{lit: "B"}},
+		},
 	}
 
 	astTree := &AstTree{
@@ -74,6 +77,9 @@ func TestResolve(t *testing.T) {
 	require.Equal(t, "B", bCtx.owner.file.pkg)
 	require.Len(t, bCtx.imported, 1)
 	require.Contains(t, bCtx.imported, cAst)
+
+	require.Len(t, typeResolver.errors, 1)
+	require.Equal(t, "circular dependency between B and C not allowed", typeResolver.errors[0].Error())
 }
 
 func TestAstTreeLookup(t *testing.T) {

@@ -1,11 +1,15 @@
 package internal
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // TypeResolver maintains a list of types and their ids, and check imports for every file
 type TypeResolver struct {
 	tree     *AstTree
 	contexts []*importContext
+	errors   []error
 }
 
 type AstTree struct {
@@ -25,7 +29,8 @@ func NewTypeResolver(source *AstTree) *TypeResolver {
 	return typeResolver
 }
 
-// Resolve resolves all the imports for the given AstTree
+// Resolve resolves all the imports for the given AstTree.
+// If a circular dependency is found, it returns an error
 func (tr *TypeResolver) Resolve() {
 	tr.resolveTree(tr.tree)
 }
@@ -60,16 +65,36 @@ func (tr *TypeResolver) resolveSources(sources []*Ast) {
 			// lookup package, if not found, continue with the next
 			validSources, ok := tr.tree.Lookup(packagePath)
 			if !ok {
+				tr.errors = append(tr.errors, fmt.Errorf("package %s not found", packagePath))
 				continue
 			}
 
 			for _, ast := range validSources {
+				// check for circular dependency
+				if tr.isCircular(ast, context) {
+					tr.errors = append(tr.errors, fmt.Errorf("circular dependency between %s and %s not allowed", ast.file.pkg, context.owner.file.pkg))
+					continue
+				}
 				context.imported[ast] = alias
 			}
 		}
 
 		tr.contexts = append(tr.contexts, context)
 	}
+}
+
+// isCircular returns true if the given checkContext.owner is a dependency of ast
+func (tr *TypeResolver) isCircular(ast *Ast, checkContext *importContext) bool {
+	for _, context := range tr.contexts {
+		// first check if the given ast is owner is any context
+		if context.owner == ast {
+			// if it's, check if the owner of checkContext is in the dependency tree of context
+			_, ok := context.imported[checkContext.owner]
+			return ok
+		}
+	}
+
+	return false
 }
 
 // Lookup iterates over the AstTree and returns the list of Ast that are in the given packageName
