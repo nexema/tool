@@ -154,6 +154,16 @@ func GetKeyword(ident string) Token {
 	return Token_Ident
 }
 
+// GetPrimitive returns the Primitive the ident represents
+func GetPrimitive(ident string) Primitive {
+	prim, ok := primitives[ident]
+	if ok {
+		return prim
+	}
+
+	return Primitive_Illegal
+}
+
 func (tok Token) IsLiteral() bool {
 	return literals_beg < tok && tok < literals_end
 }
@@ -188,4 +198,8 @@ func IsIdentifier(i string) bool {
 func IsPrimitive(i string) bool {
 	_, ok := primitives[i]
 	return ok
+}
+
+func (p Primitive) String() string {
+	return primitiveMapping[p]
 }

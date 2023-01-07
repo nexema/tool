@@ -76,7 +76,7 @@ my_amazing_map: map(string,int) = [("one":1), ("two":2), ("three:3")]
 > **NOTE:** If you don't define a default value for fields that are not nullable, the default value of each programming language will be used. For example, for strings, it will be an **empty string**, for booleans, **false**, for ints, **0** and so on.
 
 ### **Metadata**  
-Metadata are `map(string, [string|bool|float64])` which can be used to annotate fields/types for later use. You can specify metadata to any field, using **@**, followed by a  `map(string, [string|bool|int])` value signature.
+Metadata are `map(string, [string|bool|float64|int64])` which can be used to annotate fields/types for later use. You can specify metadata to any field, using **@**, followed by a  `map(string, [string|bool|int])` value signature.
 For example:
 ```
 a_field: string @[("obsolete":true)]
