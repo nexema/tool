@@ -280,7 +280,6 @@ func TestParseType(t *testing.T) {
 		name   string
 		expect *TypeStmt
 		err    error
-		run    bool
 	}{
 		{
 			name: "without modifier",
@@ -402,7 +401,6 @@ func TestParseType(t *testing.T) {
 					},
 				},
 			},
-			run: true,
 			err: nil,
 		},
 		{
@@ -448,14 +446,10 @@ func TestParseType(t *testing.T) {
 					},
 				},
 			},
-			run: true,
 			err: nil,
 		},
 	}
 	for _, tt := range tests {
-		// if !tt.run {
-		// 	continue
-		// }
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			parser.next()
@@ -585,6 +579,7 @@ func TestParseField(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+
 		t.Run(tt.input, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			parser.next()
@@ -755,6 +750,97 @@ func TestParse(t *testing.T) {
 				imports: &[]*ImportStmt{
 					{path: &IdentifierStmt{lit: "my_file.nex"}},
 					{path: &IdentifierStmt{lit: "another.nex"}, alias: &IdentifierStmt{lit: "another"}},
+				},
+				types: new([]*TypeStmt),
+			},
+			err: nil,
+		},
+		{
+			name: "parse import with single type",
+			input: `
+			import:
+				"my_file.nex"
+				"another.nex" as another
+				
+			type Colors enum {
+				red
+				green
+				blue
+			}`,
+			expect: &Ast{
+				imports: &[]*ImportStmt{
+					{path: &IdentifierStmt{lit: "my_file.nex"}},
+					{path: &IdentifierStmt{lit: "another.nex"}, alias: &IdentifierStmt{lit: "another"}},
+				},
+				types: &[]*TypeStmt{
+					{
+						name:     &IdentifierStmt{lit: "Colors"},
+						modifier: Token_Enum,
+						fields: &[]*FieldStmt{
+							{name: &IdentifierStmt{lit: "red"}},
+							{name: &IdentifierStmt{lit: "green"}},
+							{name: &IdentifierStmt{lit: "blue"}},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "parse import with types",
+			input: `
+			import:
+				"my_file.nex"
+				"another.nex" as another
+			
+			type Rectangle struct {
+				x: float32
+				y: float32
+				color: Colors = Colors.red
+			}
+
+			type Colors enum {
+				red
+				green
+				blue
+			}`,
+			expect: &Ast{
+				imports: &[]*ImportStmt{
+					{path: &IdentifierStmt{lit: "my_file.nex"}},
+					{path: &IdentifierStmt{lit: "another.nex"}, alias: &IdentifierStmt{lit: "another"}},
+				},
+				types: &[]*TypeStmt{
+					{
+						name:     &IdentifierStmt{lit: "Rectangle"},
+						modifier: Token_Struct,
+						fields: &[]*FieldStmt{
+							{
+								name:      &IdentifierStmt{lit: "x"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+							},
+							{
+								name:      &IdentifierStmt{lit: "y"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+							},
+							{
+								name:      &IdentifierStmt{lit: "color"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "Colors"}},
+								defaultValue: &TypeValueStmt{
+									typeName: &IdentifierStmt{lit: "Colors"},
+									value:    &IdentifierStmt{lit: "red"},
+								},
+							},
+						},
+					},
+					{
+						name:     &IdentifierStmt{lit: "Colors"},
+						modifier: Token_Enum,
+						fields: &[]*FieldStmt{
+							{name: &IdentifierStmt{lit: "red"}},
+							{name: &IdentifierStmt{lit: "green"}},
+							{name: &IdentifierStmt{lit: "blue"}},
+						},
+					},
 				},
 			},
 			err: nil,

@@ -6,17 +6,26 @@ import (
 	"strconv"
 )
 
-// Parser takes tokens from a Tokenizer and produces a Ast
+// Parser takes tokens from a Tokenizer and produces a Ast.
+// Parser maintains a list of read tokens, called cache, with their literal and position, in order to allow
+// unscanning. When .consume() is called, the newly token is pushed onto the cache and its position is reset to the last
+// added element. Cache provides a method to set the read position, causing future calls to Cache.Next() to return
+// cached tokens from that position instead of read from the underlying Tokenizer.
 type Parser struct {
 	tokenizer *Tokenizer
 
-	tok Token    // current token
-	pos Position // current token's position
-	lit string   // current token's literal
+	buf   parserBuf         // the current buffer
+	cache *Cache[parserBuf] // the cache of read tokens
 
 	comments *[]*CommentStmt
 	imports  *[]*ImportStmt
 	types    *[]*TypeStmt
+}
+
+type parserBuf struct {
+	tok Token    // current token
+	pos Position // current token's position
+	lit string   // current token's literal
 }
 
 // NewParser builds a new Parser
@@ -24,11 +33,14 @@ func NewParser(buf *bytes.Buffer) *Parser {
 	tokenizer := NewTokenizer(buf)
 	return &Parser{
 		tokenizer: tokenizer,
-		pos:       tokenizer.pos,
-		tok:       Token_Illegal,
-		comments:  new([]*CommentStmt),
-		imports:   new([]*ImportStmt),
-		types:     new([]*TypeStmt),
+		buf: parserBuf{
+			tok: Token_Illegal,
+			pos: tokenizer.pos,
+		},
+		cache:    NewCache[parserBuf](),
+		comments: new([]*CommentStmt),
+		imports:  new([]*ImportStmt),
+		types:    new([]*TypeStmt),
 	}
 }
 
@@ -38,7 +50,7 @@ func (p *Parser) Parse() (*Ast, error) {
 	p.next() // read initial token
 
 	// scan any import
-	if p.tok == Token_Import && p.nextIs(Token_Colon, false) {
+	if p.buf.tok == Token_Import && p.nextIs(Token_Colon, false) {
 		// comeback one pos to get into :
 		p.undo(len(importKeyword))
 		err := p.parseImportGroup()
@@ -48,10 +60,10 @@ func (p *Parser) Parse() (*Ast, error) {
 	}
 
 	// scan types
-	for p.tok == Token_At || p.tok == Token_Type {
+	for p.buf.tok == Token_At || p.buf.tok == Token_Type {
 		typeStmt, err := p.parseType()
 		if err != nil {
-			return nil, nil
+			return nil, err
 		}
 
 		(*p.types) = append((*p.types), typeStmt)
@@ -60,6 +72,7 @@ func (p *Parser) Parse() (*Ast, error) {
 
 	return &Ast{
 		imports: p.imports,
+		types:   p.types,
 	}, nil
 }
 
@@ -70,7 +83,7 @@ func (p *Parser) parseImportGroup() error {
 		return err
 	}
 
-	for p.tok == Token_String {
+	for p.buf.tok == Token_String {
 		importStmt, err := p.parseImport()
 		if err != nil {
 			return err
@@ -90,12 +103,12 @@ func (p *Parser) parseImport() (*ImportStmt, error) {
 	}
 
 	stmt := &ImportStmt{
-		path: &IdentifierStmt{lit: p.lit},
+		path: &IdentifierStmt{lit: p.buf.lit},
 	}
 	p.next()
 
 	// may parse AS alias
-	if p.tok == Token_As {
+	if p.buf.tok == Token_As {
 		p.next()
 		alias, err := p.parseIdentifier()
 		if err != nil {
@@ -113,7 +126,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 	stmt := new(FieldStmt)
 
 	// maybe read field index
-	if p.tok == Token_Int {
+	if p.buf.tok == Token_Int {
 		value, err := p.parseValue()
 		if err != nil {
 			return nil, err
@@ -124,7 +137,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 	}
 
 	// field's name
-	if p.tok == Token_Ident {
+	if p.buf.tok == Token_Ident {
 		value, err := p.parseIdentifier()
 		if err != nil {
 			return nil, err
@@ -143,7 +156,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 
 	// read value type
 	p.next()
-	if p.tok == Token_Ident {
+	if p.buf.tok == Token_Ident {
 		value, err := p.parseValueTypeStmt()
 		if err != nil {
 			return nil, err
@@ -154,7 +167,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 		return nil, p.expectedErr(Token_Ident)
 	}
 
-	if p.tok == Token_Assign { // default value
+	if p.buf.tok == Token_Assign { // default value
 		p.next()
 		value, err := p.parseGenericValue()
 		if err != nil {
@@ -165,7 +178,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 		p.next()
 	}
 
-	if p.tok == Token_At { // metadata
+	if p.buf.tok == Token_At { // metadata
 		p.next()
 		value, err := p.parseMap()
 		if err != nil {
@@ -186,7 +199,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 	stmt := new(FieldStmt)
 
 	// maybe read field index
-	if p.tok == Token_Int {
+	if p.buf.tok == Token_Int {
 		value, err := p.parseValue()
 		if err != nil {
 			return nil, err
@@ -197,7 +210,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 	}
 
 	// field's name
-	if p.tok == Token_Ident {
+	if p.buf.tok == Token_Ident {
 		value, err := p.parseIdentifier()
 		if err != nil {
 			return nil, err
@@ -208,7 +221,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 		return nil, p.expectedErr(Token_Ident)
 	}
 
-	if p.tok == Token_At { // metadata
+	if p.buf.tok == Token_At { // metadata
 		p.next()
 		value, err := p.parseMap()
 		if err != nil {
@@ -232,7 +245,7 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 		p.comments = nil // clear for new comments
 	}
 
-	if p.tok == Token_At { // metadata present
+	if p.buf.tok == Token_At { // metadata present
 		p.next()
 		// parse map
 		mapStmt, err := p.parseMap()
@@ -244,7 +257,7 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 		p.next()
 	}
 
-	if p.tok != Token_Type {
+	if p.buf.tok != Token_Type {
 		return nil, p.expectedErr(Token_Type)
 	}
 	p.next()
@@ -259,15 +272,15 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 	// p.next()
 
 	// if read {, then modifier is struct
-	if p.tok == Token_Lbrace {
+	if p.buf.tok == Token_Lbrace {
 		stmt.modifier = Token_Struct
 	} else {
 		// read modifier
-		if !p.tok.IsModifier() {
+		if !p.buf.tok.IsModifier() {
 			return nil, p.expectedGiven("expected type modifier")
 		}
 
-		stmt.modifier = p.tok
+		stmt.modifier = p.buf.tok
 
 		p.next()
 		err := p.require(Token_Lbrace)
@@ -278,11 +291,11 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 	// read fields until "}"
 	p.next()
 	for {
-		if p.tok == Token_Rbrace {
+		if p.buf.tok == Token_Rbrace {
 			goto exit
 		}
 
-		if p.tok == Token_EOF {
+		if p.buf.tok == Token_EOF {
 			break
 		}
 
@@ -303,6 +316,7 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 		}
 
 		(*stmt.fields) = append((*stmt.fields), fieldStmt)
+		// p.undo()
 	}
 
 	return nil, p.require(Token_Rbrace)
@@ -323,7 +337,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 	}
 
 	// if we read parens, it contains type arguments
-	if p.tok == Token_Lparen {
+	if p.buf.tok == Token_Lparen {
 		p.next()
 		stmt.typeArguments = new([]*ValueTypeStmt)
 
@@ -335,7 +349,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 
 		(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
 
-		for p.tok == Token_Comma {
+		for p.buf.tok == Token_Comma {
 			p.next()
 			valueType, err := p.parseValueTypeStmt()
 			if err != nil {
@@ -355,7 +369,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 	}
 
 	// nullable
-	if p.tok == Token_Nullable {
+	if p.buf.tok == Token_Nullable {
 		stmt.nullable = true
 		p.next()
 	}
@@ -366,13 +380,13 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 // parseIdentifier parses an IdentifierStmt. It can be string,
 // bool, or any other primitive, enum's values, etc.
 func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
-	if p.tok == Token_Ident {
+	if p.buf.tok == Token_Ident {
 		ident := new(IdentifierStmt)
-		lit := p.lit
+		lit := p.buf.lit
 		p.next()
 
 		// while found a period, it can be import alias, type's name or type's value
-		if p.tok == Token_Period {
+		if p.buf.tok == Token_Period {
 			p.next()
 			err := p.require(Token_Ident)
 			if err != nil {
@@ -380,7 +394,7 @@ func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
 			}
 
 			ident.alias = lit
-			ident.lit = p.lit
+			ident.lit = p.buf.lit
 			p.next()
 		} else {
 			ident.lit = lit
@@ -430,7 +444,7 @@ func (p *Parser) parseMap() (*MapValueStmt, error) {
 	m.add(value)
 
 	p.next()
-	for p.tok == Token_Comma {
+	for p.buf.tok == Token_Comma {
 		p.next()
 		value, err = p.parseMapEntry()
 		if err != nil {
@@ -502,7 +516,7 @@ func (p *Parser) parseList() (*ListValueStmt, error) {
 	list.add(value)
 
 	p.next()
-	for p.tok == Token_Comma {
+	for p.buf.tok == Token_Comma {
 		p.next()
 		value, err = p.parseValue()
 		if err != nil {
@@ -521,9 +535,9 @@ func (p *Parser) parseList() (*ListValueStmt, error) {
 }
 
 func (p *Parser) parseValue() (ValueStmt, error) {
-	if p.tok == Token_String {
-		return &PrimitiveValueStmt{kind: Primitive_String, value: p.lit}, nil
-	} else if p.tok == Token_Ident {
+	if p.buf.tok == Token_String {
+		return &PrimitiveValueStmt{kind: Primitive_String, value: p.buf.lit}, nil
+	} else if p.buf.tok == Token_Ident {
 		kind, value := p.stringToValue()
 		if kind != Primitive_Illegal {
 			return &PrimitiveValueStmt{kind: kind, value: value}, nil
@@ -537,7 +551,7 @@ func (p *Parser) parseValue() (ValueStmt, error) {
 
 		// if the next token is a period, we found a declaration in the form
 		// alias.EnumName.enum_value, otherwise, enumName contains the EnumName.enum_value
-		if p.tok == Token_Period {
+		if p.buf.tok == Token_Period {
 			p.next()
 			enumValue, err := p.parseIdentifier()
 			if err != nil {
@@ -549,7 +563,7 @@ func (p *Parser) parseValue() (ValueStmt, error) {
 				value:    enumValue,
 			}, nil
 		} else {
-			p.undo()
+			p.undo() // undo the invalid read token
 
 			// alias becomes the name, and lit the value
 			return &TypeValueStmt{
@@ -558,28 +572,35 @@ func (p *Parser) parseValue() (ValueStmt, error) {
 			}, nil
 		}
 
-	} else if p.tok == Token_Float {
-		f, _ := strconv.ParseFloat(p.lit, 64)
+	} else if p.buf.tok == Token_Float {
+		f, _ := strconv.ParseFloat(p.buf.lit, 64)
 		return &PrimitiveValueStmt{value: f, kind: Primitive_Float64}, nil
-	} else if p.tok == Token_Int {
-		i, _ := strconv.ParseInt(p.lit, 10, 64)
+	} else if p.buf.tok == Token_Int {
+		i, _ := strconv.ParseInt(p.buf.lit, 10, 64)
 		return &PrimitiveValueStmt{value: i, kind: Primitive_Int64}, nil
 	} else {
 		return nil, p.expectedGiven("string, int, float or identifier")
 	}
 }
 
-// next reads the next token from the underlying tokenizer.
+// next sets the current token to the newly read from consume, if stack is empty.
+// Otherwise, it will pop the stack until zero elements
 // Any comment that is encountered, is saved for later use
 func (p *Parser) next() error {
-	err := p.consume()
+	var err error
+	if p.cache.NextHas() {
+		buf := p.cache.Advance()
+		p.buf = *buf
+	} else {
+		err = p.consume()
+	}
 
 	if err != nil {
 		return err
 	}
 
 	// save any comment
-	if p.tok == Token_Comment {
+	if p.buf.tok == Token_Comment {
 		comment, err := p.parseComment()
 		if err != nil {
 			return err
@@ -603,34 +624,38 @@ func (p *Parser) nextIs(tok Token, advance ...bool) bool {
 	if advanceB {
 		defer p.next()
 	}
-	return p.tok == tok
+	return p.buf.tok == tok
 }
 
 // undo unscans a token
 func (p *Parser) undo(n ...int) {
-	length := 2
+	count := 1
 	if len(n) == 1 {
-		length = n[0] + 1
+		count = n[0]
 	}
 
-	// unscan 2 because if we unscan 1 when we "next", it will stay in the same token
-	p.tokenizer.unscan(length)
-	p.next()
+	// do not unscan from tokenizer, instead, pop the stack
+	// p.tokenizer.unscan(length)
+	// p.next()
+
+	p.cache.Back(count)
+	p.buf = *p.cache.Current()
 }
 
 // consume reads a token from the underlying tokenizer and saves it in the Parser
 func (p *Parser) consume() error {
 	var err error
-	p.pos, p.tok, p.lit, err = p.tokenizer.Scan()
+	p.buf.pos, p.buf.tok, p.buf.lit, err = p.tokenizer.Scan()
+	p.cache.Push(p.buf)
 	return err
 }
 
 // parseComment parses the next comment
 func (p *Parser) parseComment() (*CommentStmt, error) {
 	// scan for /*-style comments to report line end
-	lineEnd := p.pos.line
-	if p.lit[1] == '*' {
-		for _, ch := range p.lit {
+	lineEnd := p.buf.pos.line
+	if p.buf.lit[1] == '*' {
+		for _, ch := range p.buf.lit {
 			if ch == '\n' {
 				lineEnd++
 			}
@@ -638,10 +663,10 @@ func (p *Parser) parseComment() (*CommentStmt, error) {
 	}
 
 	return &CommentStmt{
-		text:      p.lit,
-		posStart:  p.pos.offset,
-		posEnd:    p.pos.offset + len(p.lit),
-		lineStart: p.pos.line,
+		text:      p.buf.lit,
+		posStart:  p.buf.pos.offset,
+		posEnd:    p.buf.pos.offset + len(p.buf.lit),
+		lineStart: p.buf.pos.line,
 		lineEnd:   lineEnd,
 	}, nil
 }
@@ -650,11 +675,11 @@ func (p *Parser) parseComment() (*CommentStmt, error) {
 func (p *Parser) require(tok Token) error {
 
 	// try to move one position
-	if p.tok == Token_Illegal {
+	if p.buf.tok == Token_Illegal {
 		p.next()
 	}
 
-	if p.tok != tok {
+	if p.buf.tok != tok {
 		return p.expectedErr(tok)
 	}
 	return nil
@@ -664,11 +689,11 @@ func (p *Parser) require(tok Token) error {
 func (p *Parser) requireNext(tok Token) error {
 
 	// try to move one position
-	if p.tok == Token_Illegal {
+	if p.buf.tok == Token_Illegal {
 		p.next()
 	}
 
-	if p.tok != tok {
+	if p.buf.tok != tok {
 		return p.expectedErr(tok)
 	}
 
@@ -680,14 +705,14 @@ func (p *Parser) requireNext(tok Token) error {
 func (p *Parser) requireMove(tok Token) error {
 
 	// try to move one position
-	if p.tok == Token_Illegal {
+	if p.buf.tok == Token_Illegal {
 		p.next()
 	}
 
-	if p.tok != tok {
+	if p.buf.tok != tok {
 		p.next()
 
-		if p.tok != tok {
+		if p.buf.tok != tok {
 			return p.expectedErr(tok)
 		}
 	}
@@ -697,16 +722,16 @@ func (p *Parser) requireMove(tok Token) error {
 // requireSeq checks if the next sequence of two tokens matches first and second
 func (p *Parser) requireSeq(first Token, second Token) error {
 	// try to move to a legal position
-	if p.tok == Token_Illegal {
+	if p.buf.tok == Token_Illegal {
 		p.next()
 	}
 
-	if p.tok != first {
+	if p.buf.tok != first {
 		return p.expectedErr(first)
 	}
 
 	p.next()
-	if p.tok != second {
+	if p.buf.tok != second {
 		return p.expectedErr(second)
 	}
 
@@ -715,15 +740,15 @@ func (p *Parser) requireSeq(first Token, second Token) error {
 }
 
 func (p *Parser) expectedErr(tok Token) error {
-	return fmt.Errorf("%s -> expected %q, given %q (%s)", p.pos.String(), tok.String(), p.tok.String(), p.lit)
+	return fmt.Errorf("%s -> expected %q, given %q (%s)", p.buf.pos.String(), tok.String(), p.buf.tok.String(), p.buf.lit)
 }
 
 func (p *Parser) expectedGiven(txt string) error {
-	return fmt.Errorf("%s -> expected %s, given %q", p.pos.String(), txt, p.lit)
+	return fmt.Errorf("%s -> expected %s, given %q", p.buf.pos.String(), txt, p.buf.lit)
 }
 
 func (p *Parser) stringToValue() (primitive Primitive, value interface{}) {
-	lit := p.lit
+	lit := p.buf.lit
 
 	if lit == nullKeyword {
 		return Primitive_Null, nil
