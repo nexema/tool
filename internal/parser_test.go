@@ -287,8 +287,9 @@ func TestParseType(t *testing.T) {
 			type MyType {}
 			`,
 			expect: &TypeStmt{
-				name:     &IdentifierStmt{lit: "MyType"},
-				modifier: Token_Struct,
+				name:          &IdentifierStmt{lit: "MyType"},
+				modifier:      Token_Struct,
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -298,8 +299,9 @@ func TestParseType(t *testing.T) {
 			type MyType struct {}
 			`,
 			expect: &TypeStmt{
-				name:     &IdentifierStmt{lit: "MyType"},
-				modifier: Token_Struct,
+				name:          &IdentifierStmt{lit: "MyType"},
+				modifier:      Token_Struct,
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -309,8 +311,9 @@ func TestParseType(t *testing.T) {
 			type My_Type enum {}
 			`,
 			expect: &TypeStmt{
-				name:     &IdentifierStmt{lit: "My_Type"},
-				modifier: Token_Enum,
+				name:          &IdentifierStmt{lit: "My_Type"},
+				modifier:      Token_Enum,
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -320,8 +323,9 @@ func TestParseType(t *testing.T) {
 			type MyType union {}
 			`,
 			expect: &TypeStmt{
-				name:     &IdentifierStmt{lit: "MyType"},
-				modifier: Token_Union,
+				name:          &IdentifierStmt{lit: "MyType"},
+				modifier:      Token_Union,
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -338,6 +342,7 @@ func TestParseType(t *testing.T) {
 					{key: &PrimitiveValueStmt{value: "obsolete", kind: Primitive_String}, value: &PrimitiveValueStmt{value: true, kind: Primitive_Bool}},
 					{key: &PrimitiveValueStmt{value: "alternative", kind: Primitive_String}, value: &PrimitiveValueStmt{value: "MyAnotherType", kind: Primitive_String}},
 				},
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -400,6 +405,7 @@ func TestParseType(t *testing.T) {
 						},
 					},
 				},
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -445,6 +451,7 @@ func TestParseType(t *testing.T) {
 						},
 					},
 				},
+				documentation: new([]*CommentStmt),
 			},
 			err: nil,
 		},
@@ -739,7 +746,6 @@ func TestParse(t *testing.T) {
 		input  string
 		expect *Ast
 		err    error
-		run    bool
 	}{
 		{
 			name: "parse imports",
@@ -1007,7 +1013,6 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "parse comments that are not documentation",
-			run:  true,
 			input: `
 			import:
 				"my_file.nex"
@@ -1080,10 +1085,6 @@ func TestParse(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// if !tt.run {
-		// 	continue
-		// }
-
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			ast, err := parser.Parse()
