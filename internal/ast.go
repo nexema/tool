@@ -29,11 +29,12 @@ type TypeStmt struct {
 }
 
 type FieldStmt struct {
-	index        ValueStmt
-	name         *IdentifierStmt
-	valueType    *ValueTypeStmt
-	metadata     *MapValueStmt
-	defaultValue ValueStmt
+	index         ValueStmt
+	name          *IdentifierStmt
+	valueType     *ValueTypeStmt
+	metadata      *MapValueStmt
+	defaultValue  ValueStmt
+	documentation *[]*CommentStmt
 }
 
 type ValueTypeStmt struct {

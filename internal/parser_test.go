@@ -739,6 +739,7 @@ func TestParse(t *testing.T) {
 		input  string
 		expect *Ast
 		err    error
+		run    bool
 	}{
 		{
 			name: "parse imports",
@@ -781,6 +782,7 @@ func TestParse(t *testing.T) {
 							{name: &IdentifierStmt{lit: "green"}},
 							{name: &IdentifierStmt{lit: "blue"}},
 						},
+						documentation: new([]*CommentStmt),
 					},
 				},
 			},
@@ -799,6 +801,7 @@ func TestParse(t *testing.T) {
 				color: Colors = Colors.red
 			}
 
+			@[("a":23)]
 			type Colors enum {
 				red
 				green
@@ -831,15 +834,245 @@ func TestParse(t *testing.T) {
 								},
 							},
 						},
+						documentation: new([]*CommentStmt),
 					},
 					{
 						name:     &IdentifierStmt{lit: "Colors"},
 						modifier: Token_Enum,
+						metadata: &MapValueStmt{
+							{
+								key:   &PrimitiveValueStmt{value: "a", kind: Primitive_String},
+								value: &PrimitiveValueStmt{value: int64(23), kind: Primitive_Int64},
+							},
+						},
 						fields: &[]*FieldStmt{
 							{name: &IdentifierStmt{lit: "red"}},
 							{name: &IdentifierStmt{lit: "green"}},
 							{name: &IdentifierStmt{lit: "blue"}},
 						},
+						documentation: new([]*CommentStmt),
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "parse with documentation",
+			input: `
+			import:
+				"my_file.nex"
+				"another.nex" as another
+			
+			// Rectangle is my struct
+			type Rectangle struct {
+				// the width
+				width: float32
+
+				// the height
+				height: float32
+
+				// the color
+				color: Colors = Colors.red
+			}
+
+			// Colors is a collection of common colors
+			type Colors enum {
+				// Red color
+				red
+
+				// Green color
+				green
+
+				// Blue color
+				blue
+			}`,
+			expect: &Ast{
+				imports: &[]*ImportStmt{
+					{path: &IdentifierStmt{lit: "my_file.nex"}},
+					{path: &IdentifierStmt{lit: "another.nex"}, alias: &IdentifierStmt{lit: "another"}},
+				},
+				types: &[]*TypeStmt{
+					{
+						name:     &IdentifierStmt{lit: "Rectangle"},
+						modifier: Token_Struct,
+						fields: &[]*FieldStmt{
+							{
+								name:      &IdentifierStmt{lit: "width"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+								documentation: &[]*CommentStmt{
+									{
+										text:      "the width",
+										posStart:  4,
+										posEnd:    13,
+										lineStart: 8,
+										lineEnd:   8,
+									},
+								},
+							},
+							{
+								name:      &IdentifierStmt{lit: "height"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+								documentation: &[]*CommentStmt{
+									{
+										text:      "the height",
+										posStart:  4,
+										posEnd:    14,
+										lineStart: 11,
+										lineEnd:   11,
+									},
+								},
+							},
+							{
+								name:      &IdentifierStmt{lit: "color"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "Colors"}},
+								defaultValue: &TypeValueStmt{
+									typeName: &IdentifierStmt{lit: "Colors"},
+									value:    &IdentifierStmt{lit: "red"},
+								},
+								documentation: &[]*CommentStmt{
+									{
+										text:      "the color",
+										posStart:  4,
+										posEnd:    13,
+										lineStart: 14,
+										lineEnd:   14,
+									},
+								},
+							},
+						},
+						documentation: &[]*CommentStmt{
+							{
+								text:      "Rectangle is my struct",
+								lineStart: 6,
+								lineEnd:   6,
+								posStart:  3,
+								posEnd:    25,
+							},
+						},
+					},
+					{
+						name:     &IdentifierStmt{lit: "Colors"},
+						modifier: Token_Enum,
+						fields: &[]*FieldStmt{
+							{
+								name: &IdentifierStmt{lit: "red"},
+								documentation: &[]*CommentStmt{
+									{
+										text:      "Red color",
+										posStart:  4,
+										posEnd:    13,
+										lineStart: 20,
+										lineEnd:   20,
+									},
+								},
+							},
+							{
+								name: &IdentifierStmt{lit: "green"},
+								documentation: &[]*CommentStmt{
+									{
+										text:      "Green color",
+										posStart:  4,
+										posEnd:    15,
+										lineStart: 23,
+										lineEnd:   23,
+									},
+								},
+							},
+							{
+								name: &IdentifierStmt{lit: "blue"},
+								documentation: &[]*CommentStmt{
+									{
+										text:      "Blue color",
+										posStart:  4,
+										posEnd:    14,
+										lineStart: 26,
+										lineEnd:   26,
+									},
+								},
+							},
+						},
+						documentation: &[]*CommentStmt{
+							{
+								text:      "Colors is a collection of common colors",
+								lineStart: 18,
+								lineEnd:   18,
+								posStart:  3,
+								posEnd:    42,
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "parse comments that are not documentation",
+			run:  true,
+			input: `
+			import:
+				"my_file.nex"
+				"another.nex" as another
+			
+			/*
+			multiline comments are not documentation
+			*/
+			type Rectangle struct {
+				width: float32 // this should not be taken as documentation
+				height: float32
+				color: Colors = Colors.red
+
+				// this is not documentation too
+			}
+
+			type Colors enum {
+				red
+				green
+				blue
+			}`,
+			expect: &Ast{
+				imports: &[]*ImportStmt{
+					{path: &IdentifierStmt{lit: "my_file.nex"}},
+					{path: &IdentifierStmt{lit: "another.nex"}, alias: &IdentifierStmt{lit: "another"}},
+				},
+				types: &[]*TypeStmt{
+					{
+						name:     &IdentifierStmt{lit: "Rectangle"},
+						modifier: Token_Struct,
+						fields: &[]*FieldStmt{
+							{
+								name:      &IdentifierStmt{lit: "width"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+							},
+							{
+								name:      &IdentifierStmt{lit: "height"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "float32"}},
+							},
+							{
+								name:      &IdentifierStmt{lit: "color"},
+								valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "Colors"}},
+								defaultValue: &TypeValueStmt{
+									typeName: &IdentifierStmt{lit: "Colors"},
+									value:    &IdentifierStmt{lit: "red"},
+								},
+							},
+						},
+						documentation: new([]*CommentStmt),
+					},
+					{
+						name:     &IdentifierStmt{lit: "Colors"},
+						modifier: Token_Enum,
+						fields: &[]*FieldStmt{
+							{
+								name: &IdentifierStmt{lit: "red"},
+							},
+							{
+								name: &IdentifierStmt{lit: "green"},
+							},
+							{
+								name: &IdentifierStmt{lit: "blue"},
+							},
+						},
+						documentation: new([]*CommentStmt),
 					},
 				},
 			},
@@ -847,6 +1080,10 @@ func TestParse(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		// if !tt.run {
+		// 	continue
+		// }
+
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewParser(bytes.NewBufferString(tt.input))
 			ast, err := parser.Parse()

@@ -17,7 +17,7 @@ type Parser struct {
 	buf   parserBuf         // the current buffer
 	cache *Cache[parserBuf] // the cache of read tokens
 
-	comments *[]*CommentStmt
+	comments *map[int]*CommentStmt // map of any comment found. Map's key is the line start
 	imports  *[]*ImportStmt
 	types    *[]*TypeStmt
 }
@@ -38,7 +38,7 @@ func NewParser(buf *bytes.Buffer) *Parser {
 			pos: tokenizer.pos,
 		},
 		cache:    NewCache[parserBuf](),
-		comments: new([]*CommentStmt),
+		comments: &map[int]*CommentStmt{},
 		imports:  new([]*ImportStmt),
 		types:    new([]*TypeStmt),
 	}
@@ -125,6 +125,11 @@ func (p *Parser) parseImport() (*ImportStmt, error) {
 func (p *Parser) parseField() (*FieldStmt, error) {
 	stmt := new(FieldStmt)
 
+	// if until this moment any comment has been read, add as documentation
+	if len(*p.comments) > 0 {
+		stmt.documentation = p.getComments()
+	}
+
 	// maybe read field index
 	if p.buf.tok == Token_Int {
 		value, err := p.parseValue()
@@ -198,6 +203,11 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 func (p *Parser) parseEnumField() (*FieldStmt, error) {
 	stmt := new(FieldStmt)
 
+	// if until this moment any comment has been read, add as documentation
+	if len(*p.comments) > 0 {
+		stmt.documentation = p.getComments()
+	}
+
 	// maybe read field index
 	if p.buf.tok == Token_Int {
 		value, err := p.parseValue()
@@ -239,11 +249,8 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 func (p *Parser) parseType() (*TypeStmt, error) {
 	stmt := new(TypeStmt)
 
-	// if until this moment any comment has been read, add as type's documentation
-	if len(*p.comments) > 0 {
-		stmt.documentation = p.comments
-		p.comments = nil // clear for new comments
-	}
+	// check if there is any comment that is a possible documentation comment
+	stmt.documentation = p.getValidCommentsFor(p.buf.pos.line)
 
 	if p.buf.tok == Token_At { // metadata present
 		p.next()
@@ -534,6 +541,7 @@ func (p *Parser) parseList() (*ListValueStmt, error) {
 	return list, nil
 }
 
+// parseValue parses any primitive raw value
 func (p *Parser) parseValue() (ValueStmt, error) {
 	if p.buf.tok == Token_String {
 		return &PrimitiveValueStmt{kind: Primitive_String, value: p.buf.lit}, nil
@@ -606,7 +614,12 @@ func (p *Parser) next() error {
 			return err
 		}
 
-		(*p.comments) = append((*p.comments), comment)
+		// if the comment is on the same line that another token, its not documentation
+		before := p.cache.Before()
+		if before == nil || before.pos.line != comment.lineStart {
+			(*p.comments)[comment.lineStart] = comment
+		}
+
 		return p.next() // skip the comment
 	}
 
@@ -761,4 +774,54 @@ func (p *Parser) stringToValue() (primitive Primitive, value interface{}) {
 	}
 
 	return Primitive_Illegal, nil
+}
+
+func (p *Parser) getValidCommentsFor(line int) *[]*CommentStmt {
+	/* the procedure is: check if there is any comment at line-1.
+	if any comment, check at (line-1)-1, and so on until no more comments are encountered
+	*/
+
+	comments := new([]*CommentStmt)
+	currLine := line - 1
+	if len(*p.comments) > 0 {
+		for {
+			comment, ok := (*p.comments)[currLine]
+			if !ok {
+				break
+			}
+
+			if comment.lineStart == currLine {
+				(*comments) = append(*comments, comment)
+				currLine--
+			} else {
+				break
+			}
+		}
+	}
+
+	// reverse the list
+	for i, j := 0, len(*comments)-1; i < j; i, j = i+1, j-1 {
+		(*comments)[i], (*comments)[j] = (*comments)[j], (*comments)[i]
+	}
+
+	// new map
+	p.comments = &map[int]*CommentStmt{}
+
+	return comments
+}
+
+// getComments returns p.comments as an array then clears the map
+func (p *Parser) getComments() *[]*CommentStmt {
+	list := make([]*CommentStmt, len(*p.comments))
+
+	idx := 0
+	for _, elem := range *p.comments {
+		list[idx] = elem
+		idx++
+	}
+
+	// new map
+	p.comments = &map[int]*CommentStmt{}
+
+	return &list
 }

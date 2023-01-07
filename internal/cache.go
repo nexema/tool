@@ -77,3 +77,14 @@ func (s *Cache[T]) Advance() *T {
 
 	return nil
 }
+
+// Before returns the element before element at s.offset
+func (s *Cache[T]) Before() *T {
+	if s.offset == 0 {
+		return nil
+	}
+
+	offset := s.offset - 1
+	elem := (*s.arr)[offset]
+	return &elem
+}
