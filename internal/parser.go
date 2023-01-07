@@ -1,681 +1,827 @@
 package internal
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"strconv"
-	"strings"
 )
 
+// Parser takes tokens from a Tokenizer and produces a Ast.
+// Parser maintains a list of read tokens, called cache, with their literal and position, in order to allow
+// unscanning. When .consume() is called, the newly token is pushed onto the cache and its position is reset to the last
+// added element. Cache provides a method to set the read position, causing future calls to Cache.Next() to return
+// cached tokens from that position instead of read from the underlying Tokenizer.
 type Parser struct {
-	s   *Scanner
-	buf struct {
-		tok Token    // last read token
-		lit string   // last read literal
-		pos Position // last read token's position
-		n   int      // buffer size (max=1)
-	}
+	tokenizer *Tokenizer
+
+	buf   parserBuf         // the current buffer
+	cache *Cache[parserBuf] // the cache of read tokens
+
+	comments *map[int]*CommentStmt // map of any comment found. Map's key is the line start
+	imports  *[]*ImportStmt
+	types    *[]*TypeStmt
 }
 
-func NewParser(r io.Reader) *Parser {
+type parserBuf struct {
+	tok Token    // current token
+	pos Position // current token's position
+	lit string   // current token's literal
+}
+
+// NewParser builds a new Parser
+func NewParser(buf *bytes.Buffer) *Parser {
+	tokenizer := NewTokenizer(buf)
 	return &Parser{
-		s: NewScanner(r),
+		tokenizer: tokenizer,
+		buf: parserBuf{
+			tok: Token_Illegal,
+			pos: tokenizer.pos,
+		},
+		cache:    NewCache[parserBuf](),
+		comments: &map[int]*CommentStmt{},
+		imports:  new([]*ImportStmt),
+		types:    new([]*TypeStmt),
 	}
 }
 
-// scan returns the next token from the underlying scanner.
-// If a token has been unscanned then read that instead
-func (p *Parser) scan(readSpace ...bool) (tok Token, lit string) {
-	readSpaceBool := false
-	if len(readSpace) > 0 {
-		readSpaceBool = readSpace[0]
-	}
-
-	// if we have a token on the buffer, return it
-	if p.buf.n != 0 {
-		p.buf.n = 0
-		return p.buf.tok, p.buf.lit
-	}
-
-	// scan next token
-	pos, tok, lit := p.s.Scan(readSpaceBool)
-
-	// save to buffer
-	p.buf.pos, p.buf.tok, p.buf.lit = pos, tok, lit
-	return
-}
-
-func (p *Parser) peek() (tok Token, lit string) {
-
-	// scan next token
-	_, tok, lit = p.s.Peek(false)
-
-	return
-}
-
-// unscan pushes the previously read token back onto the buffer
-func (p *Parser) unscan() {
-	p.buf.n = 1
-}
-
-// Parse parses the given reader and creates an abstract syntax tree of the input
+// Parse parses the given input when creating the Parser and returns
+// the corresponding Ast
 func (p *Parser) Parse() (*Ast, error) {
-	ast := &Ast{
-		imports: new(importsStmt),
-		types:   new(typesStmt),
-	}
+	p.next() // read initial token
 
-	for {
-		tok, lit := p.scan()
-
-		// scan until end of stream
-		if tok == Token_EOF {
-			break
-		} else if tok == Token_Backslash {
-			p.unscan()
-			p.parseComment()
-			continue
-		}
-
-		// to start, only import or type can be specified
-		keyword := inverseKeywordMapping[lit]
-		p.unscan()
-		if keyword == Keyword_Import {
-			importStmt, err := p.parseImport()
-			if err != nil {
-				return nil, err
-			}
-
-			ast.imports.add(importStmt)
-		} else if keyword == Keyword_Type || tok == Token_At {
-			typeStmt, err := p.parseType()
-			if err != nil {
-				return nil, err
-			}
-
-			ast.types.add(typeStmt)
-		} else {
-			return nil, p.expectedRawError(`"type" or "import" keywords`, lit)
+	// scan any import
+	if p.buf.tok == Token_Import && p.nextIs(Token_Colon, false) {
+		// comeback one pos to get into :
+		p.undo(len(importKeyword))
+		err := p.parseImportGroup()
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return ast, nil
+	// scan types
+	for p.buf.tok == Token_At || p.buf.tok == Token_Type {
+		typeStmt, err := p.parseType()
+		if err != nil {
+			return nil, err
+		}
+
+		(*p.types) = append((*p.types), typeStmt)
+		p.next()
+	}
+
+	return &Ast{
+		imports: p.imports,
+		types:   p.types,
+	}, nil
 }
 
-// parseImport parses an import keyword
-func (p *Parser) parseImport() (*importStmt, error) {
-
-	// read import keyword
-	tok, lit := p.scan()
-	keyword := inverseKeywordMapping[lit]
-	if tok != Token_Keyword || keyword != Keyword_Import {
-		return nil, p.expectedKeywordErr(Keyword_Import, lit)
+// parseImportGroup parses a expression in the form import:\n "import1"\n "import2"
+func (p *Parser) parseImportGroup() error {
+	err := p.requireSeq(Token_Import, Token_Colon)
+	if err != nil {
+		return err
 	}
 
-	// read string
-	tok, lit = p.scan()
-	if tok != Token_String {
-		return nil, p.expectedRawError("import path", lit)
-	}
-
-	// remove " from string
-	lit = lit[1 : len(lit)-1]
-
-	stmt := &importStmt{src: lit}
-
-	// maybe read alias
-	tok, lit = p.scan()
-	if tok == Token_Keyword && isExactKeyword(lit, Keyword_As) {
-		// read alias
-		tok, lit = p.scan()
-		if tok != Token_Ident {
-			return nil, p.expectedRawError("import alias", lit)
+	for p.buf.tok == Token_String {
+		importStmt, err := p.parseImport()
+		if err != nil {
+			return err
 		}
 
-		stmt.alias = &lit
-	} else {
-		p.unscan()
+		(*p.imports) = append((*p.imports), importStmt)
+	}
+
+	return nil
+}
+
+// parseImport parses a string and returns it as a ImportStmt
+func (p *Parser) parseImport() (*ImportStmt, error) {
+	err := p.require(Token_String)
+	if err != nil {
+		return nil, err
+	}
+
+	stmt := &ImportStmt{
+		path: &IdentifierStmt{lit: p.buf.lit},
+	}
+	p.next()
+
+	// may parse AS alias
+	if p.buf.tok == Token_As {
+		p.next()
+		alias, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.alias = alias
 	}
 
 	return stmt, nil
 }
 
-// parseType parses a type
-func (p *Parser) parseType() (*typeStmt, error) {
-	tok, lit := p.scan()
+// parseField parses a FieldStmt
+func (p *Parser) parseField() (*FieldStmt, error) {
+	stmt := new(FieldStmt)
 
-	typeStmt := &typeStmt{
-		typeModifier: TypeModifier_Struct,
-		fields:       new(fieldsStmt),
+	// if until this moment any comment has been read, add as documentation
+	if len(*p.comments) > 0 {
+		stmt.documentation = p.getComments()
 	}
 
-	// if tok is @, read metadata for incoming type
-	if tok == Token_At {
+	// maybe read field index
+	if p.buf.tok == Token_Int {
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.index = value
+		p.next()
+	}
+
+	// field's name
+	if p.buf.tok == Token_Ident {
+		value, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.name = value
+	} else {
+		return nil, p.expectedErr(Token_Ident)
+	}
+
+	// read ":" (required)
+	err := p.requireMove(Token_Colon)
+	if err != nil {
+		return nil, err
+	}
+
+	// read value type
+	p.next()
+	if p.buf.tok == Token_Ident {
+		value, err := p.parseValueTypeStmt()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.valueType = value
+	} else {
+		return nil, p.expectedErr(Token_Ident)
+	}
+
+	if p.buf.tok == Token_Assign { // default value
+		p.next()
+		value, err := p.parseGenericValue()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.defaultValue = value
+		p.next()
+	}
+
+	if p.buf.tok == Token_At { // metadata
+		p.next()
+		value, err := p.parseMap()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.metadata = value
+		p.next()
+	}
+
+	return stmt, nil
+}
+
+// parseEnumField parses a FieldStmt but using Enum's syntax.
+// Enum's fields uses the same signature as Struct or Union's fields but
+// type is not allowed nor default value
+func (p *Parser) parseEnumField() (*FieldStmt, error) {
+	stmt := new(FieldStmt)
+
+	// if until this moment any comment has been read, add as documentation
+	if len(*p.comments) > 0 {
+		stmt.documentation = p.getComments()
+	}
+
+	// maybe read field index
+	if p.buf.tok == Token_Int {
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.index = value
+		p.next()
+	}
+
+	// field's name
+	if p.buf.tok == Token_Ident {
+		value, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.name = value
+	} else {
+		return nil, p.expectedErr(Token_Ident)
+	}
+
+	if p.buf.tok == Token_At { // metadata
+		p.next()
+		value, err := p.parseMap()
+		if err != nil {
+			return nil, err
+		}
+
+		stmt.metadata = value
+		p.next()
+	}
+
+	return stmt, nil
+}
+
+// parseType parses a TypeStmt
+func (p *Parser) parseType() (*TypeStmt, error) {
+	stmt := new(TypeStmt)
+
+	// check if there is any comment that is a possible documentation comment
+	stmt.documentation = p.getValidCommentsFor(p.buf.pos.line)
+
+	if p.buf.tok == Token_At { // metadata present
+		p.next()
+		// parse map
 		mapStmt, err := p.parseMap()
 		if err != nil {
 			return nil, err
 		}
 
-		typeStmt.metadata = mapStmt
-		_, lit = p.scan()
+		stmt.metadata = mapStmt
+		p.next()
 	}
 
-	// if the next keyword is not "type", error
-	if !isExactKeyword(lit, Keyword_Type) {
-		return nil, p.expectedKeywordErr(Keyword_Type, lit)
+	if p.buf.tok != Token_Type {
+		return nil, p.expectedErr(Token_Type)
 	}
+	p.next()
 
-	// scan type's name
-	tok, lit = p.scan()
-	if tok != Token_Ident {
-		return nil, p.expectedRawError("identifier", lit)
-	}
-	typeStmt.name = lit
-
-	// cannot create a  struct which name is a keyword
-	if isKeyword(lit) {
-		return nil, p.keywordGivenErr(lit)
-	}
-
-	// read modifier
-	tok, lit = p.scan()
-	if tok == Token_Keyword {
-		modifier, ok := parseTypeModifier(lit)
-		if !ok {
-			return nil, p.raw(fmt.Sprintf("unknown type modifier: %q", lit))
-		}
-
-		typeStmt.typeModifier = modifier
-	} else {
-		// unscan because we will infer its "{" and the type modifier become "struct" implicitly
-		// if its not a "{", the next read should return an error
-		p.unscan()
-	}
-
-	// read open curly braces "{"
-	tok, lit = p.scan()
-	if tok != Token_OpenCurlyBraces {
-		return nil, p.expectedError(Token_OpenCurlyBraces, lit)
-	}
-
-	// from here, start reading fields
-	for {
-		// read next token
-		tok, _ = p.scan()
-
-		if tok == Token_EOF {
-			continue
-			// return nil, p.expectedError(Token_CloseCurlyBraces, lit)
-		}
-
-		// stop reading struct and fields
-		if tok == Token_CloseCurlyBraces {
-			break
-		}
-
-		p.unscan()
-		fieldStmt, err := p.parseField(typeStmt.typeModifier)
-		if err != nil {
-			return nil, err
-		}
-
-		typeStmt.fields.add(fieldStmt)
-	}
-
-	return typeStmt, nil
-}
-
-func (p *Parser) parseField(forModifier TypeModifier) (*fieldStmt, error) {
-	field := &fieldStmt{index: -1}
-
-	var tok Token
-	var lit string
-	for {
-		tok, lit = p.scan()
-
-		// expect ident, because of field's index or name
-		if tok != Token_Ident {
-			return nil, p.expectedError(Token_Ident, lit)
-		}
-
-		// if lit can be parsed into an int, its the field's index
-		fieldIndex, err := strconv.Atoi(lit)
-		if err == nil && field.index == -1 {
-			field.index = fieldIndex
-		} else {
-			// it corresponds to the field's name
-			field.name = lit
-			break
-		}
-	}
-
-	if field.index == -1 {
-		field.index = 0
-	}
-
-	if forModifier == TypeModifier_Enum {
-		return field, nil
-	}
-
-	// read ":"
-	tok, lit = p.scan()
-	if tok != Token_Colon {
-		return nil, p.expectedError(Token_Colon, lit)
-	}
-
-	// read field type
-	fieldType, err := p.parseFieldType()
+	// read name
+	ident, err := p.parseIdentifier()
 	if err != nil {
 		return nil, err
 	}
 
-	field.valueType = fieldType
+	stmt.name = ident
+	// p.next()
 
-	// maybe read "=" for default value or "@" for metadata
-	for {
-		tok, _ = p.scan()
-
-		// scan default value
-		if tok == Token_Equals {
-			defaultValue, err := p.parseValue()
-			if err != nil {
-				return nil, err
-			}
-
-			field.defaultValue = defaultValue
-		} else if tok == Token_At {
-			m, err := p.parseMap()
-			if err != nil {
-				return nil, err
-			}
-
-			field.metadata = m
-		} else {
-			p.unscan()
-			break
-		}
-	}
-
-	return field, nil
-}
-
-func (p *Parser) parseFieldType() (*valueTypeStmt, error) {
-	fieldType := new(valueTypeStmt)
-
-	// read primitive
-	tok, lit := p.scan()
-	if tok != Token_Keyword && tok != Token_Ident {
-		return nil, p.expectedRawError("field type", lit)
-	}
-
-	// parse primitive
-	primitive, ok := primitiveMapping[lit]
-	if !ok {
-		// if primitive is not recognized, its because its a custom type
-		primitive = Primitive_Type
-		fieldType.customTypeName = &lit
-	}
-	fieldType.primitive = primitive
-
-	// primitive is list or map, expect type arguments
-	if fieldType.primitive == Primitive_List || fieldType.primitive == Primitive_Map {
-		fieldType.typeArguments = new([]*valueTypeStmt)
-
-		// read (
-		tok, lit = p.scan()
-		if tok != Token_OpenParens {
-			if fieldType.primitive == Primitive_List {
-				return nil, p.raw(fmt.Sprintf("lists expect one type argument, given: %s", lit))
-			} else {
-				if fieldType.primitive == Primitive_Map {
-					return nil, p.raw(fmt.Sprintf("maps expect two type arguments, given: %s", lit))
-				}
-			}
+	// if read {, then modifier is struct
+	if p.buf.tok == Token_Lbrace {
+		stmt.modifier = Token_Struct
+	} else {
+		// read modifier
+		if !p.buf.tok.IsModifier() {
+			return nil, p.expectedGiven("expected type modifier")
 		}
 
-		firstArgument, err := p.parseFieldType()
+		stmt.modifier = p.buf.tok
+
+		p.next()
+		err := p.require(Token_Lbrace)
 		if err != nil {
 			return nil, err
 		}
-		(*fieldType.typeArguments) = append((*fieldType.typeArguments), firstArgument)
+	}
+	// read fields until "}"
+	p.next()
+	for {
+		if p.buf.tok == Token_Rbrace {
+			goto exit
+		}
 
-		// if map, read next
-		if fieldType.primitive == Primitive_Map {
-			tok, lit = p.scan()
-			if tok != Token_Comma {
-				return nil, p.expectedError(Token_Comma, lit)
-			}
+		if p.buf.tok == Token_EOF {
+			break
+		}
 
-			secondArgument, err := p.parseFieldType()
+		if stmt.fields == nil {
+			stmt.fields = new([]*FieldStmt)
+		}
+
+		var fieldStmt *FieldStmt
+		var err error
+		if stmt.modifier == Token_Enum {
+			fieldStmt, err = p.parseEnumField()
+		} else {
+			fieldStmt, err = p.parseField()
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		(*stmt.fields) = append((*stmt.fields), fieldStmt)
+		// p.undo()
+	}
+
+	return nil, p.require(Token_Rbrace)
+
+exit:
+	return stmt, nil
+}
+
+// parseValueTypeStmt parses an ValueTypeStmt.
+func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
+	stmt := new(ValueTypeStmt)
+	var err error
+
+	// first parse type's name
+	stmt.ident, err = p.parseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	// if we read parens, it contains type arguments
+	if p.buf.tok == Token_Lparen {
+		p.next()
+		stmt.typeArguments = new([]*ValueTypeStmt)
+
+		// read first one
+		valueType, err := p.parseValueTypeStmt()
+		if err != nil {
+			return nil, err
+		}
+
+		(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
+
+		for p.buf.tok == Token_Comma {
+			p.next()
+			valueType, err := p.parseValueTypeStmt()
 			if err != nil {
 				return nil, err
 			}
 
-			(*fieldType.typeArguments) = append((*fieldType.typeArguments), secondArgument)
+			(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
 		}
 
-		// read close parens )
-		tok, lit = p.scan()
-		if tok != Token_CloseParens {
-			return nil, p.expectedError(Token_CloseParens, lit)
+		// must read )
+		err = p.require(Token_Rparen)
+		if err != nil {
+			return nil, err
 		}
+
+		p.next()
 	}
 
-	// maybe read "?" for nullable
-	tok, _ = p.scan()
-	if tok != Token_QuestionMark {
-		p.unscan()
+	// nullable
+	if p.buf.tok == Token_Nullable {
+		stmt.nullable = true
+		p.next()
+	}
+
+	return stmt, err
+}
+
+// parseIdentifier parses an IdentifierStmt. It can be string,
+// bool, or any other primitive, enum's values, etc.
+func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
+	if p.buf.tok == Token_Ident {
+		ident := new(IdentifierStmt)
+		lit := p.buf.lit
+		p.next()
+
+		// while found a period, it can be import alias, type's name or type's value
+		if p.buf.tok == Token_Period {
+			p.next()
+			err := p.require(Token_Ident)
+			if err != nil {
+				return nil, err
+			}
+
+			ident.alias = lit
+			ident.lit = p.buf.lit
+			p.next()
+		} else {
+			ident.lit = lit
+		}
+
+		return ident, nil
 	} else {
-		fieldType.nullable = true
+		return nil, p.expectedErr(Token_Ident)
 	}
-
-	return fieldType, nil
 }
 
-func (p *Parser) parseList() (*listStmt, error) {
-	tok, lit := p.scan() // read [
-	if tok != Token_OpenBrackets {
-		return nil, p.expectedError(Token_OpenBrackets, lit)
+// parseGenericValue tries to parse first with parseValue, if fails, tries with list,
+// if fails, tries with map, if fails, return the error
+func (p *Parser) parseGenericValue() (ValueStmt, error) {
+	value, err := p.parseValue()
+	if err == nil {
+		return value, nil
 	}
 
-	l := new(listStmt)
-
-	added := false
-	for {
-		tok, _ = p.scan()
-		if tok == Token_CloseBrackets { // if we read ], then stop
-			break
-		}
-
-		// after a value, we expect a comma
-		if tok == Token_Comma && added {
-			added = false
-			continue
-		}
-
-		if added {
-			if tok == Token_Ident || tok == Token_String {
-				return nil, p.raw("list elements must be comma-separated")
-			} else {
-				return nil, p.raw(`lists must be closed with "]"`)
-			}
-		}
-
-		if tok == Token_Ident || tok == Token_String {
-			p.unscan()
-			identifier, err := p.parseValue()
-			if err != nil {
-				return nil, err
-			}
-
-			primitive := identifier.Primitive()
-			if primitive == Primitive_Map || primitive == Primitive_List {
-				return nil, p.raw("lists cannot contain nested lists or maps")
-			}
-
-			// add identifier to stmt
-			l.add(identifier.(*identifierStmt))
-			added = true
-		} else {
-			break
-		}
+	value, err = p.parseList()
+	if err == nil {
+		return value, nil
 	}
 
-	return l, nil
+	p.undo() // undo because map expects start with [
+	value, err = p.parseMap()
+	if err == nil {
+		return value, nil
+	}
+
+	return nil, err
 }
 
-func (p *Parser) parseMap() (*mapStmt, error) {
-	tok, lit := p.scan() // read [
-	if tok != Token_OpenBrackets {
-		return nil, p.expectedError(Token_OpenBrackets, lit)
+// pareMap parses an expression in the form: [(entry1),(entry2)]
+// where "entry" means (key:value). This is a special case of list
+func (p *Parser) parseMap() (*MapValueStmt, error) {
+	err := p.requireNext(Token_Lbrack)
+	if err != nil {
+		return nil, err
 	}
 
-	m := new(mapStmt)
+	m := new(MapValueStmt)
+	value, err := p.parseMapEntry()
+	if err != nil {
+		return nil, err
+	}
+	m.add(value)
 
-	for {
-		tok, lit = p.scan()
-		if tok == Token_CloseBrackets { // if we read ], then stop
-			break
+	p.next()
+	for p.buf.tok == Token_Comma {
+		p.next()
+		value, err = p.parseMapEntry()
+		if err != nil {
+			return nil, err
 		}
+		m.add(value)
+		p.next()
+	}
 
-		// after an entry, we expect a comma
-		if !m.isEmpty() {
-			if tok != Token_Comma {
-				return nil, p.raw("map entries must be comma-separated")
-			}
-
-			// consume
-			tok, lit = p.scan()
-		}
-
-		// read (, expect entry
-		if tok == Token_OpenParens {
-
-			entry := new(mapEntryStmt)
-
-			// read until we found )
-			for {
-				tok, _ = p.scan()
-				if tok == Token_CloseParens {
-					m.add(entry)
-					break
-				} else if tok == Token_Ident || tok == Token_String {
-					p.unscan()
-					identifier, err := p.parseValue()
-					if err != nil {
-						return nil, err
-					}
-
-					primitive := identifier.Primitive()
-					if primitive == Primitive_Map || primitive == Primitive_List {
-						return nil, p.raw("lists cannot contain nested lists or maps")
-					}
-
-					if entry.key == nil {
-						entry.key = identifier.(*identifierStmt)
-
-						// next must be colon
-						tok, _ = p.scan()
-						if tok != Token_Colon {
-							return nil, p.raw("key-value pair must be in the format key:value")
-						}
-					} else if entry.value == nil {
-						entry.value = identifier.(*identifierStmt)
-					} else {
-						return nil, p.raw("invalid map declaration")
-					}
-				} else {
-					return nil, p.raw("invalid map declaration")
-				}
-			}
-		} else {
-			return nil, p.expectedError(Token_OpenParens, lit)
-		}
+	err = p.require(Token_Rbrack)
+	if err != nil {
+		return nil, err
 	}
 
 	return m, nil
 }
 
-func (p *Parser) parseValue() (baseIdentifierStmt, error) {
-	tok, lit := p.scan()
-
-	// maybe a string
-	if tok == Token_String {
-		if len(lit) <= 0 {
-			return nil, p.raw("invalid string format")
-		}
-
-		if lit[len(lit)-1] != '"' {
-			return nil, p.raw(`strings must end with quotes (")`)
-		}
-
-		return &identifierStmt{
-			value:     lit[1 : len(lit)-1],
-			valueType: &valueTypeStmt{primitive: Primitive_String},
-		}, nil
-	} else if tok == Token_Ident {
-		// check if input can be parsed into an int
-		var value interface{}
-		var primitive Primitive
-		var err error
-		value, err = strconv.ParseInt(lit, 10, 64)
-
-		if err != nil {
-			// its not an int, try with float
-			value, err = strconv.ParseFloat(lit, 64)
-			if err != nil {
-				// its not a float, try with bool
-				value, err = strconv.ParseBool(lit)
-				if err != nil {
-					// if not a bool, try with null
-					primitive = primitiveMapping[lit]
-					if primitive == Primitive_Null {
-						value = nil
-					} else {
-						// try to parse a custom enum value
-						p.unscan()
-						stmt, err := p.parseCustomTypeValue()
-						if err != nil {
-							return nil, p.raw(fmt.Sprintf("unknown primitive %s", lit))
-						}
-
-						return stmt, nil
-					}
-				} else {
-					primitive = Primitive_Bool
-				}
-			} else {
-				primitive = Primitive_Float64
-			}
-		} else {
-			primitive = Primitive_Int64
-		}
-
-		return &identifierStmt{
-			value: value,
-			valueType: &valueTypeStmt{
-				primitive: primitive,
-			},
-		}, nil
-	} else if tok == Token_OpenBrackets { // for list or map
-		//p.unscanBuf()
-		p.unscan()
-
-		// if next token is (, then is a map
-		tok, _ = p.peek()
-		if tok == Token_OpenParens {
-			m, err := p.parseMap()
-			if err != nil {
-				return nil, err
-			}
-
-			return m, nil
-		} else {
-
-			l, err := p.parseList()
-			if err != nil {
-				return nil, err
-			}
-
-			return l, nil
-		}
-	} else {
-		return nil, p.expectedRawError("primitive", lit)
-	}
-}
-
-func (p *Parser) parseCustomTypeValue() (*customTypeIdentifierStmt, error) {
-	tok, lit := p.scan()
-	if tok != Token_Ident {
-		return nil, p.expectedError(Token_Ident, lit)
+// parseMapEntry parses an expression in the form (key:value)
+func (p *Parser) parseMapEntry() (*MapEntryStmt, error) {
+	// (
+	err := p.requireNext(Token_Lparen)
+	if err != nil {
+		return nil, err
 	}
 
-	// custom type values only allows enums, so its format becomes alias.enumName.value
-	// alias is optional, so for now we only split lit
-	toks := strings.Split(lit, ".")
-	if len(toks) < 2 || len(toks) > 3 { // at least two, enumName and value and no more than 3: alias, name and value
-		return nil, p.expectedRawError("enum name and value", lit)
+	// parse key
+	key, err := p.parseValue()
+	if err != nil {
+		return nil, err
 	}
 
-	var enumIdentifier, value string
-
-	if len(toks) == 3 {
-		enumIdentifier = toks[0] + "." + toks[1]
-		value = toks[2]
-	} else {
-		enumIdentifier = toks[0]
-		value = toks[1]
+	// parse :
+	p.next()
+	err = p.requireNext(Token_Colon)
+	if err != nil {
+		return nil, err
 	}
 
-	return &customTypeIdentifierStmt{
-		customTypeName: enumIdentifier,
-		value:          value,
+	// parse value
+	value, err := p.parseValue()
+	if err != nil {
+		return nil, err
+	}
+
+	// )
+	err = p.requireMove(Token_Rparen)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MapEntryStmt{
+		key:   key,
+		value: value,
 	}, nil
 }
 
-func (p *Parser) parseComment() (*commentStmt, error) {
-	backlashCount := 0
-	multine := false
-	commentStarted := false
-	commentType := singleline
+// parseList parses an expression in the form: [value1, value2, value3]
+func (p *Parser) parseList() (*ListValueStmt, error) {
+	err := p.requireNext(Token_Lbrack)
+	if err != nil {
+		return nil, err
+	}
 
-	sb := new(strings.Builder)
-	for {
-		tok, lit := p.scan(true)
-		if tok == Token_EOF {
-			if !commentStarted {
-				return nil, p.raw("comments must start with double // or with /* for multine comments")
-			} else if commentStarted && multine {
-				return nil, p.raw("multine comments must be closed with */")
-			} else {
-				return &commentStmt{
-					text:        sb.String(),
-					commentType: commentType,
-				}, nil
-			}
-		} else if tok == Token_Backslash {
-			// if last token was a / too, add to backlash count
-			// in order to determine the type of comment
-			if !commentStarted {
-				backlashCount++
+	list := new(ListValueStmt)
+	value, err := p.parseValue()
+	if err != nil {
+		return nil, err
+	}
+	list.add(value)
 
-				continue
-			}
-		} else if tok == Token_Asterisk {
-			tok, lit = p.scan() // if next tok is /, its closing the comment
-			if tok == Token_Backslash {
-				if multine {
-					return &commentStmt{
-						text:        sb.String(),
-						commentType: commentType,
-					}, nil
-				}
-			} else {
-				p.unscan()
-				if backlashCount > 0 {
-					// start the comment
-					multine = true
-					commentStarted = true
-					commentType = multiline
-					continue
-				}
-			}
-		} else if tok == Token_Newline {
-			if multine {
-				sb.WriteString(lit)
-				continue
-			} else {
-				return &commentStmt{
-					text:        sb.String(),
-					commentType: commentType,
-				}, nil
-			}
+	p.next()
+	for p.buf.tok == Token_Comma {
+		p.next()
+		value, err = p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+		list.add(value)
+		p.next()
+	}
+
+	err = p.require(Token_Rbrack)
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
+// parseValue parses any primitive raw value
+func (p *Parser) parseValue() (ValueStmt, error) {
+	if p.buf.tok == Token_String {
+		return &PrimitiveValueStmt{kind: Primitive_String, value: p.buf.lit}, nil
+	} else if p.buf.tok == Token_Ident {
+		kind, value := p.stringToValue()
+		if kind != Primitive_Illegal {
+			return &PrimitiveValueStmt{kind: kind, value: value}, nil
 		}
 
-		sb.WriteString(lit)
+		// if its illegal, try with enum, it needs the name, and a value.
+		enumName, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
 
-		if !commentStarted && backlashCount > 1 {
-			commentStarted = true
+		// if the next token is a period, we found a declaration in the form
+		// alias.EnumName.enum_value, otherwise, enumName contains the EnumName.enum_value
+		if p.buf.tok == Token_Period {
+			p.next()
+			enumValue, err := p.parseIdentifier()
+			if err != nil {
+				return nil, err
+			}
+
+			return &TypeValueStmt{
+				typeName: enumName,
+				value:    enumValue,
+			}, nil
+		} else {
+			p.undo() // undo the invalid read token
+
+			// alias becomes the name, and lit the value
+			return &TypeValueStmt{
+				typeName: &IdentifierStmt{lit: enumName.alias},
+				value:    &IdentifierStmt{lit: enumName.lit},
+			}, nil
+		}
+
+	} else if p.buf.tok == Token_Float {
+		f, _ := strconv.ParseFloat(p.buf.lit, 64)
+		return &PrimitiveValueStmt{value: f, kind: Primitive_Float64}, nil
+	} else if p.buf.tok == Token_Int {
+		i, _ := strconv.ParseInt(p.buf.lit, 10, 64)
+		return &PrimitiveValueStmt{value: i, kind: Primitive_Int64}, nil
+	} else {
+		return nil, p.expectedGiven("string, int, float or identifier")
+	}
+}
+
+// next sets the current token to the newly read from consume, if stack is empty.
+// Otherwise, it will pop the stack until zero elements
+// Any comment that is encountered, is saved for later use
+func (p *Parser) next() error {
+	var err error
+	if p.cache.NextHas() {
+		buf := p.cache.Advance()
+		p.buf = *buf
+	} else {
+		err = p.consume()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// save any comment
+	if p.buf.tok == Token_Comment {
+		comment, err := p.parseComment()
+		if err != nil {
+			return err
+		}
+
+		// if the comment is on the same line that another token, its not documentation
+		before := p.cache.Before()
+		if before == nil || before.pos.line != comment.lineStart {
+			(*p.comments)[comment.lineStart] = comment
+		}
+
+		return p.next() // skip the comment
+	}
+
+	return nil
+}
+
+// nextIs advances one token and returns true if its equal to tok
+func (p *Parser) nextIs(tok Token, advance ...bool) bool {
+	advanceB := true
+	if len(advance) == 1 {
+		advanceB = advance[0]
+	}
+
+	p.next()
+	if advanceB {
+		defer p.next()
+	}
+	return p.buf.tok == tok
+}
+
+// undo unscans a token
+func (p *Parser) undo(n ...int) {
+	count := 1
+	if len(n) == 1 {
+		count = n[0]
+	}
+
+	// do not unscan from tokenizer, instead, pop the stack
+	// p.tokenizer.unscan(length)
+	// p.next()
+
+	p.cache.Back(count)
+	p.buf = *p.cache.Current()
+}
+
+// consume reads a token from the underlying tokenizer and saves it in the Parser
+func (p *Parser) consume() error {
+	var err error
+	p.buf.pos, p.buf.tok, p.buf.lit, err = p.tokenizer.Scan()
+	p.cache.Push(p.buf)
+	return err
+}
+
+// parseComment parses the next comment
+func (p *Parser) parseComment() (*CommentStmt, error) {
+	// scan for /*-style comments to report line end
+	lineEnd := p.buf.pos.line
+	if p.buf.lit[1] == '*' {
+		for _, ch := range p.buf.lit {
+			if ch == '\n' {
+				lineEnd++
+			}
 		}
 	}
+
+	return &CommentStmt{
+		text:      p.buf.lit,
+		posStart:  p.buf.pos.offset,
+		posEnd:    p.buf.pos.offset + len(p.buf.lit),
+		lineStart: p.buf.pos.line,
+		lineEnd:   lineEnd,
+	}, nil
+}
+
+// require returns an error if the next token does not match tok
+func (p *Parser) require(tok Token) error {
+
+	// try to move one position
+	if p.buf.tok == Token_Illegal {
+		p.next()
+	}
+
+	if p.buf.tok != tok {
+		return p.expectedErr(tok)
+	}
+	return nil
+}
+
+// requireNext does the same as require but moves to the next token after matching
+func (p *Parser) requireNext(tok Token) error {
+
+	// try to move one position
+	if p.buf.tok == Token_Illegal {
+		p.next()
+	}
+
+	if p.buf.tok != tok {
+		return p.expectedErr(tok)
+	}
+
+	p.next()
+	return nil
+}
+
+// requireMove does the same as require but tries to move one position trying to fetch the required token
+func (p *Parser) requireMove(tok Token) error {
+
+	// try to move one position
+	if p.buf.tok == Token_Illegal {
+		p.next()
+	}
+
+	if p.buf.tok != tok {
+		p.next()
+
+		if p.buf.tok != tok {
+			return p.expectedErr(tok)
+		}
+	}
+	return nil
+}
+
+// requireSeq checks if the next sequence of two tokens matches first and second
+func (p *Parser) requireSeq(first Token, second Token) error {
+	// try to move to a legal position
+	if p.buf.tok == Token_Illegal {
+		p.next()
+	}
+
+	if p.buf.tok != first {
+		return p.expectedErr(first)
+	}
+
+	p.next()
+	if p.buf.tok != second {
+		return p.expectedErr(second)
+	}
+
+	p.next()
+	return nil
+}
+
+func (p *Parser) expectedErr(tok Token) error {
+	return fmt.Errorf("%s -> expected %q, given %q (%s)", p.buf.pos.String(), tok.String(), p.buf.tok.String(), p.buf.lit)
+}
+
+func (p *Parser) expectedGiven(txt string) error {
+	return fmt.Errorf("%s -> expected %s, given %q", p.buf.pos.String(), txt, p.buf.lit)
+}
+
+func (p *Parser) stringToValue() (primitive Primitive, value interface{}) {
+	lit := p.buf.lit
+
+	if lit == nullKeyword {
+		return Primitive_Null, nil
+	}
+
+	// try with bool
+	b, err := strconv.ParseBool(lit)
+	if err == nil {
+		return Primitive_Bool, b
+	}
+
+	return Primitive_Illegal, nil
+}
+
+func (p *Parser) getValidCommentsFor(line int) *[]*CommentStmt {
+	/* the procedure is: check if there is any comment at line-1.
+	if any comment, check at (line-1)-1, and so on until no more comments are encountered
+	*/
+
+	comments := new([]*CommentStmt)
+	currLine := line - 1
+	if len(*p.comments) > 0 {
+		for {
+			comment, ok := (*p.comments)[currLine]
+			if !ok {
+				break
+			}
+
+			if comment.lineStart == currLine {
+				(*comments) = append(*comments, comment)
+				currLine--
+			} else {
+				break
+			}
+		}
+	}
+
+	// reverse the list
+	for i, j := 0, len(*comments)-1; i < j; i, j = i+1, j-1 {
+		(*comments)[i], (*comments)[j] = (*comments)[j], (*comments)[i]
+	}
+
+	// new map
+	p.comments = &map[int]*CommentStmt{}
+
+	return comments
+}
+
+// getComments returns p.comments as an array then clears the map
+func (p *Parser) getComments() *[]*CommentStmt {
+	list := make([]*CommentStmt, len(*p.comments))
+
+	idx := 0
+	for _, elem := range *p.comments {
+		list[idx] = elem
+		idx++
+	}
+
+	// new map
+	p.comments = &map[int]*CommentStmt{}
+
+	return &list
 }

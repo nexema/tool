@@ -165,7 +165,8 @@ generators:
 You can import schema files  using the `import` keyword.
 For example, you created a file called `identity.nex` and then another called `common.nex` which declares a struct called `Address`.
 ```
-import "common" // Here we are importing the common.nex" file
+import: 
+  "common" // Here we are importing the common.nex" file 
 
 type User {
 	address: common.Address
@@ -174,7 +175,9 @@ type User {
 
 If you want to create a subpackage, you don't need to do extra work. Just include the base package in the import declaration, like:
 ```
-import "foo/bar"
+import:
+  "foo/bar"
+  "baz"
     
 type Baz {
     myField: bar.Vim
@@ -182,11 +185,12 @@ type Baz {
 ```
 If you have type collision, you can alias your imports:
 ```
-import "foo/bar" AS b1
-import "another_bar" AS b2
-    
+import:
+  "foo/bar" as b1
+  "another_bar" as b2
+ 
 type Baz {
-    field: b1.Vim
+  field: b1.Vim
 	other: b2.Vim
 }
 ```

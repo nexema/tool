@@ -1,119 +1,96 @@
 package internal
 
-// Ast represents the main abstract syntax tree of a messagepack-schema entry
+// Ast represents the abstract syntax tree of a Nexema file
 type Ast struct {
-	imports *importsStmt
-	types   *typesStmt
+	imports *[]*ImportStmt
+	types   *[]*TypeStmt
 }
 
-type importsStmt []*importStmt
-type importStmt struct {
-	src   string
-	alias *string
+// Comment represents a comment read on a file
+type CommentStmt struct {
+	text      string // the comment's literal
+	posStart  int
+	posEnd    int
+	lineStart int
+	lineEnd   int
 }
 
-type typesStmt []*typeStmt
-type typeStmt struct {
-	metadata     *mapStmt               // type's metadata
-	name         string                 // type's name
-	typeModifier TypeModifier           // type's modifier (union,struct,enum)
-	fields       *fieldsStmt            // type's fields
-	docs         *documentationComments // type's documentation comments
+type ImportStmt struct {
+	path  *IdentifierStmt
+	alias *IdentifierStmt
 }
 
-func (t *typesStmt) add(typestmt *typeStmt) {
-	(*t) = append((*t), typestmt)
+type TypeStmt struct {
+	name          *IdentifierStmt
+	modifier      Token // Token_Struct, Token_Enum, Token_Union
+	metadata      *MapValueStmt
+	documentation *[]*CommentStmt
+	fields        *[]*FieldStmt
 }
 
-func (i *importsStmt) add(importStmt *importStmt) {
-	(*i) = append((*i), importStmt)
+type FieldStmt struct {
+	index         ValueStmt
+	name          *IdentifierStmt
+	valueType     *ValueTypeStmt
+	metadata      *MapValueStmt
+	defaultValue  ValueStmt
+	documentation *[]*CommentStmt
 }
 
-type fieldsStmt []*fieldStmt
-type fieldStmt struct {
-	index        int
-	name         string
-	valueType    *valueTypeStmt
-	defaultValue baseIdentifierStmt
-	metadata     *mapStmt
-	docs         *documentationComments
+type ValueTypeStmt struct {
+	ident         *IdentifierStmt
+	nullable      bool
+	typeArguments *[]*ValueTypeStmt
 }
 
-type valueTypeStmt struct {
-	nullable       bool
-	primitive      Primitive
-	typeArguments  *[]*valueTypeStmt
-	customTypeName *string // the name of the custom type if primitive is Primitive_Type
+type IdentifierStmt struct {
+	lit   string
+	alias string // my_alias.EnumType
 }
 
-func (f *fieldsStmt) add(field *fieldStmt) {
-	(*f) = append((*f), field)
+type ValueStmt interface {
+	Kind() Primitive
 }
 
-type mapStmt []*mapEntryStmt
-type mapEntryStmt struct {
-	key   *identifierStmt
-	value *identifierStmt
+type PrimitiveValueStmt struct {
+	value interface{}
+	kind  Primitive // primitives without list, map or type
 }
 
-func (m *mapStmt) add(e *mapEntryStmt) {
-	(*m) = append((*m), e)
+// TypeValueStmt represents a value of an enum
+type TypeValueStmt struct {
+	typeName *IdentifierStmt
+	value    *IdentifierStmt
 }
 
-func (m *mapStmt) isEmpty() bool {
-	return len(*m) == 0
+type MapValueStmt []*MapEntryStmt
+type MapEntryStmt struct {
+	key   ValueStmt
+	value ValueStmt
 }
 
-type baseIdentifierStmt interface {
-	Primitive() Primitive
+func (m *MapValueStmt) add(stmt *MapEntryStmt) {
+	(*m) = append((*m), stmt)
 }
 
-type identifierStmt struct {
-	value     interface{}
-	valueType *valueTypeStmt
+type ListValueStmt []ValueStmt
+
+func (l *ListValueStmt) add(stmt ValueStmt) {
+	(*l) = append(*l, stmt)
 }
 
-type customTypeIdentifierStmt struct {
-	customTypeName string
-	value          string
+func (p *PrimitiveValueStmt) Kind() Primitive {
+	return p.kind
 }
 
-type listStmt []*identifierStmt
-
-func (l *listStmt) add(i *identifierStmt) {
-	(*l) = append((*l), i)
-}
-
-func (i *identifierStmt) Primitive() Primitive {
-	return i.valueType.primitive
-}
-
-func (l *listStmt) Primitive() Primitive {
-	return Primitive_List
-}
-
-func (m *mapStmt) Primitive() Primitive {
-	return Primitive_Map
-}
-
-func (c *customTypeIdentifierStmt) Primitive() Primitive {
+func (*TypeValueStmt) Kind() Primitive {
 	return Primitive_Type
 }
 
-type commentStmt struct {
-	text        string
-	commentType commentType
+func (*ListValueStmt) Kind() Primitive {
+	return Primitive_List
 }
 
-type commentType int8
-
-const (
-	singleline commentType = iota
-	multiline
-)
-
-type documentationComments []*commentStmt
-
-func (d *documentationComments) add(c *commentStmt) {
-	d.add(c)
+func (*MapValueStmt) Kind() Primitive {
+	return Primitive_Map
 }

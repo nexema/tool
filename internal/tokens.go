@@ -1,44 +1,58 @@
 package internal
 
 import (
-	"strings"
+	"regexp"
 )
 
-type Token int
-type Keyword int
-type Primitive int
-type TypeModifier int
+type Token int8
+type Primitive int8
 
 const (
 	Token_Illegal Token = iota
 	Token_EOF
 	Token_Whitespace
+	Token_Comment // /-started or *-started
 
 	// Literals
-	Token_Ident // fields, struct names
-	Token_Keyword
+	literals_beg
+	Token_Ident  // struct's or field's name
+	Token_Int    // 5
+	Token_Float  // 5.4
+	Token_String // "hello world"
+	literals_end
 
-	// Misc
-	Token_OpenBrackets
-	Token_CloseBrackets
-	Token_Colon
-	Token_QuestionMark
-	Token_At
-	Token_OpenParens
-	Token_CloseParens
-	Token_OpenCurlyBraces
-	Token_CloseCurlyBraces
-	Token_Comma
-	Token_Equals
-	Token_String
-	Token_Backslash
-	Token_Asterisk
-	Token_Newline
+	// Operators
+	operators_beg
+	Token_Assign   // =
+	Token_Nullable // ?
+	Token_Lparen   // (
+	Token_Lbrack   // [
+	Token_Lbrace   // {
+	Token_Rparen   // )
+	Token_Rbrack   // ]
+	Token_Rbrace   // }
+	Token_Colon    // :
+	Token_Comma    // ,
+	Token_Period   // .
+	Token_At       // @
+	operators_end
+
+	// Keywords
+	keywords_beg
+	Token_Type // type
+
+	modifiers_beg
+	Token_Struct // struct
+	Token_Enum   // enum
+	Token_Union  // union
+	modifiers_end
+	Token_Import // import
+	Token_As
+	keywords_end
 )
 
 const (
-	Primitive_Bool Primitive = iota
-	Primitive_String
+	Primitive_Illegal Primitive = iota
 	Primitive_Uint8
 	Primitive_Uint16
 	Primitive_Uint32
@@ -49,168 +63,129 @@ const (
 	Primitive_Int64
 	Primitive_Float32
 	Primitive_Float64
+	Primitive_String
+	Primitive_Bool
 	Primitive_Binary
-	Primitive_Type
-	Primitive_List
 	Primitive_Map
+	Primitive_List
+	Primitive_Type
 	Primitive_Null
 )
 
-const (
-	TypeModifier_Struct TypeModifier = iota
-	TypeModifier_Union
-	TypeModifier_Enum
-)
+const nullKeyword = "null"
+const importKeyword = "import"
 
-const (
-	Keyword_Type Keyword = iota
-	Keyword_Struct
-	Keyword_Enum
-	Keyword_Union
-	Keyword_Import
-	Keyword_String
-	Keyword_Boolean
-	Keyword_Uint
-	Keyword_Int
-	Keyword_Uint8
-	Keyword_Uint16
-	Keyword_Uint32
-	Keyword_Uint64
-	Keyword_Int8
-	Keyword_Int16
-	Keyword_Int32
-	Keyword_Int64
-	Keyword_Float32
-	Keyword_Float64
-	Keyword_List
-	Keyword_Map
-	Keyword_Binary
-	Keyword_Null
-	Keyword_As
-)
-
-var tokenNameMapping map[Token]string = map[Token]string{
-	Token_Ident:            "identifier",
-	Token_OpenBrackets:     "[",
-	Token_CloseBrackets:    "]",
-	Token_Colon:            ":",
-	Token_QuestionMark:     "?",
-	Token_At:               "@",
-	Token_OpenParens:       "(",
-	Token_CloseParens:      ")",
-	Token_OpenCurlyBraces:  "{",
-	Token_CloseCurlyBraces: "}",
-	Token_Comma:            "comma",
-	Token_Equals:           "=",
+var tokenMapping map[Token]string = map[Token]string{
+	Token_EOF:      "eof",
+	Token_Comment:  "comment",
+	Token_Illegal:  "illegal",
+	Token_Int:      "int",
+	Token_Float:    "float",
+	Token_Ident:    "ident",
+	Token_String:   "string",
+	Token_Assign:   "=",
+	Token_Nullable: "?",
+	Token_Lparen:   "(",
+	Token_Rparen:   ")",
+	Token_Lbrace:   "{",
+	Token_Rbrace:   "}",
+	Token_Lbrack:   "[",
+	Token_Rbrack:   "]",
+	Token_Colon:    ":",
+	Token_Comma:    ",",
+	Token_Period:   ".",
+	Token_At:       "@",
+	Token_Struct:   "struct",
+	Token_Union:    "union",
+	Token_Enum:     "enum",
+	Token_Type:     "type",
+	Token_Import:   "import",
+	Token_As:       "as",
 }
 
-var inverseKeywordMapping map[string]Keyword = map[string]Keyword{
-	"struct":  Keyword_Struct,
-	"enum":    Keyword_Enum,
-	"union":   Keyword_Union,
-	"type":    Keyword_Type,
-	"import":  Keyword_Import,
-	"string":  Keyword_String,
-	"boolean": Keyword_Boolean,
-	"uint8":   Keyword_Uint8,
-	"uint16":  Keyword_Uint16,
-	"uint32":  Keyword_Uint32,
-	"uint64":  Keyword_Uint64,
-	"int8":    Keyword_Int8,
-	"int16":   Keyword_Int16,
-	"int32":   Keyword_Int32,
-	"int64":   Keyword_Int64,
-	"float32": Keyword_Float32,
-	"float64": Keyword_Float64,
-	"list":    Keyword_List,
-	"map":     Keyword_Map,
-	"binary":  Keyword_Binary,
-	"int":     Keyword_Int,
-	"uint":    Keyword_Uint,
-	"as":      Keyword_As,
+var primitiveMapping map[Primitive]string = map[Primitive]string{
+	Primitive_Uint8:   "uint8",
+	Primitive_Uint16:  "uint16",
+	Primitive_Uint32:  "uint32",
+	Primitive_Uint64:  "uint64",
+	Primitive_Int8:    "int8",
+	Primitive_Int16:   "int16",
+	Primitive_Int32:   "int32",
+	Primitive_Int64:   "int64",
+	Primitive_String:  "string",
+	Primitive_Binary:  "binary",
+	Primitive_Bool:    "bool",
+	Primitive_List:    "list",
+	Primitive_Map:     "map",
+	Primitive_Float32: "float32",
+	Primitive_Float64: "float64",
+	Primitive_Type:    "type",
 }
 
-var keywordMapping map[Keyword]string = map[Keyword]string{
-	Keyword_Struct:  "struct",
-	Keyword_Enum:    "enum",
-	Keyword_Union:   "union",
-	Keyword_Type:    "type",
-	Keyword_Import:  "import",
-	Keyword_String:  "string",
-	Keyword_Boolean: "boolean",
-	Keyword_Uint8:   "uint8",
-	Keyword_Uint16:  "uint16",
-	Keyword_Uint32:  "uint32",
-	Keyword_Uint64:  "uint64",
-	Keyword_Int8:    "int8",
-	Keyword_Int16:   "int16",
-	Keyword_Int32:   "int32",
-	Keyword_Int64:   "int64",
-	Keyword_Float32: "float32",
-	Keyword_Float64: "float64",
-	Keyword_List:    "list",
-	Keyword_Map:     "map",
-	Keyword_Binary:  "binary",
-	Keyword_Int:     "int",
-	Keyword_Uint:    "uint",
-	Keyword_Null:    "null",
-	Keyword_As:      "as",
-}
+var keywords map[string]Token
+var primitives map[string]Primitive
+var identifierRegex = regexp.MustCompile(`[A-Za-z_][A-Za-z_0-9]*`)
 
-var primitiveMapping map[string]Primitive = map[string]Primitive{
-	"boolean": Primitive_Bool,
-	"string":  Primitive_String,
-	"uint8":   Primitive_Uint8,
-	"uint16":  Primitive_Uint16,
-	"uint32":  Primitive_Uint32,
-	"uint64":  Primitive_Uint64,
-	"int8":    Primitive_Int8,
-	"int16":   Primitive_Int16,
-	"int32":   Primitive_Int32,
-	"int64":   Primitive_Int64,
-	"int":     Primitive_Int32,
-	"uint":    Primitive_Uint32,
-	"float32": Primitive_Float32,
-	"float64": Primitive_Float64,
-	"binary":  Primitive_Binary,
-	"list":    Primitive_List,
-	"map":     Primitive_Map,
-	"null":    Primitive_Null,
-}
-
-func (t Token) String() string {
-	v, ok := tokenNameMapping[t]
-	if !ok {
-		return "unknown"
+func init() {
+	keywords = make(map[string]Token, keywords_end-(keywords_beg+1))
+	for i := keywords_beg + 1; i < keywords_end; i++ {
+		keywords[tokenMapping[i]] = i
 	}
 
-	return v
+	primitives = make(map[string]Primitive)
+	for primitive, name := range primitiveMapping {
+		primitives[name] = primitive
+	}
 }
 
-func (k Keyword) String() string {
-	s := keywordMapping[k]
+// String returns the string corresponding to the token tok.
+func (tok Token) String() string {
+	s := tokenMapping[tok]
 	return s
 }
 
-func isKeyword(s string) bool {
-	_, ok := inverseKeywordMapping[strings.ToLower(s)]
+// GetKeyword returns the keyword the ident represents, or Token_Ident if its not a keyword
+func GetKeyword(ident string) Token {
+	tok, ok := keywords[ident]
+	if ok {
+		return tok
+	}
+
+	return Token_Ident
+}
+
+func (tok Token) IsLiteral() bool {
+	return literals_beg < tok && tok < literals_end
+}
+
+func (tok Token) IsOperator() bool {
+	return operators_beg < tok && tok < operators_end
+}
+
+func (tok Token) IsKeyword() bool {
+	return keywords_beg < tok && tok < keywords_end
+}
+
+func IsKeyword(s string) bool {
+	_, ok := keywords[s]
 	return ok
 }
 
-func isExactKeyword(s string, keyword Keyword) bool {
-	keywordString := keywordMapping[keyword]
-	return keywordString == strings.ToLower(s)
+func (tok Token) IsModifier() bool {
+	return modifiers_beg < tok && tok < modifiers_end
 }
 
-func parseTypeModifier(s string) (TypeModifier, bool) {
-	switch s {
-	case "struct":
-		return TypeModifier_Struct, true
-	case "union":
-		return TypeModifier_Union, true
-	case "enum":
-		return TypeModifier_Enum, true
-	default:
-		return TypeModifier_Struct, false
+// IsIdentifier returns a boolean indicating if the current string is an identifier, that is, a string with
+// matches the following regex: [A-Za-z_][A-Za-z_0-9]* and is not a keyword
+func IsIdentifier(i string) bool {
+	if i == "" || IsKeyword(i) {
+		return false
 	}
+
+	return identifierRegex.MatchString(i)
+}
+
+func IsPrimitive(i string) bool {
+	_, ok := primitives[i]
+	return ok
 }
