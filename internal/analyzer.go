@@ -27,7 +27,8 @@ func NewAnalyzer(input []*ResolvedContext) *Analyzer {
 }
 
 // AnalyzeSyntax is the first step of the Analyzer, which analyzes the given list of ResolvedContext when creating it,
-// checking if they match the Nexema's definition. It does not build nothing.
+// checking if they match the Nexema's definition. It does not build nothing. It generates ids for each type and store them
+// in a.typesId.
 // It reports any error that is encountered.
 func (a *Analyzer) AnalyzeSyntax() {
 	for _, context := range a.contexts {
