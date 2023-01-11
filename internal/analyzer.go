@@ -98,7 +98,6 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 					}
 					lastIdx++
 					usedIndexes[lastIdx] = true
-					(*stmt.Fields)[i] = field
 				} else {
 					if field.Index.Kind() != Primitive_Int64 {
 						a.err("field's index must be a number")
@@ -133,7 +132,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 		} else {
 			lastIdx := int64(-1)
 			usedIndexes := map[int64]bool{}
-			for i, field := range *stmt.Fields {
+			for _, field := range *stmt.Fields {
 				if field.Index == nil {
 					// assign the field index
 					field.Index = &PrimitiveValueStmt{
@@ -142,7 +141,6 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 					}
 					lastIdx++
 					usedIndexes[lastIdx] = true
-					(*stmt.Fields)[i] = field
 				} else {
 					if field.Index.Kind() != Primitive_Int64 {
 						a.err("field's index must be a number")

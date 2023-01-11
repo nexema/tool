@@ -45,17 +45,17 @@ type NexemaValueType interface {
 // NexemaPrimitiveValueType represents the value type of a NexemaTypeFieldDefinition
 // which has a primitive type.
 type NexemaPrimitiveValueType struct {
-	Base          BaseNexemaValueType `json:",inline"`
-	Primitive     string              `json:"primitive"`     // Value's type primitive
-	TypeArguments []NexemaValueType   `json:"typeArguments"` // Any generic type argument
+	BaseNexemaValueType `json:",inline"`
+	Primitive           string            `json:"primitive"`     // Value's type primitive
+	TypeArguments       []NexemaValueType `json:"typeArguments"` // Any generic type argument
 }
 
 // NexemaTypeValueType represents the value type of a NexemaTypeFieldDefinition
 // which has another Nexema type as value type.
 type NexemaTypeValueType struct {
-	Base        BaseNexemaValueType `json:",inline"`
-	TypeId      string              `json:"typeId"`      // The imported type's id
-	ImportAlias *string             `json:"importAlias"` // the import alias, if specified
+	BaseNexemaValueType `json:",inline"`
+	TypeId              string  `json:"typeId"`      // The imported type's id
+	ImportAlias         *string `json:"importAlias"` // the import alias, if specified
 }
 
 func (NexemaPrimitiveValueType) t() {}

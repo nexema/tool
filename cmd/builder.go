@@ -202,7 +202,7 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 							id := b.typesId[t]
 
 							valueType := internal.NexemaTypeValueType{
-								Base: internal.BaseNexemaValueType{
+								BaseNexemaValueType: internal.BaseNexemaValueType{
 									Kind:     "NexemaTypeValueType",
 									Nullable: stmt.ValueType.Nullable,
 								},
@@ -213,7 +213,7 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 
 						default:
 							valueType := internal.NexemaPrimitiveValueType{
-								Base: internal.BaseNexemaValueType{
+								BaseNexemaValueType: internal.BaseNexemaValueType{
 									Kind:     "NexemaPrimitiveValueType",
 									Nullable: stmt.ValueType.Nullable,
 								},
@@ -224,7 +224,7 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 							if stmt.ValueType.TypeArguments != nil {
 								for _, typeArg := range *stmt.ValueType.TypeArguments {
 									valueType.TypeArguments = append(valueType.TypeArguments, internal.NexemaPrimitiveValueType{
-										Base: internal.BaseNexemaValueType{
+										BaseNexemaValueType: internal.BaseNexemaValueType{
 											Kind:     "NexemaPrimitiveValueType",
 											Nullable: typeArg.Nullable,
 										},

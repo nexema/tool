@@ -85,9 +85,9 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
-											Primitive:     "string",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
+											Primitive:           "string",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 									{
@@ -96,9 +96,9 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: true},
-											Primitive:     "bool",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: true},
+											Primitive:           "bool",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 									{
@@ -109,9 +109,9 @@ func TestBuildDefinition(t *testing.T) {
 										},
 										DefaultValue: int64(25),
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
-											Primitive:     "int64",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
+											Primitive:           "int64",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 									{
@@ -120,8 +120,8 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaTypeValueType{
-											Base:   internal.BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
-											TypeId: internal.HashString(".-StructB"),
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
+											TypeId:              internal.HashString(".-StructB"),
 										},
 									},
 								},
@@ -138,9 +138,9 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
-											Primitive:     "float32",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
+											Primitive:           "float32",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 									{
@@ -149,9 +149,9 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: true},
-											Primitive:     "float32",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: true},
+											Primitive:           "float32",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 								},
@@ -262,9 +262,9 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
-											Primitive:     "string",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
+											Primitive:           "string",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 									{
@@ -272,8 +272,8 @@ func TestBuildDefinition(t *testing.T) {
 										Name:     "field_2",
 										Metadata: map[string]any{},
 										Type: internal.NexemaTypeValueType{
-											Base:   internal.BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
-											TypeId: internal.HashString("b-EnumB"),
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
+											TypeId:              internal.HashString("b-EnumB"),
 										},
 									},
 								},
@@ -409,9 +409,9 @@ func TestBuildDefinition(t *testing.T) {
 										Metadata:     map[string]any{},
 										DefaultValue: nil,
 										Type: internal.NexemaPrimitiveValueType{
-											Base:          internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
-											Primitive:     "string",
-											TypeArguments: []internal.NexemaValueType{},
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaPrimitiveValueType", Nullable: false},
+											Primitive:           "string",
+											TypeArguments:       []internal.NexemaValueType{},
 										},
 									},
 									{
@@ -419,9 +419,9 @@ func TestBuildDefinition(t *testing.T) {
 										Name:     "field_2",
 										Metadata: map[string]any{},
 										Type: internal.NexemaTypeValueType{
-											Base:        internal.BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
-											TypeId:      internal.HashString("b-EnumB"),
-											ImportAlias: internal.String("my_b"),
+											BaseNexemaValueType: internal.BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
+											TypeId:              internal.HashString("b-EnumB"),
+											ImportAlias:         internal.String("my_b"),
 										},
 									},
 								},
