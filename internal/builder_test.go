@@ -63,7 +63,8 @@ func TestBuildDefinition(t *testing.T) {
 				}
 			},
 			expect: &NexemaDefinition{
-				Version: builderVersion,
+				Version:  builderVersion,
+				Hashcode: 1021558313585570668,
 				Files: []NexemaFile{
 					{
 						Name: "A",
@@ -242,7 +243,8 @@ func TestBuildDefinition(t *testing.T) {
 				}
 			},
 			expect: &NexemaDefinition{
-				Version: builderVersion,
+				Hashcode: 17243524227133482731,
+				Version:  builderVersion,
 				Files: []NexemaFile{
 					{
 						Name: "a/A",
@@ -388,7 +390,8 @@ func TestBuildDefinition(t *testing.T) {
 				}
 			},
 			expect: &NexemaDefinition{
-				Version: builderVersion,
+				Version:  builderVersion,
+				Hashcode: 12233624741073429459,
 				Files: []NexemaFile{
 					{
 						Name: "a/A",
@@ -415,8 +418,9 @@ func TestBuildDefinition(t *testing.T) {
 										Name:     "field_2",
 										Metadata: map[string]any{},
 										Type: NexemaTypeValueType{
-											Base:   BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
-											TypeId: HashString("b-EnumB"),
+											Base:        BaseNexemaValueType{Kind: "NexemaTypeValueType", Nullable: true},
+											TypeId:      HashString("b-EnumB"),
+											ImportAlias: String("my_b"),
 										},
 									},
 								},
@@ -459,7 +463,8 @@ func TestBuildDefinition(t *testing.T) {
 			a.AnalyzeSyntax()
 			require.Empty(t, a.errors)
 
-			builder := NewBuilder(a)
+			builder := NewBuilder()
+			builder.analyzer = a
 			def := builder.buildDefinition()
 			require.Equal(t, tt.expect, def)
 		})

@@ -1,22 +1,29 @@
 package internal
 
-import "path/filepath"
+import (
+	"path/filepath"
+
+	"github.com/mitchellh/hashstructure/v2"
+)
 
 const builderVersion = 1
 
 // Builder provides a method to build a list of .nex files
 type Builder struct {
-	analyzer *Analyzer
+	currentParser *Parser
+	analyzer      *Analyzer
 }
 
 // NewBuilder creates a new Builder
-func NewBuilder(a *Analyzer) *Builder {
-	return &Builder{
-		analyzer: a,
-	}
+func NewBuilder() *Builder {
+	return &Builder{}
 }
 
-func (b *Builder) Build() {}
+// Build is the main entry point for parsing nexema projects. A folder is given and
+// it first scan for a nexema.yaml, and then start scanning .nex files.
+func (b *Builder) Build() {
+
+}
 
 // buildDefinition takes the analyzed source and builds a NexemaDefinition
 func (b *Builder) buildDefinition() *NexemaDefinition {
@@ -82,7 +89,8 @@ func (b *Builder) buildDefinition() *NexemaDefinition {
 									Kind:     "NexemaTypeValueType",
 									Nullable: stmt.valueType.nullable,
 								},
-								TypeId: id,
+								TypeId:      id,
+								ImportAlias: alias,
 							}
 							field.Type = valueType
 
@@ -136,6 +144,14 @@ func (b *Builder) buildDefinition() *NexemaDefinition {
 	for _, file := range files {
 		def.Files = append(def.Files, *file)
 	}
+
+	// calculate hashcode
+	hash, err := hashstructure.Hash(def.Files, hashstructure.FormatV2, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	def.Hashcode = hash
 
 	return def
 }

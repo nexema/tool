@@ -4,7 +4,7 @@ package internal
 // This type is next sent to a plugin to generate source code.
 type NexemaDefinition struct {
 	Version  int          `json:"version"`  // The Nexema specification's version used to build this definition
-	Hashcode int          `json:"hashcode"` // Hashcode of the current generation
+	Hashcode uint64       `json:"hashcode"` // Hashcode of the current generation
 	Files    []NexemaFile `json:"files"`    // A list of nexema files
 }
 
@@ -53,8 +53,9 @@ type NexemaPrimitiveValueType struct {
 // NexemaTypeValueType represents the value type of a NexemaTypeFieldDefinition
 // which has another Nexema type as value type.
 type NexemaTypeValueType struct {
-	Base   BaseNexemaValueType `json:",inline"`
-	TypeId string              `json:"typeId"` // The imported type's id
+	Base        BaseNexemaValueType `json:",inline"`
+	TypeId      string              `json:"typeId"`      // The imported type's id
+	ImportAlias *string             `json:"importAlias"` // the import alias, if specified
 }
 
 func (NexemaPrimitiveValueType) t() {}
