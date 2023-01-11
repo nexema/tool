@@ -25,6 +25,7 @@ type Builder struct {
 
 	contexts []*internal.ResolvedContext
 	typesId  map[*internal.TypeStmt]string
+	imports  map[string][]string // the list of import stmt for each file
 	cfg      MPackSchemaConfig
 
 	astList         []*internal.Ast
@@ -35,6 +36,7 @@ type Builder struct {
 func NewBuilder() *Builder {
 	return &Builder{
 		astList: make([]*internal.Ast, 0),
+		imports: make(map[string][]string),
 	}
 }
 
@@ -153,6 +155,73 @@ func (b *Builder) Snapshot(outFolder string) error {
 	return nil
 }
 
+// Format formats all .nex files in the project.
+// This method must be called after b.Build
+func (b *Builder) Format() error {
+	/*if b.builtDefinition == nil {
+		return errors.New("definition not build")
+	}
+
+	sb := new(strings.Builder)
+	for _, file := range b.builtDefinition.Files {
+		sb.Reset()
+
+		// write imports
+		imports := b.imports[file.Name]
+		if len(imports) > 0 {
+			sb.WriteString("import:\n")
+
+			for _, imp := range imports {
+				sb.WriteString(fmt.Sprintf("\t%s\n", imp))
+			}
+		}
+
+		// write types
+		for _, typeDef := range file.Types {
+			sb.WriteString(fmt.Sprintf("type %s %s {\n", typeDef.Name, typeDef.Modifier))
+
+			// first run is to calculate lengths
+			maxIndexLength := 1
+			maxNameLength := 1
+			maxTypeNameLength := 1
+			for _, field := range typeDef.Fields {
+				idxLength := len(fmt.Sprint(field.Index))
+				if idxLength > maxIndexLength {
+					maxIndexLength = idxLength
+				}
+
+				nameLength := len(field.Name)
+				if nameLength > maxNameLength {
+					maxNameLength = nameLength
+				}
+
+				switch v := field.Type.(type) {
+				case internal.NexemaPrimitiveValueType:
+					maxTypeNameLength = len(v.Primitive)
+				}
+			}
+
+			for _, field := range typeDef.Fields {
+				sb.WriteString(fmt.Sprint(field.Index))
+
+				sb.WriteRune('\n')
+			}
+
+			sb.WriteString("}\n\n")
+		}
+
+		// re-write src
+		src := sb.String()
+		println(src)
+		// err := os.WriteFile(file.Name, []byte(src), os.ModePerm)
+		// if err != nil {
+		// 	return fmt.Errorf("could not rewrite file. %s", err.Error())
+		// }
+	}*/
+
+	return nil
+}
+
 // scanProject searches and parses a nexema.yaml file in the current folder.
 // If the file cannot be found, an error is returned.
 func (b *Builder) scanProject() error {
@@ -219,6 +288,11 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 				Types: make([]internal.NexemaTypeDefinition, 0),
 			}
 			files[fpath] = nexemaFile
+		}
+
+		b.imports[fpath] = []string{}
+		for _, importStmt := range *ast.Imports {
+			b.imports[fpath] = append(b.imports[fpath], fmt.Sprintf("%s as %s", importStmt.Path.Lit, importStmt.Alias.Lit))
 		}
 
 		for _, typeStmt := range *ast.Types {

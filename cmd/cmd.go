@@ -39,19 +39,19 @@ func init() {
 		Action:          generateCmdExecutor,
 	}
 
-	formatCmd := &cli.Command{
+	/*formatCmd := &cli.Command{
 		Name:            "format",
 		Usage:           "formats all nexema files in the current project",
 		UsageText:       "nexema format [input-folderpath]",
 		HideHelpCommand: true,
 		HideHelp:        false,
 		Action:          formatCmdExecutor,
-	}
+	}*/
 
 	commands = []*cli.Command{
 		buildCmd,
 		generateCmd,
-		formatCmd,
+		// formatCmd,
 	}
 }
 
@@ -122,6 +122,6 @@ func generateCmdExecutor(ctx *cli.Context) error {
 	return nil
 }
 
-func formatCmdExecutor(ctx *cli.Context) error {
+/*func formatCmdExecutor(ctx *cli.Context) error {
 	return nil
-}
+}*/
