@@ -8,28 +8,28 @@ import (
 
 func TestResolve(t *testing.T) {
 	rootAst := &Ast{
-		file: &File{name: "root.nex", pkg: "."},
-		imports: &[]*ImportStmt{
-			{path: &IdentifierStmt{lit: "A"}},
-			{path: &IdentifierStmt{lit: "B"}},
+		File: &File{Name: "root.nex", Pkg: "."},
+		Imports: &[]*ImportStmt{
+			{Path: &IdentifierStmt{Lit: "A"}},
+			{Path: &IdentifierStmt{Lit: "B"}},
 		},
 	}
 	aAst := &Ast{
-		file: &File{name: "a.nex", pkg: "A"},
-		imports: &[]*ImportStmt{
-			{path: &IdentifierStmt{lit: "B"}, alias: &IdentifierStmt{lit: "my_b"}},
+		File: &File{Name: "a.nex", Pkg: "A"},
+		Imports: &[]*ImportStmt{
+			{Path: &IdentifierStmt{Lit: "B"}, Alias: &IdentifierStmt{Lit: "my_b"}},
 		},
 	}
 	bAst := &Ast{
-		file: &File{name: "b.nex", pkg: "B"},
-		imports: &[]*ImportStmt{
-			{path: &IdentifierStmt{lit: "B/C"}},
+		File: &File{Name: "b.nex", Pkg: "B"},
+		Imports: &[]*ImportStmt{
+			{Path: &IdentifierStmt{Lit: "B/C"}},
 		},
 	}
 	cAst := &Ast{
-		file: &File{name: "c.nex", pkg: "C"},
-		imports: &[]*ImportStmt{
-			{path: &IdentifierStmt{lit: "B"}},
+		File: &File{Name: "c.nex", Pkg: "C"},
+		Imports: &[]*ImportStmt{
+			{Path: &IdentifierStmt{Lit: "B"}},
 		},
 	}
 
@@ -59,22 +59,22 @@ func TestResolve(t *testing.T) {
 	typeResolver.Resolve()
 
 	rootCtx := typeResolver.contexts[0]
-	require.Equal(t, "root.nex", rootCtx.owner.file.name)
-	require.Equal(t, ".", rootCtx.owner.file.pkg)
+	require.Equal(t, "root.nex", rootCtx.owner.File.Name)
+	require.Equal(t, ".", rootCtx.owner.File.Pkg)
 	require.Len(t, rootCtx.imported, 2)
 	require.Contains(t, rootCtx.imported, aAst)
 	require.Contains(t, rootCtx.imported, bAst)
 
 	aCtx := typeResolver.contexts[1]
-	require.Equal(t, "a.nex", aCtx.owner.file.name)
-	require.Equal(t, "A", aCtx.owner.file.pkg)
+	require.Equal(t, "a.nex", aCtx.owner.File.Name)
+	require.Equal(t, "A", aCtx.owner.File.Pkg)
 	require.Len(t, aCtx.imported, 1)
 	require.Contains(t, aCtx.imported, bAst)
 	require.Equal(t, "my_b", *aCtx.imported[bAst])
 
 	bCtx := typeResolver.contexts[2]
-	require.Equal(t, "b.nex", bCtx.owner.file.name)
-	require.Equal(t, "B", bCtx.owner.file.pkg)
+	require.Equal(t, "b.nex", bCtx.owner.File.Name)
+	require.Equal(t, "B", bCtx.owner.File.Pkg)
 	require.Len(t, bCtx.imported, 1)
 	require.Contains(t, bCtx.imported, cAst)
 

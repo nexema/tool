@@ -32,10 +32,10 @@ type importContext struct {
 
 // ResolvedContext maintains a structure where an Ast is the owner of a list of imported Ast
 type ResolvedContext struct {
-	owner        *Ast                  // the current Ast which imports another ASTs
-	dependencies map[string][]struct { // the list of packages imported by owner
-		source *Ast    // the imported ast
-		alias  *string // the given import alias
+	Owner        *Ast                  // the current Ast which imports another ASTs
+	Dependencies map[string][]struct { // the list of packages imported by owner
+		Source *Ast    // the imported ast
+		Alias  *string // the given import alias
 	}
 }
 
@@ -52,26 +52,26 @@ func (tr *TypeResolver) Resolve() []*ResolvedContext {
 
 	resolvedContextList := make([]*ResolvedContext, 0, len(tr.contexts))
 	for _, context := range tr.contexts {
-		resolvedContext := &ResolvedContext{owner: context.owner, dependencies: make(map[string][]struct {
-			source *Ast
-			alias  *string
+		resolvedContext := &ResolvedContext{Owner: context.owner, Dependencies: make(map[string][]struct {
+			Source *Ast
+			Alias  *string
 		})}
 
 		for ast, alias := range context.imported {
-			_, ok := resolvedContext.dependencies[ast.file.pkg]
+			_, ok := resolvedContext.Dependencies[ast.File.Pkg]
 			if !ok {
-				resolvedContext.dependencies[ast.file.pkg] = make([]struct {
-					source *Ast
-					alias  *string
+				resolvedContext.Dependencies[ast.File.Pkg] = make([]struct {
+					Source *Ast
+					Alias  *string
 				}, 0)
 			}
 
-			resolvedContext.dependencies[ast.file.pkg] = append(resolvedContext.dependencies[ast.file.pkg], struct {
-				source *Ast
-				alias  *string
+			resolvedContext.Dependencies[ast.File.Pkg] = append(resolvedContext.Dependencies[ast.File.Pkg], struct {
+				Source *Ast
+				Alias  *string
 			}{
-				source: ast,
-				alias:  alias,
+				Source: ast,
+				Alias:  alias,
 			})
 		}
 	}
@@ -90,27 +90,27 @@ func (tr *TypeResolver) resolveSources(sources []*Ast) {
 	for _, ast := range sources {
 
 		// without a file its impossible to determime paths
-		if ast.file == nil {
+		if ast.File == nil {
 			continue
 		}
 
 		context := &importContext{owner: ast, imported: make(map[*Ast]*string), aliases: make(map[string]bool)}
-		if ast.imports == nil {
+		if ast.Imports == nil {
 			continue
 		}
 
-		for _, importStmt := range *ast.imports {
-			packagePath := importStmt.path.lit
+		for _, importStmt := range *ast.Imports {
+			packagePath := importStmt.Path.Lit
 			var alias *string
-			if importStmt.alias != nil {
-				alias = &importStmt.alias.lit
+			if importStmt.Alias != nil {
+				alias = &importStmt.Alias.Lit
 
 				// validate if alias is available
-				_, ok := context.aliases[importStmt.alias.lit]
+				_, ok := context.aliases[importStmt.Alias.Lit]
 				if ok {
-					tr.errors = append(tr.errors, fmt.Errorf("duplicated alias %s", importStmt.alias.lit))
+					tr.errors = append(tr.errors, fmt.Errorf("duplicated alias %s", importStmt.Alias.Lit))
 				} else {
-					context.aliases[importStmt.alias.lit] = true
+					context.aliases[importStmt.Alias.Lit] = true
 				}
 			}
 
@@ -124,7 +124,7 @@ func (tr *TypeResolver) resolveSources(sources []*Ast) {
 			for _, ast := range validSources {
 				// check for circular dependency
 				if tr.isCircular(ast, context) {
-					tr.errors = append(tr.errors, fmt.Errorf("circular dependency between %s and %s not allowed", ast.file.pkg, context.owner.file.pkg))
+					tr.errors = append(tr.errors, fmt.Errorf("circular dependency between %s and %s not allowed", ast.File.Pkg, context.owner.File.Pkg))
 					continue
 				}
 				context.imported[ast] = alias
@@ -173,9 +173,9 @@ func (s *AstTree) lookup(frags []string) ([]*Ast, bool) {
 	return nil, false
 }
 
-// lookupType looks up a TypeStmt named typeName in the current context. If more than one type
+// LookupType looks up a TypeStmt named typeName in the current context. If more than one type
 // exists with the same name, use alias as tie break.
-func (c *ResolvedContext) lookupType(typeName string, alias *string) (*TypeStmt, error) {
+func (c *ResolvedContext) LookupType(typeName string, alias *string) (*TypeStmt, error) {
 	if alias == nil {
 		alias = String("")
 	}
@@ -183,23 +183,23 @@ func (c *ResolvedContext) lookupType(typeName string, alias *string) (*TypeStmt,
 	// lookup in owner first
 	candidates := make(map[*TypeStmt]*string, 0)
 	count := 0
-	for _, typeStmt := range *c.owner.types {
-		if typeStmt.name.lit == typeName {
+	for _, typeStmt := range *c.Owner.Types {
+		if typeStmt.Name.Lit == typeName {
 			candidates[typeStmt] = nil
 			count++
 		}
 	}
 
 	// lookup in dependencies
-	for _, pkg := range c.dependencies {
+	for _, pkg := range c.Dependencies {
 		for _, pkgFile := range pkg {
-			for _, typeStmt := range *pkgFile.source.types {
-				if typeStmt.name.lit == typeName {
-					if pkgFile.alias != nil && *pkgFile.alias != *alias {
+			for _, typeStmt := range *pkgFile.Source.Types {
+				if typeStmt.Name.Lit == typeName {
+					if pkgFile.Alias != nil && *pkgFile.Alias != *alias {
 						continue
 					}
 
-					candidates[typeStmt] = pkgFile.alias
+					candidates[typeStmt] = pkgFile.Alias
 					count++
 				}
 			}

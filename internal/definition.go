@@ -29,7 +29,7 @@ type NexemaTypeFieldDefinition struct {
 	Name         string          `json:"name"`         // The field's name
 	Metadata     map[string]any  `json:"metadata"`     // The field's metadata
 	DefaultValue any             `json:"defaultValue"` // The field's default value
-	Type         nexemaValueType `json:"type"`         // The field's value type
+	Type         NexemaValueType `json:"type"`         // The field's value type
 }
 
 // BaseNexemaValueType is a base struct for every Nexema's type
@@ -38,7 +38,7 @@ type BaseNexemaValueType struct {
 	Nullable bool   `json:"nullable"` // True if the type is nullable
 }
 
-type nexemaValueType interface {
+type NexemaValueType interface {
 	t() // just to allow NexemaPrimitiveValueType and NexemaTypeValueType be part of this
 }
 
@@ -47,7 +47,7 @@ type nexemaValueType interface {
 type NexemaPrimitiveValueType struct {
 	Base          BaseNexemaValueType `json:",inline"`
 	Primitive     string              `json:"primitive"`     // Value's type primitive
-	TypeArguments []nexemaValueType   `json:"typeArguments"` // Any generic type argument
+	TypeArguments []NexemaValueType   `json:"typeArguments"` // Any generic type argument
 }
 
 // NexemaTypeValueType represents the value type of a NexemaTypeFieldDefinition

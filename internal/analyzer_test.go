@@ -16,11 +16,11 @@ func TestValidateType(t *testing.T) {
 		{
 			name: "rule 2 success on struct or union if fields index are unique",
 			input: &TypeStmt{
-				name: &IdentifierStmt{lit: "A"},
-				fields: &[]*FieldStmt{
-					{index: &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64}},
-					{index: &PrimitiveValueStmt{value: int64(2), kind: Primitive_Int64}},
-					{index: &PrimitiveValueStmt{value: int64(3), kind: Primitive_Int64}},
+				Name: &IdentifierStmt{Lit: "A"},
+				Fields: &[]*FieldStmt{
+					{Index: &PrimitiveValueStmt{RawValue: int64(1), Primitive: Primitive_Int64}},
+					{Index: &PrimitiveValueStmt{RawValue: int64(2), Primitive: Primitive_Int64}},
+					{Index: &PrimitiveValueStmt{RawValue: int64(3), Primitive: Primitive_Int64}},
 				},
 			},
 			errors: &ErrorCollection{},
@@ -28,11 +28,11 @@ func TestValidateType(t *testing.T) {
 		{
 			name: "rule 2 fails on struct or union if fields index are not unique",
 			input: &TypeStmt{
-				name: &IdentifierStmt{lit: "A"},
-				fields: &[]*FieldStmt{
-					{index: &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64}},
-					{index: &PrimitiveValueStmt{value: int64(2), kind: Primitive_Int64}},
-					{index: &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64}},
+				Name: &IdentifierStmt{Lit: "A"},
+				Fields: &[]*FieldStmt{
+					{Index: &PrimitiveValueStmt{RawValue: int64(1), Primitive: Primitive_Int64}},
+					{Index: &PrimitiveValueStmt{RawValue: int64(2), Primitive: Primitive_Int64}},
+					{Index: &PrimitiveValueStmt{RawValue: int64(1), Primitive: Primitive_Int64}},
 				},
 			},
 			errors: &ErrorCollection{
@@ -42,10 +42,10 @@ func TestValidateType(t *testing.T) {
 		{
 			name: "rule 2 fails on enum if fields index does not start with 0",
 			input: &TypeStmt{
-				name:     &IdentifierStmt{lit: "A"},
-				modifier: Token_Enum,
-				fields: &[]*FieldStmt{
-					{index: &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64}},
+				Name:     &IdentifierStmt{Lit: "A"},
+				Modifier: Token_Enum,
+				Fields: &[]*FieldStmt{
+					{Index: &PrimitiveValueStmt{RawValue: int64(1), Primitive: Primitive_Int64}},
 				},
 			},
 			errors: &ErrorCollection{
@@ -55,12 +55,12 @@ func TestValidateType(t *testing.T) {
 		{
 			name: "rule 2 fails on enum if fields index are not correlative",
 			input: &TypeStmt{
-				name:     &IdentifierStmt{lit: "A"},
-				modifier: Token_Enum,
-				fields: &[]*FieldStmt{
-					{index: &PrimitiveValueStmt{value: int64(0), kind: Primitive_Int64}},
-					{index: &PrimitiveValueStmt{value: int64(1), kind: Primitive_Int64}},
-					{index: &PrimitiveValueStmt{value: int64(3), kind: Primitive_Int64}},
+				Name:     &IdentifierStmt{Lit: "A"},
+				Modifier: Token_Enum,
+				Fields: &[]*FieldStmt{
+					{Index: &PrimitiveValueStmt{RawValue: int64(0), Primitive: Primitive_Int64}},
+					{Index: &PrimitiveValueStmt{RawValue: int64(1), Primitive: Primitive_Int64}},
+					{Index: &PrimitiveValueStmt{RawValue: int64(3), Primitive: Primitive_Int64}},
 				},
 			},
 			errors: &ErrorCollection{
@@ -74,7 +74,7 @@ func TestValidateType(t *testing.T) {
 			analyzer := NewAnalyzer([]*ResolvedContext{})
 			analyzer.skipFields = true
 			analyzer.currentContext = &ResolvedContext{
-				owner: &Ast{file: &File{pkg: "root"}},
+				Owner: &Ast{File: &File{Pkg: "root"}},
 			}
 			analyzer.validateType(tt.input)
 			require.Equal(t, tt.errors, analyzer.errors)
@@ -92,10 +92,10 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 1.a success with exactly one type argument",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{
-					ident: &IdentifierStmt{lit: "list"},
-					typeArguments: &[]*ValueTypeStmt{
-						{ident: &IdentifierStmt{lit: "string"}},
+				ValueType: &ValueTypeStmt{
+					Ident: &IdentifierStmt{Lit: "list"},
+					TypeArguments: &[]*ValueTypeStmt{
+						{Ident: &IdentifierStmt{Lit: "string"}},
 					},
 				},
 			},
@@ -104,9 +104,9 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 1.a fails if zero type argument is specified",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{
-					ident:         &IdentifierStmt{lit: "list"},
-					typeArguments: &[]*ValueTypeStmt{},
+				ValueType: &ValueTypeStmt{
+					Ident:         &IdentifierStmt{Lit: "list"},
+					TypeArguments: &[]*ValueTypeStmt{},
 				},
 			},
 			errors: &ErrorCollection{
@@ -116,11 +116,11 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 1.a fails with more than one type argument",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{
-					ident: &IdentifierStmt{lit: "list"},
-					typeArguments: &[]*ValueTypeStmt{
-						{ident: &IdentifierStmt{lit: "string"}},
-						{ident: &IdentifierStmt{lit: "int64"}},
+				ValueType: &ValueTypeStmt{
+					Ident: &IdentifierStmt{Lit: "list"},
+					TypeArguments: &[]*ValueTypeStmt{
+						{Ident: &IdentifierStmt{Lit: "string"}},
+						{Ident: &IdentifierStmt{Lit: "int64"}},
 					},
 				},
 			},
@@ -131,11 +131,11 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 1.b success with exactly two type arguments",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{
-					ident: &IdentifierStmt{lit: "map"},
-					typeArguments: &[]*ValueTypeStmt{
-						{ident: &IdentifierStmt{lit: "string"}},
-						{ident: &IdentifierStmt{lit: "int64"}},
+				ValueType: &ValueTypeStmt{
+					Ident: &IdentifierStmt{Lit: "map"},
+					TypeArguments: &[]*ValueTypeStmt{
+						{Ident: &IdentifierStmt{Lit: "string"}},
+						{Ident: &IdentifierStmt{Lit: "int64"}},
 					},
 				},
 			},
@@ -144,12 +144,12 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 1.b fails with more than two type arguments",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{
-					ident: &IdentifierStmt{lit: "map"},
-					typeArguments: &[]*ValueTypeStmt{
-						{ident: &IdentifierStmt{lit: "string"}},
-						{ident: &IdentifierStmt{lit: "int64"}},
-						{ident: &IdentifierStmt{lit: "bool"}},
+				ValueType: &ValueTypeStmt{
+					Ident: &IdentifierStmt{Lit: "map"},
+					TypeArguments: &[]*ValueTypeStmt{
+						{Ident: &IdentifierStmt{Lit: "string"}},
+						{Ident: &IdentifierStmt{Lit: "int64"}},
+						{Ident: &IdentifierStmt{Lit: "bool"}},
 					},
 				},
 			},
@@ -160,9 +160,9 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 1.b fails with zero type arguments",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{
-					ident:         &IdentifierStmt{lit: "map"},
-					typeArguments: &[]*ValueTypeStmt{},
+				ValueType: &ValueTypeStmt{
+					Ident:         &IdentifierStmt{Lit: "map"},
+					TypeArguments: &[]*ValueTypeStmt{},
 				},
 			},
 			errors: &ErrorCollection{
@@ -172,10 +172,10 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 2 fails if default value does not match value type",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "string"}},
-				defaultValue: &PrimitiveValueStmt{
-					value: int64(25),
-					kind:  Primitive_Int64,
+				ValueType: &ValueTypeStmt{Ident: &IdentifierStmt{Lit: "string"}},
+				DefaultValue: &PrimitiveValueStmt{
+					RawValue:  int64(25),
+					Primitive: Primitive_Int64,
 				},
 			},
 			errors: &ErrorCollection{
@@ -185,10 +185,10 @@ func TestValidateField(t *testing.T) {
 		{
 			name: "rule 2 success if default value matches value type",
 			input: &FieldStmt{
-				valueType: &ValueTypeStmt{ident: &IdentifierStmt{lit: "int64"}},
-				defaultValue: &PrimitiveValueStmt{
-					value: int64(25),
-					kind:  Primitive_Int64,
+				ValueType: &ValueTypeStmt{Ident: &IdentifierStmt{Lit: "int64"}},
+				DefaultValue: &PrimitiveValueStmt{
+					RawValue:  int64(25),
+					Primitive: Primitive_Int64,
 				},
 			},
 			errors: &ErrorCollection{},
@@ -219,8 +219,8 @@ func TestValidateMetadata(t *testing.T) {
 			name: "rule 1 success",
 			input: &MapValueStmt{
 				{
-					key:   &PrimitiveValueStmt{value: "string", kind: Primitive_String},
-					value: &PrimitiveValueStmt{value: "string", kind: Primitive_String},
+					Key:   &PrimitiveValueStmt{RawValue: "string", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{RawValue: "string", Primitive: Primitive_String},
 				},
 			},
 			errors: &ErrorCollection{},
@@ -229,7 +229,7 @@ func TestValidateMetadata(t *testing.T) {
 			name: "rule 1 fails if not string",
 			input: &MapValueStmt{
 				{
-					key: &PrimitiveValueStmt{kind: Primitive_Int64},
+					Key: &PrimitiveValueStmt{Primitive: Primitive_Int64},
 				},
 			},
 			errors: &ErrorCollection{
@@ -240,20 +240,20 @@ func TestValidateMetadata(t *testing.T) {
 			name: "rule 2 success if value is string, bool, int64 or float64",
 			input: &MapValueStmt{
 				{
-					key:   &PrimitiveValueStmt{value: "1", kind: Primitive_String},
-					value: &PrimitiveValueStmt{kind: Primitive_String},
+					Key:   &PrimitiveValueStmt{RawValue: "1", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{Primitive: Primitive_String},
 				},
 				{
-					key:   &PrimitiveValueStmt{value: "2", kind: Primitive_String},
-					value: &PrimitiveValueStmt{kind: Primitive_Bool},
+					Key:   &PrimitiveValueStmt{RawValue: "2", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{Primitive: Primitive_Bool},
 				},
 				{
-					key:   &PrimitiveValueStmt{value: "3", kind: Primitive_String},
-					value: &PrimitiveValueStmt{kind: Primitive_Int64},
+					Key:   &PrimitiveValueStmt{RawValue: "3", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{Primitive: Primitive_Int64},
 				},
 				{
-					key:   &PrimitiveValueStmt{value: "4", kind: Primitive_String},
-					value: &PrimitiveValueStmt{kind: Primitive_Float64},
+					Key:   &PrimitiveValueStmt{RawValue: "4", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{Primitive: Primitive_Float64},
 				},
 			},
 			errors: &ErrorCollection{},
@@ -262,8 +262,8 @@ func TestValidateMetadata(t *testing.T) {
 			name: "rule 2 fails if value is not string, bool, int64 or float64",
 			input: &MapValueStmt{
 				{
-					key:   &PrimitiveValueStmt{value: "1", kind: Primitive_String},
-					value: &PrimitiveValueStmt{kind: Primitive_List},
+					Key:   &PrimitiveValueStmt{RawValue: "1", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{Primitive: Primitive_List},
 				},
 			},
 			errors: &ErrorCollection{
@@ -291,8 +291,8 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 1 success",
 			input: &MapValueStmt{
 				{
-					key:   &PrimitiveValueStmt{value: "string", kind: Primitive_String},
-					value: &PrimitiveValueStmt{value: "string", kind: Primitive_String},
+					Key:   &PrimitiveValueStmt{RawValue: "string", Primitive: Primitive_String},
+					Value: &PrimitiveValueStmt{RawValue: "string", Primitive: Primitive_String},
 				},
 			},
 			errors: &ErrorCollection{},
@@ -301,8 +301,8 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 1 fails with list key",
 			input: &MapValueStmt{
 				{
-					key: &ListValueStmt{
-						&PrimitiveValueStmt{kind: Primitive_String},
+					Key: &ListValueStmt{
+						&PrimitiveValueStmt{Primitive: Primitive_String},
 					},
 				},
 			},
@@ -314,9 +314,9 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 1 fails with map key",
 			input: &MapValueStmt{
 				{
-					key: &MapValueStmt{
+					Key: &MapValueStmt{
 						{
-							key: &PrimitiveValueStmt{kind: Primitive_String},
+							Key: &PrimitiveValueStmt{Primitive: Primitive_String},
 						},
 					},
 				},
@@ -329,7 +329,7 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 1 fails with null key",
 			input: &MapValueStmt{
 				{
-					key: &PrimitiveValueStmt{kind: Primitive_Null},
+					Key: &PrimitiveValueStmt{Primitive: Primitive_Null},
 				},
 			},
 			errors: &ErrorCollection{
@@ -340,10 +340,10 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 2 with string key",
 			input: &MapValueStmt{
 				{
-					key: &PrimitiveValueStmt{value: "a", kind: Primitive_String},
+					Key: &PrimitiveValueStmt{RawValue: "a", Primitive: Primitive_String},
 				},
 				{
-					key: &PrimitiveValueStmt{value: "a", kind: Primitive_String},
+					Key: &PrimitiveValueStmt{RawValue: "a", Primitive: Primitive_String},
 				},
 			},
 			errors: &ErrorCollection{
@@ -354,10 +354,10 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 2 with int key",
 			input: &MapValueStmt{
 				{
-					key: &PrimitiveValueStmt{value: int64(2), kind: Primitive_Int64},
+					Key: &PrimitiveValueStmt{RawValue: int64(2), Primitive: Primitive_Int64},
 				},
 				{
-					key: &PrimitiveValueStmt{value: int64(2), kind: Primitive_Int64},
+					Key: &PrimitiveValueStmt{RawValue: int64(2), Primitive: Primitive_Int64},
 				},
 			},
 			errors: &ErrorCollection{
@@ -368,10 +368,10 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 2 with float key",
 			input: &MapValueStmt{
 				{
-					key: &PrimitiveValueStmt{value: float64(2.5), kind: Primitive_Float64},
+					Key: &PrimitiveValueStmt{RawValue: float64(2.5), Primitive: Primitive_Float64},
 				},
 				{
-					key: &PrimitiveValueStmt{value: float64(2.5), kind: Primitive_Float64},
+					Key: &PrimitiveValueStmt{RawValue: float64(2.5), Primitive: Primitive_Float64},
 				},
 			},
 			errors: &ErrorCollection{
@@ -382,10 +382,10 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 2 with bool key",
 			input: &MapValueStmt{
 				{
-					key: &PrimitiveValueStmt{value: true, kind: Primitive_Bool},
+					Key: &PrimitiveValueStmt{RawValue: true, Primitive: Primitive_Bool},
 				},
 				{
-					key: &PrimitiveValueStmt{value: true, kind: Primitive_Bool},
+					Key: &PrimitiveValueStmt{RawValue: true, Primitive: Primitive_Bool},
 				},
 			},
 			errors: &ErrorCollection{
@@ -396,15 +396,15 @@ func TestValidateMap(t *testing.T) {
 			name: "rule 2 with enum key",
 			input: &MapValueStmt{
 				{
-					key: &TypeValueStmt{
-						typeName: &IdentifierStmt{lit: "MyEnum"},
-						value:    &IdentifierStmt{lit: "red"},
+					Key: &TypeValueStmt{
+						TypeName: &IdentifierStmt{Lit: "MyEnum"},
+						RawValue: &IdentifierStmt{Lit: "red"},
 					},
 				},
 				{
-					key: &TypeValueStmt{
-						typeName: &IdentifierStmt{lit: "MyEnum"},
-						value:    &IdentifierStmt{lit: "red"},
+					Key: &TypeValueStmt{
+						TypeName: &IdentifierStmt{Lit: "MyEnum"},
+						RawValue: &IdentifierStmt{Lit: "red"},
 					},
 				},
 			},

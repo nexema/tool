@@ -4,20 +4,20 @@ import "fmt"
 
 // Ast represents the abstract syntax tree of a single Nexema file
 type Ast struct {
-	file    *File
-	imports *[]*ImportStmt
-	types   *[]*TypeStmt
+	File    *File
+	Imports *[]*ImportStmt
+	Types   *[]*TypeStmt
 }
 
 // File represents the origin file which was used to build an Ast
 type File struct {
-	name string // file name
-	pkg  string // package path, relative to nexema.yaml
+	Name string // file name
+	Pkg  string // package path, relative to nexema.yaml
 }
 
 // Comment represents a comment read on a file
 type CommentStmt struct {
-	text      string // the comment's literal
+	Text      string // the comment's literal
 	posStart  int
 	posEnd    int
 	lineStart int
@@ -25,36 +25,36 @@ type CommentStmt struct {
 }
 
 type ImportStmt struct {
-	path  *IdentifierStmt
-	alias *IdentifierStmt
+	Path  *IdentifierStmt
+	Alias *IdentifierStmt
 }
 
 type TypeStmt struct {
-	name          *IdentifierStmt
-	modifier      Token // Token_Struct, Token_Enum, Token_Union
-	metadata      *MapValueStmt
-	documentation *[]*CommentStmt
-	fields        *[]*FieldStmt
+	Name          *IdentifierStmt
+	Modifier      Token // Token_Struct, Token_Enum, Token_Union
+	Metadata      *MapValueStmt
+	Documentation *[]*CommentStmt
+	Fields        *[]*FieldStmt
 }
 
 type FieldStmt struct {
-	index         ValueStmt
-	name          *IdentifierStmt
-	valueType     *ValueTypeStmt
-	metadata      *MapValueStmt
-	defaultValue  ValueStmt
-	documentation *[]*CommentStmt
+	Index         ValueStmt
+	Name          *IdentifierStmt
+	ValueType     *ValueTypeStmt
+	Metadata      *MapValueStmt
+	DefaultValue  ValueStmt
+	Documentation *[]*CommentStmt
 }
 
 type ValueTypeStmt struct {
-	ident         *IdentifierStmt
-	nullable      bool
-	typeArguments *[]*ValueTypeStmt
+	Ident         *IdentifierStmt
+	Nullable      bool
+	TypeArguments *[]*ValueTypeStmt
 }
 
 type IdentifierStmt struct {
-	lit   string
-	alias string // my_alias.EnumType
+	Lit   string
+	Alias string // my_alias.EnumType
 }
 
 type ValueStmt interface {
@@ -63,20 +63,20 @@ type ValueStmt interface {
 }
 
 type PrimitiveValueStmt struct {
-	value interface{}
-	kind  Primitive // primitives without list, map or type
+	RawValue  interface{}
+	Primitive Primitive // primitives without list, map or type
 }
 
 // TypeValueStmt represents a value of an enum
 type TypeValueStmt struct {
-	typeName *IdentifierStmt
-	value    *IdentifierStmt
+	TypeName *IdentifierStmt
+	RawValue *IdentifierStmt
 }
 
 type MapValueStmt []*MapEntryStmt
 type MapEntryStmt struct {
-	key   ValueStmt
-	value ValueStmt
+	Key   ValueStmt
+	Value ValueStmt
 }
 
 func (m *MapValueStmt) add(stmt *MapEntryStmt) {
@@ -90,7 +90,7 @@ func (l *ListValueStmt) add(stmt ValueStmt) {
 }
 
 func (p *PrimitiveValueStmt) Kind() Primitive {
-	return p.kind
+	return p.Primitive
 }
 
 func (*TypeValueStmt) Kind() Primitive {
@@ -106,15 +106,15 @@ func (*MapValueStmt) Kind() Primitive {
 }
 
 func (p *TypeValueStmt) Value() interface{} {
-	if p.typeName.alias == "" {
-		return fmt.Sprintf("%s.%s", p.typeName.lit, p.value.lit)
+	if p.TypeName.Alias == "" {
+		return fmt.Sprintf("%s.%s", p.TypeName.Lit, p.RawValue.Lit)
 	}
 
-	return fmt.Sprintf("%s.%s.%s", p.typeName.alias, p.typeName.lit, p.value.lit)
+	return fmt.Sprintf("%s.%s.%s", p.TypeName.Alias, p.TypeName.Lit, p.RawValue.Lit)
 }
 
 func (p *PrimitiveValueStmt) Value() interface{} {
-	return p.value
+	return p.RawValue
 }
 
 func (l *ListValueStmt) Value() interface{} {
@@ -128,8 +128,8 @@ func (l *ListValueStmt) Value() interface{} {
 func (m *MapValueStmt) Value() interface{} {
 	ma := make(map[any]any, len(*m))
 	for _, val := range *m {
-		key := val.key.Value()
-		value := val.value.Value()
+		key := val.Key.Value()
+		value := val.Value.Value()
 		ma[key] = value
 	}
 	return ma

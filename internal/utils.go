@@ -22,8 +22,8 @@ func GetMapValueStmt(m map[any]any) *MapValueStmt {
 
 	for key, val := range m {
 		stmt.add(&MapEntryStmt{
-			key:   &PrimitiveValueStmt{value: key, kind: GetValuePrimitive(key)},
-			value: &PrimitiveValueStmt{value: val, kind: GetValuePrimitive(val)},
+			Key:   &PrimitiveValueStmt{RawValue: key, Primitive: GetValuePrimitive(key)},
+			Value: &PrimitiveValueStmt{RawValue: val, Primitive: GetValuePrimitive(val)},
 		})
 	}
 
@@ -63,20 +63,20 @@ func GetValuePrimitive(v interface{}) Primitive {
 
 func GetField(index int, name string, valueType string, nullable bool, metadata map[any]any, defaultValue any) *FieldStmt {
 	stmt := &FieldStmt{
-		index: &PrimitiveValueStmt{value: int64(index), kind: Primitive_Int64},
-		name:  &IdentifierStmt{lit: name},
-		valueType: &ValueTypeStmt{
-			ident:    &IdentifierStmt{lit: valueType},
-			nullable: nullable,
+		Index: &PrimitiveValueStmt{RawValue: int64(index), Primitive: Primitive_Int64},
+		Name:  &IdentifierStmt{Lit: name},
+		ValueType: &ValueTypeStmt{
+			Ident:    &IdentifierStmt{Lit: valueType},
+			Nullable: nullable,
 		},
 	}
 
 	if metadata != nil {
-		stmt.metadata = GetMapValueStmt(metadata)
+		stmt.Metadata = GetMapValueStmt(metadata)
 	}
 
 	if defaultValue != nil {
-		stmt.defaultValue = &PrimitiveValueStmt{value: defaultValue, kind: GetValuePrimitive(defaultValue)}
+		stmt.DefaultValue = &PrimitiveValueStmt{RawValue: defaultValue, Primitive: GetValuePrimitive(defaultValue)}
 	}
 
 	return stmt

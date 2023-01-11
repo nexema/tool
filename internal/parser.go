@@ -71,8 +71,8 @@ func (p *Parser) Parse() (*Ast, error) {
 	}
 
 	return &Ast{
-		imports: p.imports,
-		types:   p.types,
+		Imports: p.imports,
+		Types:   p.types,
 	}, nil
 }
 
@@ -103,7 +103,7 @@ func (p *Parser) parseImport() (*ImportStmt, error) {
 	}
 
 	stmt := &ImportStmt{
-		path: &IdentifierStmt{lit: p.buf.lit},
+		Path: &IdentifierStmt{Lit: p.buf.lit},
 	}
 	p.next()
 
@@ -115,7 +115,7 @@ func (p *Parser) parseImport() (*ImportStmt, error) {
 			return nil, err
 		}
 
-		stmt.alias = alias
+		stmt.Alias = alias
 	}
 
 	return stmt, nil
@@ -127,7 +127,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 
 	// if until this moment any comment has been read, add as documentation
 	if len(*p.comments) > 0 {
-		stmt.documentation = p.getComments()
+		stmt.Documentation = p.getComments()
 	}
 
 	// maybe read field index
@@ -137,7 +137,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.index = value
+		stmt.Index = value
 		p.next()
 	}
 
@@ -148,7 +148,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.name = value
+		stmt.Name = value
 	} else {
 		return nil, p.expectedErr(Token_Ident)
 	}
@@ -167,7 +167,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.valueType = value
+		stmt.ValueType = value
 	} else {
 		return nil, p.expectedErr(Token_Ident)
 	}
@@ -179,7 +179,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.defaultValue = value
+		stmt.DefaultValue = value
 		p.next()
 	}
 
@@ -190,7 +190,7 @@ func (p *Parser) parseField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.metadata = value
+		stmt.Metadata = value
 		p.next()
 	}
 
@@ -205,7 +205,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 
 	// if until this moment any comment has been read, add as documentation
 	if len(*p.comments) > 0 {
-		stmt.documentation = p.getComments()
+		stmt.Documentation = p.getComments()
 	}
 
 	// maybe read field index
@@ -215,7 +215,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.index = value
+		stmt.Index = value
 		p.next()
 	}
 
@@ -226,7 +226,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.name = value
+		stmt.Name = value
 	} else {
 		return nil, p.expectedErr(Token_Ident)
 	}
@@ -238,7 +238,7 @@ func (p *Parser) parseEnumField() (*FieldStmt, error) {
 			return nil, err
 		}
 
-		stmt.metadata = value
+		stmt.Metadata = value
 		p.next()
 	}
 
@@ -250,7 +250,7 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 	stmt := new(TypeStmt)
 
 	// check if there is any comment that is a possible documentation comment
-	stmt.documentation = p.getValidCommentsFor(p.buf.pos.line)
+	stmt.Documentation = p.getValidCommentsFor(p.buf.pos.line)
 
 	if p.buf.tok == Token_At { // metadata present
 		p.next()
@@ -260,7 +260,7 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 			return nil, err
 		}
 
-		stmt.metadata = mapStmt
+		stmt.Metadata = mapStmt
 		p.next()
 	}
 
@@ -275,19 +275,19 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 		return nil, err
 	}
 
-	stmt.name = ident
+	stmt.Name = ident
 	// p.next()
 
 	// if read {, then modifier is struct
 	if p.buf.tok == Token_Lbrace {
-		stmt.modifier = Token_Struct
+		stmt.Modifier = Token_Struct
 	} else {
 		// read modifier
 		if !p.buf.tok.IsModifier() {
 			return nil, p.expectedGiven("expected type modifier")
 		}
 
-		stmt.modifier = p.buf.tok
+		stmt.Modifier = p.buf.tok
 
 		p.next()
 		err := p.require(Token_Lbrace)
@@ -306,13 +306,13 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 			break
 		}
 
-		if stmt.fields == nil {
-			stmt.fields = new([]*FieldStmt)
+		if stmt.Fields == nil {
+			stmt.Fields = new([]*FieldStmt)
 		}
 
 		var fieldStmt *FieldStmt
 		var err error
-		if stmt.modifier == Token_Enum {
+		if stmt.Modifier == Token_Enum {
 			fieldStmt, err = p.parseEnumField()
 		} else {
 			fieldStmt, err = p.parseField()
@@ -322,7 +322,7 @@ func (p *Parser) parseType() (*TypeStmt, error) {
 			return nil, err
 		}
 
-		(*stmt.fields) = append((*stmt.fields), fieldStmt)
+		(*stmt.Fields) = append((*stmt.Fields), fieldStmt)
 		// p.undo()
 	}
 
@@ -338,7 +338,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 	var err error
 
 	// first parse type's name
-	stmt.ident, err = p.parseIdentifier()
+	stmt.Ident, err = p.parseIdentifier()
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +346,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 	// if we read parens, it contains type arguments
 	if p.buf.tok == Token_Lparen {
 		p.next()
-		stmt.typeArguments = new([]*ValueTypeStmt)
+		stmt.TypeArguments = new([]*ValueTypeStmt)
 
 		// read first one
 		valueType, err := p.parseValueTypeStmt()
@@ -354,7 +354,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 			return nil, err
 		}
 
-		(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
+		(*stmt.TypeArguments) = append((*stmt.TypeArguments), valueType)
 
 		for p.buf.tok == Token_Comma {
 			p.next()
@@ -363,7 +363,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 				return nil, err
 			}
 
-			(*stmt.typeArguments) = append((*stmt.typeArguments), valueType)
+			(*stmt.TypeArguments) = append((*stmt.TypeArguments), valueType)
 		}
 
 		// must read )
@@ -377,7 +377,7 @@ func (p *Parser) parseValueTypeStmt() (*ValueTypeStmt, error) {
 
 	// nullable
 	if p.buf.tok == Token_Nullable {
-		stmt.nullable = true
+		stmt.Nullable = true
 		p.next()
 	}
 
@@ -400,11 +400,11 @@ func (p *Parser) parseIdentifier() (*IdentifierStmt, error) {
 				return nil, err
 			}
 
-			ident.alias = lit
-			ident.lit = p.buf.lit
+			ident.Alias = lit
+			ident.Lit = p.buf.lit
 			p.next()
 		} else {
-			ident.lit = lit
+			ident.Lit = lit
 		}
 
 		return ident, nil
@@ -503,8 +503,8 @@ func (p *Parser) parseMapEntry() (*MapEntryStmt, error) {
 	}
 
 	return &MapEntryStmt{
-		key:   key,
-		value: value,
+		Key:   key,
+		Value: value,
 	}, nil
 }
 
@@ -544,11 +544,11 @@ func (p *Parser) parseList() (*ListValueStmt, error) {
 // parseValue parses any primitive raw value
 func (p *Parser) parseValue() (ValueStmt, error) {
 	if p.buf.tok == Token_String {
-		return &PrimitiveValueStmt{kind: Primitive_String, value: p.buf.lit}, nil
+		return &PrimitiveValueStmt{Primitive: Primitive_String, RawValue: p.buf.lit}, nil
 	} else if p.buf.tok == Token_Ident {
 		kind, value := p.stringToValue()
 		if kind != Primitive_Illegal {
-			return &PrimitiveValueStmt{kind: kind, value: value}, nil
+			return &PrimitiveValueStmt{Primitive: kind, RawValue: value}, nil
 		}
 
 		// if its illegal, try with enum, it needs the name, and a value.
@@ -567,25 +567,25 @@ func (p *Parser) parseValue() (ValueStmt, error) {
 			}
 
 			return &TypeValueStmt{
-				typeName: enumName,
-				value:    enumValue,
+				TypeName: enumName,
+				RawValue: enumValue,
 			}, nil
 		} else {
 			p.undo() // undo the invalid read token
 
 			// alias becomes the name, and lit the value
 			return &TypeValueStmt{
-				typeName: &IdentifierStmt{lit: enumName.alias},
-				value:    &IdentifierStmt{lit: enumName.lit},
+				TypeName: &IdentifierStmt{Lit: enumName.Alias},
+				RawValue: &IdentifierStmt{Lit: enumName.Lit},
 			}, nil
 		}
 
 	} else if p.buf.tok == Token_Float {
 		f, _ := strconv.ParseFloat(p.buf.lit, 64)
-		return &PrimitiveValueStmt{value: f, kind: Primitive_Float64}, nil
+		return &PrimitiveValueStmt{RawValue: f, Primitive: Primitive_Float64}, nil
 	} else if p.buf.tok == Token_Int {
 		i, _ := strconv.ParseInt(p.buf.lit, 10, 64)
-		return &PrimitiveValueStmt{value: i, kind: Primitive_Int64}, nil
+		return &PrimitiveValueStmt{RawValue: i, Primitive: Primitive_Int64}, nil
 	} else {
 		return nil, p.expectedGiven("string, int, float or identifier")
 	}
@@ -676,7 +676,7 @@ func (p *Parser) parseComment() (*CommentStmt, error) {
 	}
 
 	return &CommentStmt{
-		text:      p.buf.lit,
+		Text:      p.buf.lit,
 		posStart:  p.buf.pos.offset,
 		posEnd:    p.buf.pos.offset + len(p.buf.lit),
 		lineStart: p.buf.pos.line,

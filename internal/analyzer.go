@@ -30,21 +30,23 @@ func NewAnalyzer(input []*ResolvedContext) *Analyzer {
 // checking if they match the Nexema's definition. It does not build nothing. It generates ids for each type and store them
 // in a.typesId.
 // It reports any error that is encountered.
-func (a *Analyzer) AnalyzeSyntax() {
+func (a *Analyzer) AnalyzeSyntax() ([]*ResolvedContext, map[*TypeStmt]string, *ErrorCollection) {
 	for _, context := range a.contexts {
 		a.validateContext(context)
 	}
+
+	return a.contexts, a.typesId, a.errors
 }
 
 // validateContext validates the given Ast in the context against Ast rules
 func (a *Analyzer) validateContext(context *ResolvedContext) {
 	a.currentContext = context
-	a.validateAst(context.owner)
+	a.validateAst(context.Owner)
 }
 
 // validateAst validates the given ast against each type's rules.
 func (a *Analyzer) validateAst(ast *Ast) {
-	for _, typeStmt := range *ast.types {
+	for _, typeStmt := range *ast.Types {
 		a.validateType(typeStmt)
 	}
 }
@@ -55,22 +57,22 @@ func (a *Analyzer) validateAst(ast *Ast) {
 // 3- Each field validates successfully
 func (a *Analyzer) validateType(stmt *TypeStmt) {
 
-	id := HashString(fmt.Sprintf("%s-%s", a.currentContext.owner.file.pkg, stmt.name.lit))
+	id := HashString(fmt.Sprintf("%s-%s", a.currentContext.Owner.File.Pkg, stmt.Name.Lit))
 	a.typesId[stmt] = id
 
 	// rule 1
-	if stmt.metadata != nil {
-		a.validateMetadata(stmt.metadata)
+	if stmt.Metadata != nil {
+		a.validateMetadata(stmt.Metadata)
 	}
 
 	// rule 2
-	if len(*stmt.fields) > 0 {
+	if len(*stmt.Fields) > 0 {
 
 		// todo: a lot of optimizations can be done
-		if stmt.modifier == Token_Enum {
+		if stmt.Modifier == Token_Enum {
 			lastIdx := int64(0)
-			if (*stmt.fields)[0].index != nil {
-				lastIdx = ((*stmt.fields)[0].index.(*PrimitiveValueStmt)).value.(int64)
+			if (*stmt.Fields)[0].Index != nil {
+				lastIdx = ((*stmt.Fields)[0].Index.(*PrimitiveValueStmt)).RawValue.(int64)
 				if lastIdx != 0 {
 					a.err("expected the first field in an enum to have the index 0, given index %d", lastIdx)
 					return
@@ -78,26 +80,26 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 			}
 
 			usedIndexes := map[int64]bool{}
-			for i, field := range *stmt.fields {
+			for i, field := range *stmt.Fields {
 				if i == 0 { // skip because it was checked before the loop
 					continue
 				}
 
-				if field.index == nil {
+				if field.Index == nil {
 					// assign the field index
-					field.index = &PrimitiveValueStmt{
-						value: lastIdx + 1,
-						kind:  Primitive_Int64,
+					field.Index = &PrimitiveValueStmt{
+						RawValue:  lastIdx + 1,
+						Primitive: Primitive_Int64,
 					}
 					lastIdx++
 					usedIndexes[lastIdx] = true
 				} else {
-					if field.index.Kind() != Primitive_Int64 {
+					if field.Index.Kind() != Primitive_Int64 {
 						a.err("field's index must be a number")
 						continue
 					}
 
-					fieldIndex := (field.index.(*PrimitiveValueStmt)).value.(int64)
+					fieldIndex := (field.Index.(*PrimitiveValueStmt)).RawValue.(int64)
 
 					// check uniqueness
 					_, used := usedIndexes[fieldIndex]
@@ -125,22 +127,22 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 		} else {
 			lastIdx := int64(-1)
 			usedIndexes := map[int64]bool{}
-			for _, field := range *stmt.fields {
-				if field.index == nil {
+			for _, field := range *stmt.Fields {
+				if field.Index == nil {
 					// assign the field index
-					field.index = &PrimitiveValueStmt{
-						value: lastIdx + 1,
-						kind:  Primitive_Int64,
+					field.Index = &PrimitiveValueStmt{
+						RawValue:  lastIdx + 1,
+						Primitive: Primitive_Int64,
 					}
 					lastIdx++
 					usedIndexes[lastIdx] = true
 				} else {
-					if field.index.Kind() != Primitive_Int64 {
+					if field.Index.Kind() != Primitive_Int64 {
 						a.err("field's index must be a number")
 						continue
 					}
 
-					fieldIndex := (field.index.(*PrimitiveValueStmt)).value.(int64)
+					fieldIndex := (field.Index.(*PrimitiveValueStmt)).RawValue.(int64)
 					_, used := usedIndexes[fieldIndex]
 					if used {
 						a.err("index %d already defined for a field", fieldIndex)
@@ -181,7 +183,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 	if !isEnum {
 		// rule 1
-		primitive := GetPrimitive(f.valueType.ident.lit)
+		primitive := GetPrimitive(f.ValueType.Ident.Lit)
 
 		// if its illegal is because its a custom type
 		if primitive == Primitive_Illegal || primitive == Primitive_Type {
@@ -189,52 +191,52 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 
 			// rule 1.c
 			var alias *string
-			if f.valueType.ident.alias != "" {
-				alias = &f.valueType.ident.alias
+			if f.ValueType.Ident.Alias != "" {
+				alias = &f.ValueType.Ident.Alias
 			}
 
-			_, err := a.currentContext.lookupType(f.valueType.ident.lit, alias)
+			_, err := a.currentContext.LookupType(f.ValueType.Ident.Lit, alias)
 			if err != nil {
 				if errors.Is(err, ErrNeedAlias) {
-					a.err("%s already declared, try defining an alias for your import", f.valueType.ident.lit)
+					a.err("%s already declared, try defining an alias for your import", f.ValueType.Ident.Lit)
 					return
 				} else {
-					a.err("%s not defined, maybe you missed an import?", f.valueType.ident.lit)
+					a.err("%s not defined, maybe you missed an import?", f.ValueType.Ident.Lit)
 				}
 			}
 		} else if primitive == Primitive_Map {
 			// rule 1.b
-			if len(*f.valueType.typeArguments) != 2 {
+			if len(*f.ValueType.TypeArguments) != 2 {
 				a.err("map expects exactly two type arguments")
 				return
 			}
 
-			key := (*f.valueType.typeArguments)[0]
+			key := (*f.ValueType.TypeArguments)[0]
 
-			if key.nullable {
+			if key.Nullable {
 				a.err("map's key type cannot be nullable")
 				return
 			}
 
-			keyPrimitive := GetPrimitive(key.ident.lit)
+			keyPrimitive := GetPrimitive(key.Ident.Lit)
 			if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
 				a.err("map's key type cannot be another list, map or a custom type")
 				return
 			}
 
-			valuePrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+			valuePrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
 			if valuePrimitive == Primitive_List || valuePrimitive == Primitive_Map {
 				a.err("map's value type cannot be another list or map")
 				return
 			}
 		} else if primitive == Primitive_List {
 			// rule 1.a
-			if len(*f.valueType.typeArguments) != 1 {
+			if len(*f.ValueType.TypeArguments) != 1 {
 				a.err("list expects exactly one type argument")
 				return
 			}
 
-			typeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+			typeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
 			if typeArgumentPrimitive == Primitive_List || typeArgumentPrimitive == Primitive_Map {
 				a.err("list's value type cannot or type list or map")
 				return
@@ -242,14 +244,14 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 		}
 
 		// rule 2
-		if f.defaultValue != nil {
+		if f.DefaultValue != nil {
 			if primitive == Primitive_Type {
 				a.err("enum fields cannot declare default values")
 				return
 			}
 
 			// todo: verify value
-			defaultValuePrimitive := f.defaultValue.Kind()
+			defaultValuePrimitive := f.DefaultValue.Kind()
 
 			if primitive != defaultValuePrimitive {
 				a.err("field's default value is not of type %s, it is %s", primitive.String(), defaultValuePrimitive.String())
@@ -258,9 +260,9 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 
 			// do not check if defaultValuePrimitive is Primitive_List because its already checked before
 			if primitive == Primitive_List {
-				fieldTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+				fieldTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
 
-				list := f.defaultValue.(*ListValueStmt)
+				list := f.DefaultValue.(*ListValueStmt)
 				for _, elem := range *list {
 					elemPrimitive := elem.Kind()
 					if elemPrimitive != fieldTypeArgumentPrimitive {
@@ -269,13 +271,13 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 					}
 				}
 			} else if primitive == Primitive_Map {
-				fieldKeyTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
-				fieldValueTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[1].ident.lit)
+				fieldKeyTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
+				fieldValueTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[1].Ident.Lit)
 
-				m := f.defaultValue.(*MapValueStmt)
+				m := f.DefaultValue.(*MapValueStmt)
 				for _, entry := range *m {
-					keyPrimitive := entry.key.Kind()
-					valuePrimitive := entry.value.Kind()
+					keyPrimitive := entry.Key.Kind()
+					valuePrimitive := entry.Value.Kind()
 
 					if keyPrimitive != fieldKeyTypeArgumentPrimitive {
 						a.err("entry's key from map in default value is not of type %s, it is %s", fieldKeyTypeArgumentPrimitive.String(), keyPrimitive.String())
@@ -292,8 +294,8 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 	}
 
 	// rule 3
-	if f.metadata != nil {
-		a.validateMap(f.metadata)
+	if f.Metadata != nil {
+		a.validateMap(f.Metadata)
 	}
 }
 
@@ -304,18 +306,18 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 func (a *Analyzer) validateMetadata(m *MapValueStmt) {
 	for _, entry := range *m {
 		// validate rule 1
-		if entry.key.Kind() != Primitive_String {
+		if entry.Key.Kind() != Primitive_String {
 			a.err("metadata map keys must be of type string")
 			return
 		}
 
 		// validate rule 2
-		switch entry.value.Kind() {
+		switch entry.Value.Kind() {
 		case Primitive_String, Primitive_Bool, Primitive_Float64, Primitive_Int64:
 			continue
 
 		default:
-			a.err("metadata map values must be one of the following types: string|bool|float64|int64, given: %s", entry.value.Kind().String())
+			a.err("metadata map values must be one of the following types: string|bool|float64|int64, given: %s", entry.Value.Kind().String())
 			return
 		}
 	}
@@ -332,7 +334,7 @@ func (a *Analyzer) validateMap(m *MapValueStmt) {
 	keys := map[any]any{} // map to check for duplicated keys
 
 	for _, entry := range *m {
-		key := entry.key
+		key := entry.Key
 
 		// check rule 1
 		switch key.Kind() {
@@ -345,13 +347,13 @@ func (a *Analyzer) validateMap(m *MapValueStmt) {
 		var raw interface{}
 		if key.Kind() == Primitive_Type {
 			typeValue := (key.(*TypeValueStmt))
-			if typeValue.typeName.alias != "" {
-				raw = fmt.Sprintf("%s.%s.%s", typeValue.typeName.alias, typeValue.typeName.lit, typeValue.value.lit)
+			if typeValue.TypeName.Alias != "" {
+				raw = fmt.Sprintf("%s.%s.%s", typeValue.TypeName.Alias, typeValue.TypeName.Lit, typeValue.RawValue.Lit)
 			} else {
-				raw = fmt.Sprintf("%s.%s", typeValue.typeName.lit, typeValue.value.lit)
+				raw = fmt.Sprintf("%s.%s", typeValue.TypeName.Lit, typeValue.RawValue.Lit)
 			}
 		} else {
-			raw = (key.(*PrimitiveValueStmt)).value
+			raw = (key.(*PrimitiveValueStmt)).RawValue
 		}
 
 		_, used := keys[raw]
