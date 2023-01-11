@@ -102,15 +102,25 @@ func (b *Builder) Build(inputFolder string) error {
 
 // Generates generates source code for each generator specified in cfg.Generators.
 // This method must be called after b.Build
-func (b *Builder) Generate() error {
-	if b.builtDefinition == nil {
+func (b *Builder) Generate(outputPath, snapshotPath string) error {
+	if b.builtDefinition == nil && snapshotPath == "" {
 		return errors.New("definition not build")
 	}
 
-	// serialize definition
-	buf, err := json.Marshal(b.builtDefinition)
-	if err != nil {
-		return err
+	var buf []byte
+	var err error
+	if snapshotPath != "" {
+		// load snapshot
+		buf, err = os.ReadFile(snapshotPath)
+		if err != nil {
+			return fmt.Errorf("could not open snapshot file, %s", err.Error())
+		}
+	} else {
+		// serialize definition
+		buf, err = json.Marshal(b.builtDefinition)
+		if err != nil {
+			return err
+		}
 	}
 
 	// create plugin for each generator
@@ -290,10 +300,11 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 			files[fpath] = nexemaFile
 		}
 
-		b.imports[fpath] = []string{}
-		for _, importStmt := range *ast.Imports {
-			b.imports[fpath] = append(b.imports[fpath], fmt.Sprintf("%s as %s", importStmt.Path.Lit, importStmt.Alias.Lit))
-		}
+		// b.imports[fpath] = []string{}
+		// for _, importStmt := range *ast.Imports {
+		// 	alias := importStmt.Alias
+		// 	b.imports[fpath] = append(b.imports[fpath], fmt.Sprintf("%s as %s", importStmt.Path.Lit, importStmt.Alias.Lit))
+		// }
 
 		for _, typeStmt := range *ast.Types {
 			typeId := b.typesId[typeStmt]

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -30,10 +31,17 @@ func init() {
 	}
 
 	generateCmd := &cli.Command{
-		Name:            "generate",
-		Usage:           "builds a project and generates source code files",
-		Description:     "builds a Nexema project and generates source code files for all the targets specified in nexema.yaml.",
-		UsageText:       "nexema generate [input-folderpath] [output-folderpath]",
+		Name:        "generate",
+		Usage:       "builds a project and generates source code files",
+		Description: "builds a Nexema project and generates source code files for all the targets specified in nexema.yaml.",
+		UsageText: `nexema generate [input-folderpath] [output-folderpath]
+	--snapshot=[path-to-snapshot] -> if you want to use an already generated snapshot`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "snapshot",
+				Required: false,
+			},
+		},
 		HideHelpCommand: true,
 		HideHelp:        false,
 		Action:          generateCmdExecutor,
@@ -113,13 +121,20 @@ func generateCmdExecutor(ctx *cli.Context) error {
 		return cli.ShowCommandHelp(ctx, "generate")
 	}
 
+	snapshotPath := ctx.String("snapshot")
+
 	builder := NewBuilder()
 	err := builder.Build(inputPath)
 	if err != nil {
 		return cli.Exit(err.Error(), -1)
 	}
 
-	return nil
+	err = builder.Generate(outputPath, snapshotPath)
+	if err != nil {
+		return cli.Exit(err.Error(), -1)
+	}
+
+	return cli.Exit(fmt.Sprintf("Source has been generated successfully to %s", outputPath), 0)
 }
 
 /*func formatCmdExecutor(ctx *cli.Context) error {
