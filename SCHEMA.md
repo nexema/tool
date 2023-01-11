@@ -76,7 +76,7 @@ my_amazing_map: map(string,int) = [("one":1), ("two":2), ("three:3")]
 > **NOTE:** If you don't define a default value for fields that are not nullable, the default value of each programming language will be used. For example, for strings, it will be an **empty string**, for booleans, **false**, for ints, **0** and so on.
 
 ### **Metadata**  
-Metadata are `map(string, [string|bool|float64])` which can be used to annotate fields/types for later use. You can specify metadata to any field, using **@**, followed by a  `map(string, [string|bool|int])` value signature.
+Metadata are `map(string, [string|bool|float64|int64])` which can be used to annotate fields/types for later use. You can specify metadata to any field, using **@**, followed by a  `map(string, [string|bool|int])` value signature.
 For example:
 ```
 a_field: string @[("obsolete":true)]
@@ -132,9 +132,11 @@ type MyEnum enum {
 
 ## Writing schema files
 Schema files can be organized in folders, and, when compiled, the output will replicate the folder structure.
+> A folder becomes automatically a package, and, as in many languages, you can't define two structures with the same name in the same package.
+
 To define a schema file, create a file with any name but with the extension `.nex`
 
-The root directory must contain a single file called `nex.yaml` which will define some details for the project, it has the following structure:
+The root directory must contain a single file called `nexema.yaml` which will define some details for the project, it has the following structure:
 ```yaml
 name: my_amazing_project
 author: ImTheAuthor
@@ -161,12 +163,12 @@ generators:
 
 ```
 
-### Importing schema files
-You can import schema files  using the `import` keyword.
-For example, you created a file called `identity.nex` and then another called `common.nex` which declares a struct called `Address`.
+### Importing schema packages
+You can import schema packages using the `import` keyword. Import paths must be relative to `nexema.yaml`.
+For example, you created a folder called `common` and another called `identity`:
 ```
 import: 
-  "common" // Here we are importing the common.nex" file 
+  "common" // Here we are importing the common package with all its files 
 
 type User {
 	address: common.Address

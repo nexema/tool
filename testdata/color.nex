@@ -1,0 +1,7 @@
+// A list of common colors
+type Colors enum {
+    unknown
+    red
+    green
+    blue
+}
