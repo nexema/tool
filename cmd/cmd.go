@@ -92,7 +92,7 @@ func buildCmdExecutor(ctx *cli.Context) error {
 		return cli.Exit(err.Error(), -1)
 	}
 
-	err = builder.Snapshot()
+	err = builder.Snapshot(outputPath)
 	if err != nil {
 		return cli.Exit(err.Error(), -1)
 	}

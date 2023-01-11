@@ -130,14 +130,21 @@ func (b *Builder) Generate() error {
 
 // Snapshot generates and saves a snapshot for b.builtDefinition.
 // This method must be called after b.Build
-func (b *Builder) Snapshot() error {
+func (b *Builder) Snapshot(outFolder string) error {
 	if b.builtDefinition == nil {
 		return errors.New("definition not build")
 	}
 
+	outPath := filepath.Join(outFolder, fmt.Sprintf("%d.nexs", b.builtDefinition.Hashcode))
+
+	err := os.Mkdir(filepath.Dir(outPath), os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("could not save snapshot. %s", err.Error())
+	}
+
 	// todo: serialize to binary using nexemab (nexema binary)
 	buf, _ := json.Marshal(b.builtDefinition)
-	err := os.WriteFile(fmt.Sprintf("%d.nexs", b.builtDefinition.Hashcode), buf, os.ModePerm)
+	err = os.WriteFile(outPath, buf, os.ModePerm)
 
 	if err != nil {
 		return fmt.Errorf("could not save snapshot. %s", err.Error())
