@@ -1,17 +1,17 @@
 package main
 
 import (
-	"encoding/json"
-
 	"tomasweigenast.com/schema_interpreter/cmd"
 )
 
 func main() {
-	builder := cmd.NewBuilder()
+	cmd.Run()
+	/*builder := cmd.NewBuilder()
 	err := builder.Build("testdata")
 	if err != nil {
 		println(err.Error())
-	} else {
+		return
+	} /*else {
 		// print definition
 		def := builder.GetBuiltDefinition()
 		println("definition hashcode: ", def.Hashcode)
@@ -20,4 +20,18 @@ func main() {
 		buf, _ := json.MarshalIndent(def, "", "    ")
 		println(string(buf))
 	}
+
+	buf, err := json.Marshal(builder.GetBuiltDefinition())
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	plugin := cmd.NewPlugin("go", `/Users/tomasweigenast/Desktop/Git/nexema/go/go`)
+	err = plugin.Run(buf)
+	if err != nil {
+		println(err.Error())
+	} else {
+		println("success")
+	}*/
 }

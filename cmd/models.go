@@ -33,6 +33,7 @@ type MPackSchemaConfigGeneratorMap map[string]MPackSchemaConfigGenerator
 type MPackSchemaConfigGenerator struct {
 	Out     string   `json:"out" yaml:"out"`
 	Options []string `json:"options" yaml:"options"`
+	BinPath string   `json:"bin" yaml:"bin"`
 }
 
 func (m *MPackSchemaConfigDependency) UnmarshalJSON(b []byte) error {

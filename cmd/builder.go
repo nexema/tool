@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -93,6 +95,54 @@ func (b *Builder) Build(inputFolder string) error {
 
 	// store it
 	b.builtDefinition = definition
+	return nil
+}
+
+// Generates generates source code for each generator specified in cfg.Generators.
+// This method must be called after b.Build
+func (b *Builder) Generate() error {
+	if b.builtDefinition == nil {
+		return errors.New("definition not build")
+	}
+
+	// serialize definition
+	buf, err := json.Marshal(b.builtDefinition)
+	if err != nil {
+		return err
+	}
+
+	// create plugin for each generator
+	for generatorName, generator := range b.cfg.Generators {
+		if generator.BinPath != "" {
+			generator.BinPath = generatorName
+		}
+
+		// create plugin
+		plugin := NewPlugin(generatorName, generator.BinPath)
+		err := plugin.Run(buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Snapshot generates and saves a snapshot for b.builtDefinition.
+// This method must be called after b.Build
+func (b *Builder) Snapshot() error {
+	if b.builtDefinition == nil {
+		return errors.New("definition not build")
+	}
+
+	// todo: serialize to binary using nexemab (nexema binary)
+	buf, _ := json.Marshal(b.builtDefinition)
+	err := os.WriteFile(fmt.Sprintf("%d.nexs", b.builtDefinition.Hashcode), buf, os.ModePerm)
+
+	if err != nil {
+		return fmt.Errorf("could not save snapshot. %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -271,8 +321,4 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 	def.Hashcode = hash
 
 	return def
-}
-
-func (b *Builder) GetBuiltDefinition() *internal.NexemaDefinition {
-	return b.builtDefinition
 }
