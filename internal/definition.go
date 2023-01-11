@@ -16,7 +16,7 @@ type NexemaFile struct {
 
 // NexemaTypeDefinition contains information about a parsed Nexema type
 type NexemaTypeDefinition struct {
-	Id            string                      `json:"id"`            // An id generated for this type. It's: sha256(NexemaFilePath.TypeName)
+	Id            string                      `json:"id"`            // An id generated for this type. It's: sha256(NexemaFilePath-TypeName)
 	Name          string                      `json:"name"`          // The name of the type
 	Modifier      string                      `json:"modifier"`      // The type's modifier
 	Documentation []string                    `json:"documentation"` // The documentation for the type
@@ -25,11 +25,11 @@ type NexemaTypeDefinition struct {
 
 // NexemaTypeFieldDefinition contains information about a field declared in a Nexema type
 type NexemaTypeFieldDefinition struct {
-	Index        int                 `json:"index"`        // The field's index
-	Name         string              `json:"name"`         // The field's name
-	Metadata     map[string]any      `json:"metadata"`     // The field's metadata
-	DefaultValue any                 `json:"defaultValue"` // The field's default value
-	Type         BaseNexemaValueType `json:"type"`         // The field's value type
+	Index        int64           `json:"index"`        // The field's index
+	Name         string          `json:"name"`         // The field's name
+	Metadata     map[string]any  `json:"metadata"`     // The field's metadata
+	DefaultValue any             `json:"defaultValue"` // The field's default value
+	Type         nexemaValueType `json:"type"`         // The field's value type
 }
 
 // BaseNexemaValueType is a base struct for every Nexema's type
@@ -38,17 +38,24 @@ type BaseNexemaValueType struct {
 	Nullable bool   `json:"nullable"` // True if the type is nullable
 }
 
+type nexemaValueType interface {
+	t() // just to allow NexemaPrimitiveValueType and NexemaTypeValueType be part of this
+}
+
 // NexemaPrimitiveValueType represents the value type of a NexemaTypeFieldDefinition
 // which has a primitive type.
 type NexemaPrimitiveValueType struct {
-	BaseNexemaValueType
-	Primitive     string                `json:"primitive"`     // Value's type primitive
-	TypeArguments []BaseNexemaValueType `json:"typeArguments"` // Any generic type argument
+	Base          BaseNexemaValueType `json:",inline"`
+	Primitive     string              `json:"primitive"`     // Value's type primitive
+	TypeArguments []nexemaValueType   `json:"typeArguments"` // Any generic type argument
 }
 
 // NexemaTypeValueType represents the value type of a NexemaTypeFieldDefinition
 // which has another Nexema type as value type.
 type NexemaTypeValueType struct {
-	BaseNexemaValueType
-	TypeId string `json:"typeId"` // The imported type's id
+	Base   BaseNexemaValueType `json:",inline"`
+	TypeId string              `json:"typeId"` // The imported type's id
 }
+
+func (NexemaPrimitiveValueType) t() {}
+func (NexemaTypeValueType) t()      {}

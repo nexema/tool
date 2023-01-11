@@ -34,8 +34,8 @@ type importContext struct {
 type ResolvedContext struct {
 	owner        *Ast                  // the current Ast which imports another ASTs
 	dependencies map[string][]struct { // the list of packages imported by owner
-		source *Ast
-		alias  *string
+		source *Ast    // the imported ast
+		alias  *string // the given import alias
 	}
 }
 
@@ -176,6 +176,10 @@ func (s *AstTree) lookup(frags []string) ([]*Ast, bool) {
 // lookupType looks up a TypeStmt named typeName in the current context. If more than one type
 // exists with the same name, use alias as tie break.
 func (c *ResolvedContext) lookupType(typeName string, alias *string) (*TypeStmt, error) {
+	if alias == nil {
+		alias = String("")
+	}
+
 	// lookup in owner first
 	candidates := make(map[*TypeStmt]*string, 0)
 	count := 0
@@ -191,6 +195,10 @@ func (c *ResolvedContext) lookupType(typeName string, alias *string) (*TypeStmt,
 		for _, pkgFile := range pkg {
 			for _, typeStmt := range *pkgFile.source.types {
 				if typeStmt.name.lit == typeName {
+					if pkgFile.alias != nil && *pkgFile.alias != *alias {
+						continue
+					}
+
 					candidates[typeStmt] = pkgFile.alias
 					count++
 				}
@@ -200,7 +208,7 @@ func (c *ResolvedContext) lookupType(typeName string, alias *string) (*TypeStmt,
 
 	// now select from candidates
 	if count == 0 {
-		return nil, nil
+		return nil, ErrTypeNotFound
 	} else if count == 1 {
 		for stmt := range candidates {
 			return stmt, nil

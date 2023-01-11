@@ -1,5 +1,7 @@
 package internal
 
+import "fmt"
+
 // Ast represents the abstract syntax tree of a single Nexema file
 type Ast struct {
 	file    *File
@@ -57,6 +59,7 @@ type IdentifierStmt struct {
 
 type ValueStmt interface {
 	Kind() Primitive
+	Value() interface{}
 }
 
 type PrimitiveValueStmt struct {
@@ -100,4 +103,34 @@ func (*ListValueStmt) Kind() Primitive {
 
 func (*MapValueStmt) Kind() Primitive {
 	return Primitive_Map
+}
+
+func (p *TypeValueStmt) Value() interface{} {
+	if p.typeName.alias == "" {
+		return fmt.Sprintf("%s.%s", p.typeName.lit, p.value.lit)
+	}
+
+	return fmt.Sprintf("%s.%s.%s", p.typeName.alias, p.typeName.lit, p.value.lit)
+}
+
+func (p *PrimitiveValueStmt) Value() interface{} {
+	return p.value
+}
+
+func (l *ListValueStmt) Value() interface{} {
+	arr := make([]any, len(*l))
+	for i, val := range *l {
+		arr[i] = val.Value()
+	}
+	return arr
+}
+
+func (m *MapValueStmt) Value() interface{} {
+	ma := make(map[any]any, len(*m))
+	for _, val := range *m {
+		key := val.key.Value()
+		value := val.value.Value()
+		ma[key] = value
+	}
+	return ma
 }

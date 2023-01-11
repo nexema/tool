@@ -55,7 +55,7 @@ func (a *Analyzer) validateAst(ast *Ast) {
 // 3- Each field validates successfully
 func (a *Analyzer) validateType(stmt *TypeStmt) {
 
-	id := HashString(fmt.Sprintf("%s_%s", a.currentContext.owner.file.pkg, stmt.name.lit))
+	id := HashString(fmt.Sprintf("%s-%s", a.currentContext.owner.file.pkg, stmt.name.lit))
 	a.typesId[stmt] = id
 
 	// rule 1
@@ -119,7 +119,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field)
+					a.validateField(field, true)
 				}
 			}
 		} else {
@@ -154,7 +154,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field)
+					a.validateField(field, false)
 				}
 			}
 		}
@@ -178,104 +178,114 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 // 3- Metadata validates successfully
 //
 // It does not validates imports or custom types
-func (a *Analyzer) validateField(f *FieldStmt) {
-	// rule 1
-	primitive := GetPrimitive(f.valueType.ident.lit)
+func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
+	if !isEnum {
+		// rule 1
+		primitive := GetPrimitive(f.valueType.ident.lit)
 
-	// if its illegal is because its a custom type
-	if primitive == Primitive_Illegal || primitive == Primitive_Type {
-		// rule 1.c
-		var alias *string
-		if f.valueType.ident.alias != "" {
-			alias = &f.valueType.ident.alias
-		}
+		// if its illegal is because its a custom type
+		if primitive == Primitive_Illegal || primitive == Primitive_Type {
+			primitive = Primitive_Type
 
-		_, err := a.currentContext.lookupType(f.valueType.ident.lit, alias)
-		if err != nil {
-			if errors.Is(err, ErrNeedAlias) {
-				a.err("%s already declared, try defining an alias for your import", f.valueType.ident.lit)
-				return
-			} else {
-				a.err("%s not defined, maybe you missed an import?", f.valueType.ident.lit)
+			// rule 1.c
+			var alias *string
+			if f.valueType.ident.alias != "" {
+				alias = &f.valueType.ident.alias
 			}
-		}
-	} else if primitive == Primitive_Map {
-		// rule 1.b
-		if len(*f.valueType.typeArguments) != 2 {
-			a.err("map expects exactly two type arguments")
-			return
-		}
 
-		key := (*f.valueType.typeArguments)[0]
-
-		if key.nullable {
-			a.err("map's key type cannot be nullable")
-			return
-		}
-
-		keyPrimitive := GetPrimitive(key.ident.lit)
-		if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
-			a.err("map's key type cannot be another list, map or a custom type")
-			return
-		}
-
-		valuePrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
-		if valuePrimitive == Primitive_List || valuePrimitive == Primitive_Map {
-			a.err("map's value type cannot be another list or map")
-			return
-		}
-	} else if primitive == Primitive_List {
-		// rule 1.a
-		if len(*f.valueType.typeArguments) != 1 {
-			a.err("list expects exactly one type argument")
-			return
-		}
-
-		typeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
-		if typeArgumentPrimitive == Primitive_List || typeArgumentPrimitive == Primitive_Map {
-			a.err("list's value type cannot or type list or map")
-			return
-		}
-	}
-
-	// rule 2
-	if f.defaultValue != nil {
-		// todo: verify value
-		defaultValuePrimitive := f.defaultValue.Kind()
-		if primitive != defaultValuePrimitive {
-			a.err("field's default value is not of type %s, it is %s", primitive.String(), defaultValuePrimitive.String())
-			return
-		}
-
-		// do not check if defaultValuePrimitive is Primitive_List because its already checked before
-		if primitive == Primitive_List {
-			fieldTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
-
-			list := f.defaultValue.(*ListValueStmt)
-			for _, elem := range *list {
-				elemPrimitive := elem.Kind()
-				if elemPrimitive != fieldTypeArgumentPrimitive {
-					a.err("element from list in default value is not of type %s, it is %s", fieldTypeArgumentPrimitive.String(), elemPrimitive.String())
-					continue
+			_, err := a.currentContext.lookupType(f.valueType.ident.lit, alias)
+			if err != nil {
+				if errors.Is(err, ErrNeedAlias) {
+					a.err("%s already declared, try defining an alias for your import", f.valueType.ident.lit)
+					return
+				} else {
+					a.err("%s not defined, maybe you missed an import?", f.valueType.ident.lit)
 				}
 			}
 		} else if primitive == Primitive_Map {
-			fieldKeyTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
-			fieldValueTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[1].ident.lit)
+			// rule 1.b
+			if len(*f.valueType.typeArguments) != 2 {
+				a.err("map expects exactly two type arguments")
+				return
+			}
 
-			m := f.defaultValue.(*MapValueStmt)
-			for _, entry := range *m {
-				keyPrimitive := entry.key.Kind()
-				valuePrimitive := entry.value.Kind()
+			key := (*f.valueType.typeArguments)[0]
 
-				if keyPrimitive != fieldKeyTypeArgumentPrimitive {
-					a.err("entry's key from map in default value is not of type %s, it is %s", fieldKeyTypeArgumentPrimitive.String(), keyPrimitive.String())
-					continue
+			if key.nullable {
+				a.err("map's key type cannot be nullable")
+				return
+			}
+
+			keyPrimitive := GetPrimitive(key.ident.lit)
+			if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
+				a.err("map's key type cannot be another list, map or a custom type")
+				return
+			}
+
+			valuePrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+			if valuePrimitive == Primitive_List || valuePrimitive == Primitive_Map {
+				a.err("map's value type cannot be another list or map")
+				return
+			}
+		} else if primitive == Primitive_List {
+			// rule 1.a
+			if len(*f.valueType.typeArguments) != 1 {
+				a.err("list expects exactly one type argument")
+				return
+			}
+
+			typeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+			if typeArgumentPrimitive == Primitive_List || typeArgumentPrimitive == Primitive_Map {
+				a.err("list's value type cannot or type list or map")
+				return
+			}
+		}
+
+		// rule 2
+		if f.defaultValue != nil {
+			if primitive == Primitive_Type {
+				a.err("enum fields cannot declare default values")
+				return
+			}
+
+			// todo: verify value
+			defaultValuePrimitive := f.defaultValue.Kind()
+
+			if primitive != defaultValuePrimitive {
+				a.err("field's default value is not of type %s, it is %s", primitive.String(), defaultValuePrimitive.String())
+				return
+			}
+
+			// do not check if defaultValuePrimitive is Primitive_List because its already checked before
+			if primitive == Primitive_List {
+				fieldTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+
+				list := f.defaultValue.(*ListValueStmt)
+				for _, elem := range *list {
+					elemPrimitive := elem.Kind()
+					if elemPrimitive != fieldTypeArgumentPrimitive {
+						a.err("element from list in default value is not of type %s, it is %s", fieldTypeArgumentPrimitive.String(), elemPrimitive.String())
+						continue
+					}
 				}
+			} else if primitive == Primitive_Map {
+				fieldKeyTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[0].ident.lit)
+				fieldValueTypeArgumentPrimitive := GetPrimitive((*f.valueType.typeArguments)[1].ident.lit)
 
-				if valuePrimitive != fieldValueTypeArgumentPrimitive {
-					a.err("entry's value from map in default value is not of type %s, it is %s", fieldValueTypeArgumentPrimitive.String(), valuePrimitive.String())
-					continue
+				m := f.defaultValue.(*MapValueStmt)
+				for _, entry := range *m {
+					keyPrimitive := entry.key.Kind()
+					valuePrimitive := entry.value.Kind()
+
+					if keyPrimitive != fieldKeyTypeArgumentPrimitive {
+						a.err("entry's key from map in default value is not of type %s, it is %s", fieldKeyTypeArgumentPrimitive.String(), keyPrimitive.String())
+						continue
+					}
+
+					if valuePrimitive != fieldValueTypeArgumentPrimitive {
+						a.err("entry's value from map in default value is not of type %s, it is %s", fieldValueTypeArgumentPrimitive.String(), valuePrimitive.String())
+						continue
+					}
 				}
 			}
 		}
