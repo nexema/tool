@@ -77,6 +77,11 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 					a.err("expected the first field in an enum to have the index 0, given index %d", lastIdx)
 					return
 				}
+			} else {
+				(*stmt.Fields)[0].Index = &PrimitiveValueStmt{
+					RawValue:  int64(0),
+					Primitive: Primitive_Int64,
+				}
 			}
 
 			usedIndexes := map[int64]bool{}
@@ -93,6 +98,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 					}
 					lastIdx++
 					usedIndexes[lastIdx] = true
+					(*stmt.Fields)[i] = field
 				} else {
 					if field.Index.Kind() != Primitive_Int64 {
 						a.err("field's index must be a number")
@@ -127,7 +133,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 		} else {
 			lastIdx := int64(-1)
 			usedIndexes := map[int64]bool{}
-			for _, field := range *stmt.Fields {
+			for i, field := range *stmt.Fields {
 				if field.Index == nil {
 					// assign the field index
 					field.Index = &PrimitiveValueStmt{
@@ -136,6 +142,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 					}
 					lastIdx++
 					usedIndexes[lastIdx] = true
+					(*stmt.Fields)[i] = field
 				} else {
 					if field.Index.Kind() != Primitive_Int64 {
 						a.err("field's index must be a number")

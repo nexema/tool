@@ -1,0 +1,6 @@
+type Colors enum {
+    unknown
+    red
+    green
+    blue
+}

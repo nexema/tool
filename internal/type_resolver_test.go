@@ -117,3 +117,35 @@ func TestAstTreeLookup(t *testing.T) {
 	_, ok = astTree.Lookup("B/C/D")
 	require.False(t, ok)
 }
+
+func TestAstTreeAppend(t *testing.T) {
+	astTree := AstTree{
+		packageName: ".",
+		sources:     []*Ast{},
+		children:    []*AstTree{},
+	}
+
+	astTree.append(&Ast{
+		File: &File{Pkg: "testdata"},
+	}, nil)
+
+	astTree.append(&Ast{
+		File: &File{Pkg: "testdata"},
+	}, nil)
+	astTree.append(&Ast{
+		File: &File{Pkg: "testdata/baz"},
+	}, nil)
+
+	astTree.append(&Ast{
+		File: &File{Pkg: "testdata/root/another"},
+	}, nil)
+	astTree.append(&Ast{
+		File: &File{Pkg: "testdata/root/secondaty"},
+	}, nil)
+
+	astTree.append(&Ast{
+		File: &File{Pkg: "testdata/root"},
+	}, nil)
+
+	astTree.print("")
+}

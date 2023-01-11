@@ -1,13 +1,19 @@
-package internal
+package cmd
 
 import (
+	"bytes"
+	"fmt"
+	"os"
 	"path/filepath"
 
+	"github.com/karrick/godirwalk"
 	"github.com/mitchellh/hashstructure/v2"
+	"gopkg.in/yaml.v3"
 	"tomasweigenast.com/schema_interpreter/internal"
 )
 
 const builderVersion = 1
+const nexExtension = ".nex"
 
 // Builder provides a method to build a list of .nex files
 type Builder struct {
@@ -17,11 +23,17 @@ type Builder struct {
 
 	contexts []*internal.ResolvedContext
 	typesId  map[*internal.TypeStmt]string
+	cfg      MPackSchemaConfig
+
+	astList         []*internal.Ast
+	builtDefinition *internal.NexemaDefinition
 }
 
 // NewBuilder creates a new Builder
 func NewBuilder() *Builder {
-	return &Builder{}
+	return &Builder{
+		astList: make([]*internal.Ast, 0),
+	}
 }
 
 // Build is the main entry point for parsing nexema projects. A folder is given and
@@ -37,12 +49,96 @@ func (b *Builder) Build(inputFolder string) error {
 		return err
 	}
 
+	// now, start walking directories
+	err = godirwalk.Walk(inputFolder, &godirwalk.Options{
+		Callback: func(osPathname string, de *godirwalk.Dirent) error {
+			if de.IsDir() {
+				return nil // skip
+			}
+
+			if filepath.Ext(osPathname) != nexExtension {
+				return godirwalk.SkipThis
+			}
+
+			// scan file
+			return b.scanFile(osPathname)
+		},
+		Unsorted:            true,
+		FollowSymbolicLinks: false,
+		AllowNonDirectory:   false,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// build the AstTree
+	astTree := internal.NewAstTree(b.astList)
+
+	// resolve types
+	resolvedContextArr := internal.NewTypeResolver(astTree).Resolve()
+
+	// analyze the resolved context array
+	b.analyzer = internal.NewAnalyzer(resolvedContextArr)
+	resolvedContextArr, typesId, errors := b.analyzer.AnalyzeSyntax()
+	if !errors.IsEmpty() {
+		return errors.Format()
+	}
+
+	b.contexts = resolvedContextArr
+	b.typesId = typesId
+
+	// now build the definition
+	definition := b.buildDefinition()
+
+	// store it
+	b.builtDefinition = definition
 	return nil
 }
 
 // scanProject searches and parses a nexema.yaml file in the current folder.
 // If the file cannot be found, an error is returned.
 func (b *Builder) scanProject() error {
+	buf, err := os.ReadFile(filepath.Join(b.rootFolder, "nexema.yaml"))
+	if err != nil {
+		return fmt.Errorf("nexema.yaml could not be read. Error: %s", err.Error())
+	}
+
+	err = yaml.Unmarshal(buf, &b.cfg)
+	if err != nil {
+		return fmt.Errorf("invalid nexema.yaml file. Error: %s", err.Error())
+	}
+
+	return nil
+}
+
+// scanFile scans the given file in order to build an Ast. If success, appends the Ast to b.astList,
+// otherwise, an error is returned.
+func (b *Builder) scanFile(path string) error {
+	fileContents, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("could not scan file %s. Error: %s", path, err)
+	}
+
+	// todo: re-use the parser
+	b.currentParser = internal.NewParser(bytes.NewBuffer(fileContents))
+
+	// parse
+	ast, err := b.currentParser.Parse()
+	if err != nil {
+		return err
+	}
+
+	// set file
+	relPath, _ := filepath.Rel(b.rootFolder, path)
+	ast.File = &internal.File{
+		Name: filepath.Base(path),
+		Pkg:  filepath.Dir(relPath),
+	}
+
+	// append list
+	b.astList = append(b.astList, ast)
+
 	return nil
 }
 
@@ -175,4 +271,8 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 	def.Hashcode = hash
 
 	return def
+}
+
+func (b *Builder) GetBuiltDefinition() *internal.NexemaDefinition {
+	return b.builtDefinition
 }
