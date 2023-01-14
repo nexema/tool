@@ -151,7 +151,7 @@ func (b *Builder) Snapshot(outFolder string) error {
 	outPath := filepath.Join(outFolder, fmt.Sprintf("%d.nexs", b.builtDefinition.Hashcode))
 
 	err := os.Mkdir(filepath.Dir(outPath), os.ModePerm)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrExist) {
 		return fmt.Errorf("could not save snapshot. %s", err.Error())
 	}
 

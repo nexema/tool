@@ -6,4 +6,18 @@ type User struct {
     id: string
     name: string
     selected_color: Colors
+    account: Account
+}
+
+type Account union {
+    admin: AdminAccount
+    customer: CustomerAccount
+}
+
+type AdminAccount struct {
+    active: bool
+}
+
+type CustomerAccount struct {
+    age: uint8
 }

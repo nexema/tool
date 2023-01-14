@@ -66,7 +66,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 	}
 
 	// rule 2
-	if len(*stmt.Fields) > 0 {
+	if stmt.Fields != nil && len(*stmt.Fields) > 0 {
 
 		// todo: a lot of optimizations can be done
 		if stmt.Modifier == Token_Enum {
