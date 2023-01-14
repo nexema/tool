@@ -126,7 +126,7 @@ func (b *Builder) Generate(outputPath, snapshotPath string) error {
 
 	// create plugin for each generator
 	for generatorName, generator := range b.cfg.Generators {
-		if generator.BinPath != "" {
+		if generator.BinPath == "" {
 			generator.BinPath = generatorName
 		}
 
