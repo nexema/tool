@@ -16,6 +16,7 @@ import (
 
 const builderVersion = 1
 const nexExtension = ".nex"
+const nexSnapshotExtension = ".nexs"
 
 // Builder provides a method to build a list of .nex files
 type Builder struct {

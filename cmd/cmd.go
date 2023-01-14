@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/karrick/godirwalk"
 	"github.com/urfave/cli/v2"
 )
 
@@ -47,6 +49,16 @@ func init() {
 		Action:          generateCmdExecutor,
 	}
 
+	clearCmd := &cli.Command{
+		Name:            "clear",
+		Usage:           "deletes any generated snapshot file",
+		Description:     "deletes any generated snapshot file, searching in any subfolder in the current folder",
+		UsageText:       `nexema clean`,
+		HideHelpCommand: true,
+		HideHelp:        false,
+		Action:          clearCmdExecutor,
+	}
+
 	/*formatCmd := &cli.Command{
 		Name:            "format",
 		Usage:           "formats all nexema files in the current project",
@@ -59,6 +71,7 @@ func init() {
 	commands = []*cli.Command{
 		buildCmd,
 		generateCmd,
+		clearCmd,
 		// formatCmd,
 	}
 }
@@ -135,6 +148,39 @@ func generateCmdExecutor(ctx *cli.Context) error {
 	}
 
 	return cli.Exit(fmt.Sprintf("Source has been generated successfully to %s", outputPath), 0)
+}
+
+func clearCmdExecutor(ctx *cli.Context) error {
+	clearedCount := 0
+	err := godirwalk.Walk("./", &godirwalk.Options{
+		Callback: func(osPathname string, de *godirwalk.Dirent) error {
+			if de.IsDir() {
+				return nil // skip
+			}
+
+			if filepath.Ext(osPathname) != nexSnapshotExtension {
+				return godirwalk.SkipThis
+			}
+
+			// scan file
+			err := os.Remove(osPathname)
+			if err != nil {
+				return err
+			}
+
+			clearedCount++
+			return nil
+		},
+		Unsorted:            true,
+		FollowSymbolicLinks: false,
+		AllowNonDirectory:   false,
+	})
+
+	if err != nil {
+		return cli.Exit(err, -1)
+	}
+
+	return cli.Exit(fmt.Sprintf("Cleared %d snapshot file(s)", clearedCount), 0)
 }
 
 /*func formatCmdExecutor(ctx *cli.Context) error {
