@@ -2,7 +2,7 @@ package internal
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"hash"
 )
@@ -14,7 +14,7 @@ func HashString(input string) string {
 	hashInst.Reset()
 	hashInst.Write([]byte(input))
 	bs := hashInst.Sum(nil)
-	return base64.StdEncoding.EncodeToString(bs)
+	return hex.EncodeToString(bs)
 }
 
 func GetMapValueStmt(m map[any]any) *MapValueStmt {

@@ -8,9 +8,12 @@ import (
 // Analyzer takes a list of ResolvedContext and do validations in order to check if it matches the
 // Nexema specification. If there is no error, a NexemaDefinition is returned.
 type Analyzer struct {
-	contexts       []*ResolvedContext // the list of contexts given as input
-	currentContext *ResolvedContext   // the context that is being validated
-	errors         *ErrorCollection   // any error encountered
+	contexts []*ResolvedContext // the list of contexts given as input
+	//currentContext *ResolvedContext   // the context that is being validated
+	errors              *ErrorCollection // any error encountered
+	scopes              *ScopeCollection
+	currentPackageScope *PackageScope
+	currentLocalScope   *LocalScope
 
 	typesId map[*TypeStmt]string // a map that contains the id of a TypeStmt
 
@@ -18,11 +21,11 @@ type Analyzer struct {
 }
 
 // NewAnalyzer creates a new Analyzer
-func NewAnalyzer(input []*ResolvedContext) *Analyzer {
+func NewAnalyzer(scopes *ScopeCollection) *Analyzer {
 	return &Analyzer{
-		contexts: input,
-		errors:   NewErrorCollection(),
-		typesId:  make(map[*TypeStmt]string),
+		errors:  NewErrorCollection(),
+		typesId: make(map[*TypeStmt]string),
+		scopes:  scopes,
 	}
 }
 
@@ -31,17 +34,24 @@ func NewAnalyzer(input []*ResolvedContext) *Analyzer {
 // in a.typesId.
 // It reports any error that is encountered.
 func (a *Analyzer) AnalyzeSyntax() ([]*ResolvedContext, map[*TypeStmt]string, *ErrorCollection) {
-	for _, context := range a.contexts {
-		a.validateContext(context)
+	// for _, context := range a.contexts {
+	// 	a.validateContext(context)
+	// }
+
+	for _, scope := range a.scopes.Scopes {
+		a.validateScope(scope)
 	}
 
 	return a.contexts, a.typesId, a.errors
 }
 
-// validateContext validates the given Ast in the context against Ast rules
-func (a *Analyzer) validateContext(context *ResolvedContext) {
-	a.currentContext = context
-	a.validateAst(context.Owner)
+// validateScope validates the current PackageScope
+func (a *Analyzer) validateScope(scope *PackageScope) {
+	a.currentPackageScope = scope
+	for participant, localScope := range scope.Participants {
+		a.currentLocalScope = localScope
+		a.validateAst(participant)
+	}
 }
 
 // validateAst validates the given ast against each type's rules.
@@ -55,9 +65,10 @@ func (a *Analyzer) validateAst(ast *Ast) {
 // 1- Metadata validates successfully
 // 2- Fields index are unique integers and correlative starting from 0 if Type is Enum.
 // 3- Each field validates successfully
+// 4- Its not imported itself (a field is not of type [CurrentType])
 func (a *Analyzer) validateType(stmt *TypeStmt) {
 
-	id := HashString(fmt.Sprintf("%s-%s", a.currentContext.Owner.File.Pkg, stmt.Name.Lit))
+	id := HashString(fmt.Sprintf("%s-%s", a.currentPackageScope.PackageName, stmt.Name.Lit))
 	a.typesId[stmt] = id
 
 	// rule 1
@@ -201,7 +212,9 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum, isUnion bool) {
 				alias = &f.ValueType.Ident.Alias
 			}
 
-			_, err := a.currentContext.LookupType(f.ValueType.Ident.Lit, alias)
+			var err error
+			_ = alias
+			// _, err := a.currentPackageScope.LookupType(f.ValueType.Ident.Lit, alias)
 			if err != nil {
 				if errors.Is(err, ErrNeedAlias) {
 					a.err("%s already declared, try defining an alias for your import", f.ValueType.Ident.Lit)

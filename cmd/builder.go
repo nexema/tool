@@ -81,10 +81,14 @@ func (b *Builder) Build(inputFolder string) error {
 	astTree := internal.NewAstTree(b.astList)
 
 	// resolve types
-	resolvedContextArr := internal.NewTypeResolver(astTree).Resolve()
+	// resolvedContextArr := internal.NewTypeResolver(astTree).Resolve()
+	scopeCollection, err := internal.BuildScopes(astTree)
+	if err != nil {
+		return err
+	}
 
 	// analyze the resolved context array
-	b.analyzer = internal.NewAnalyzer(resolvedContextArr)
+	b.analyzer = internal.NewAnalyzer(scopeCollection)
 	resolvedContextArr, typesId, errors := b.analyzer.AnalyzeSyntax()
 	if !errors.IsEmpty() {
 		return errors.Format()

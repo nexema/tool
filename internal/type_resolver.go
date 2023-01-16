@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrNeedAlias    error = errors.New("import needs alias")
+	// ErrNeedAlias    error = errors.New("import needs alias")
 	ErrTypeNotFound error = errors.New("type not found")
 )
 
