@@ -6,7 +6,9 @@ type User struct {
     id: string
     name: string
     selected_color: Colors
-    account: Account
+    account: Account?
+    tags: list(string)
+    claims: map(string,string?)
 }
 
 type Account union {
@@ -19,5 +21,5 @@ type AdminAccount struct {
 }
 
 type CustomerAccount struct {
-    age: uint8
+    age: uint8?
 }

@@ -126,7 +126,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field, true)
+					a.validateField(field, true, false)
 				}
 			}
 		} else {
@@ -161,7 +161,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field, false)
+					a.validateField(field, false, stmt.Modifier == Token_Union)
 				}
 			}
 		}
@@ -183,9 +183,10 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 //
 // 2- Default value type matches field's type
 // 3- Metadata validates successfully
+// 4- Union cannot declare nullable fields
 //
 // It does not validates imports or custom types
-func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
+func (a *Analyzer) validateField(f *FieldStmt, isEnum, isUnion bool) {
 	if !isEnum {
 		// rule 1
 		primitive := GetPrimitive(f.ValueType.Ident.Lit)
@@ -296,11 +297,17 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 				}
 			}
 		}
+
 	}
 
 	// rule 3
 	if f.Metadata != nil {
 		a.validateMap(f.Metadata)
+	}
+
+	// rule 4
+	if f.ValueType.Nullable && isUnion {
+		a.err("union cannot declare nullable fields")
 	}
 }
 
