@@ -1,7 +1,7 @@
 package main
 
 import (
-	"tomasweigenast.com/schema_interpreter/cmd"
+	"tomasweigenast.com/nexema/tool/cmd"
 )
 
 func main() {

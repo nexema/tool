@@ -11,7 +11,7 @@ import (
 	"github.com/karrick/godirwalk"
 	"github.com/mitchellh/hashstructure/v2"
 	"gopkg.in/yaml.v3"
-	"tomasweigenast.com/schema_interpreter/internal"
+	"tomasweigenast.com/nexema/tool/internal"
 )
 
 const builderVersion = 1

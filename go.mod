@@ -1,4 +1,4 @@
-module tomasweigenast.com/schema_interpreter
+module tomasweigenast.com/nexema/tool
 
 go 1.18
 
