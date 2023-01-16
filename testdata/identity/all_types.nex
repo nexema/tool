@@ -1,0 +1,58 @@
+import:
+    "."
+
+type NexemaPrimitives struct {
+    my_string: string
+    my_boolean: bool
+    my_uint8: uint8
+    my_uint16: uint16
+    my_uint32: uint32
+    my_uint64: uint64
+    my_int8: int8
+    my_int16: int16
+    my_int32: int32
+    my_int64: int64
+    my_float32: float32
+    my_float64: float64
+    my_binary: binary
+}
+
+type NexemaNullablePrimitives struct {
+    my_string: string?
+    my_boolean: bool?
+    my_uint8: uint8?
+    my_uint16: uint16?
+    my_uint32: uint32?
+    my_uint64: uint64?
+    my_int8: int8?
+    my_int16: int16?
+    my_int32: int32?
+    my_int64: int64?
+    my_float32: float32?
+    my_float64: float64?
+    my_binary: binary?
+}
+
+type NexemaList struct {
+    list_1: list(string)
+    list_2: list(binary)
+    list_3: list(string?)
+    list_4: list(string?)?
+    list_5: list(binary)?
+    list_6: list(binary?)
+    list_7: list(binary?)?
+}
+
+type NexemaMap struct {
+    map_0: map(string, string)
+    map_1: map(string, string?)
+    map_2: map(string, string)?
+    map_3: map(string, string?)?
+    map_4: map(string, binary)
+    map_5: map(string, binary?)
+    map_6: map(string, binary?)?
+}
+
+type EmbeddedType struct {
+    my_union: SingleUnion
+}

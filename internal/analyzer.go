@@ -298,16 +298,15 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum, isUnion bool) {
 			}
 		}
 
+		// rule 4
+		if f.ValueType.Nullable && isUnion {
+			a.err("union cannot declare nullable fields")
+		}
 	}
 
 	// rule 3
 	if f.Metadata != nil {
 		a.validateMap(f.Metadata)
-	}
-
-	// rule 4
-	if f.ValueType.Nullable && isUnion {
-		a.err("union cannot declare nullable fields")
 	}
 }
 
