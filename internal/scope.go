@@ -22,6 +22,8 @@ type PackageScope struct {
 
 // LocalScope is the scope limited to the current Ast
 type LocalScope struct {
+	owner        *Ast
+	root         *PackageScope
 	Dependencies map[string]*scopeDependency // Dependencies contains the list of Objects imported by the key (import path)
 }
 
@@ -39,7 +41,7 @@ type ScopeCollection struct {
 // EvaluateType evaluates a TypeStmt and returns an Object representing it
 func EvaluateType(pkgName string, stmt *TypeStmt) *Object {
 	return &Object{
-		ID:   HashString(fmt.Sprintf("%s-%s", pkgName, stmt.Name.Lit)),
+		ID:   hashString(fmt.Sprintf("%s-%s", pkgName, stmt.Name.Lit)),
 		Stmt: stmt,
 	}
 }
@@ -87,7 +89,7 @@ func (s *PackageScope) addParticipant(ast *Ast, dependencies map[*Ast]string) er
 			Objects: objCollection,
 		}
 	}
-	s.Participants[ast] = &LocalScope{Dependencies: deps}
+	s.Participants[ast] = &LocalScope{Dependencies: deps, root: s, owner: ast}
 	return nil
 }
 
@@ -123,7 +125,7 @@ func (s *ScopeCollection) buildScopes(astTree *AstTree) ([]*PackageScope, error)
 				}
 
 				// get sources
-				astSources, ok := astTree.Lookup(importPath)
+				astSources, ok := s.Tree.Lookup(importPath)
 				if !ok {
 					return nil, fmt.Errorf("package %q not found", importPath)
 				}
@@ -218,6 +220,11 @@ func (s *PackageScope) LookupObjectFor(ast *Ast, name, alias string) (*Object, e
 		// this will be never reach
 		panic("unexpected behaviour")
 	}
+}
+
+// LookupObject looks up an object in the current local scope.
+func (s *LocalScope) LookupObject(name, alias string) (*Object, error) {
+	return s.root.LookupObjectFor(s.owner, name, alias)
 }
 
 func scopeErr(fileName, text string, args ...any) error {

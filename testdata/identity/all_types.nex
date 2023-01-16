@@ -55,4 +55,5 @@ type NexemaMap struct {
 
 type EmbeddedType struct {
     my_union: SingleUnion
+    my_enum: Colors
 }

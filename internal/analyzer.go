@@ -8,14 +8,12 @@ import (
 // Analyzer takes a list of ResolvedContext and do validations in order to check if it matches the
 // Nexema specification. If there is no error, a NexemaDefinition is returned.
 type Analyzer struct {
-	contexts []*ResolvedContext // the list of contexts given as input
-	//currentContext *ResolvedContext   // the context that is being validated
 	errors              *ErrorCollection // any error encountered
 	scopes              *ScopeCollection
 	currentPackageScope *PackageScope
 	currentLocalScope   *LocalScope
-
-	typesId map[*TypeStmt]string // a map that contains the id of a TypeStmt
+	currentAst          *Ast
+	currentObject       *Object
 
 	skipFields bool // test only
 }
@@ -23,9 +21,8 @@ type Analyzer struct {
 // NewAnalyzer creates a new Analyzer
 func NewAnalyzer(scopes *ScopeCollection) *Analyzer {
 	return &Analyzer{
-		errors:  NewErrorCollection(),
-		typesId: make(map[*TypeStmt]string),
-		scopes:  scopes,
+		errors: NewErrorCollection(),
+		scopes: scopes,
 	}
 }
 
@@ -33,7 +30,7 @@ func NewAnalyzer(scopes *ScopeCollection) *Analyzer {
 // checking if they match the Nexema's definition. It does not build nothing. It generates ids for each type and store them
 // in a.typesId.
 // It reports any error that is encountered.
-func (a *Analyzer) AnalyzeSyntax() ([]*ResolvedContext, map[*TypeStmt]string, *ErrorCollection) {
+func (a *Analyzer) AnalyzeSyntax() *ErrorCollection {
 	// for _, context := range a.contexts {
 	// 	a.validateContext(context)
 	// }
@@ -42,7 +39,7 @@ func (a *Analyzer) AnalyzeSyntax() ([]*ResolvedContext, map[*TypeStmt]string, *E
 		a.validateScope(scope)
 	}
 
-	return a.contexts, a.typesId, a.errors
+	return a.errors
 }
 
 // validateScope validates the current PackageScope
@@ -56,6 +53,7 @@ func (a *Analyzer) validateScope(scope *PackageScope) {
 
 // validateAst validates the given ast against each type's rules.
 func (a *Analyzer) validateAst(ast *Ast) {
+	a.currentAst = ast
 	for _, typeStmt := range *ast.Types {
 		a.validateType(typeStmt)
 	}
@@ -68,8 +66,7 @@ func (a *Analyzer) validateAst(ast *Ast) {
 // 4- Its not imported itself (a field is not of type [CurrentType])
 func (a *Analyzer) validateType(stmt *TypeStmt) {
 
-	id := HashString(fmt.Sprintf("%s-%s", a.currentPackageScope.PackageName, stmt.Name.Lit))
-	a.typesId[stmt] = id
+	a.currentObject = a.currentLocalScope.root.Objects.find(stmt.Name.Lit)
 
 	// rule 1
 	if stmt.Metadata != nil {
@@ -137,7 +134,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field, true, false)
+					a.validateField(stmt, field, true, false)
 				}
 			}
 		} else {
@@ -172,7 +169,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field, false, stmt.Modifier == Token_Union)
+					a.validateField(stmt, field, false, stmt.Modifier == Token_Union)
 				}
 			}
 		}
@@ -195,9 +192,10 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 // 2- Default value type matches field's type
 // 3- Metadata validates successfully
 // 4- Union cannot declare nullable fields
+// 5- Type cannot be defined itself
 //
 // It does not validates imports or custom types
-func (a *Analyzer) validateField(f *FieldStmt, isEnum, isUnion bool) {
+func (a *Analyzer) validateField(typeStmt *TypeStmt, f *FieldStmt, isEnum, isUnion bool) {
 	if !isEnum {
 		// rule 1
 		primitive := GetPrimitive(f.ValueType.Ident.Lit)
@@ -207,20 +205,25 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum, isUnion bool) {
 			primitive = Primitive_Type
 
 			// rule 1.c
-			var alias *string
+			alias := ""
 			if f.ValueType.Ident.Alias != "" {
-				alias = &f.ValueType.Ident.Alias
+				alias = f.ValueType.Ident.Alias
 			}
 
-			var err error
-			_ = alias
-			// _, err := a.currentPackageScope.LookupType(f.ValueType.Ident.Lit, alias)
+			obj, err := a.currentPackageScope.LookupObjectFor(a.currentAst, f.ValueType.Ident.Lit, alias)
 			if err != nil {
 				if errors.Is(err, ErrNeedAlias) {
-					a.err("%s already declared, try defining an alias for your import", f.ValueType.Ident.Lit)
+					a.err("Type %q already declared, try defining an alias for your import", f.ValueType.Ident.Lit)
 					return
 				} else {
-					a.err("%s not defined, maybe you missed an import?", f.ValueType.Ident.Lit)
+					a.err("Type %q not defined, maybe you missed an import?", f.ValueType.Ident.Lit)
+				}
+			}
+
+			// rule 5
+			if obj != nil {
+				if a.currentObject.ID == obj.ID {
+					a.err("%q cannot be declared itself in fields", obj.Stmt.Name.Lit)
 				}
 			}
 		} else if primitive == Primitive_Map {
@@ -393,8 +396,8 @@ func (a *Analyzer) validateMap(m *MapValueStmt) {
 func (a *Analyzer) err(txt string, args ...any) {
 	if len(args) > 0 {
 		str := fmt.Sprintf(txt, args...)
-		a.errors.Report(fmt.Errorf("[analyzer] 0:0 -> %s", str))
+		a.errors.Report(fmt.Errorf("[analyzer] %s 0:0 -> %s", a.currentAst.File.Name, str))
 	} else {
-		a.errors.Report(fmt.Errorf("[analyzer] 0:0 -> %s", txt))
+		a.errors.Report(fmt.Errorf("[analyzer] %s 0:0 -> %s", a.currentAst.File.Name, txt))
 	}
 }

@@ -24,10 +24,9 @@ type Builder struct {
 	currentParser *internal.Parser
 	analyzer      *internal.Analyzer
 
-	contexts []*internal.ResolvedContext
-	typesId  map[*internal.TypeStmt]string
-	imports  map[string][]string // the list of import stmt for each file
-	cfg      MPackSchemaConfig
+	scopeCollection *internal.ScopeCollection
+	imports         map[string][]string // the list of import stmt for each file
+	cfg             MPackSchemaConfig
 
 	astList         []*internal.Ast
 	builtDefinition *internal.NexemaDefinition
@@ -80,8 +79,7 @@ func (b *Builder) Build(inputFolder string) error {
 	// build the AstTree
 	astTree := internal.NewAstTree(b.astList)
 
-	// resolve types
-	// resolvedContextArr := internal.NewTypeResolver(astTree).Resolve()
+	// build scopes
 	scopeCollection, err := internal.BuildScopes(astTree)
 	if err != nil {
 		return err
@@ -89,15 +87,13 @@ func (b *Builder) Build(inputFolder string) error {
 
 	// analyze the resolved context array
 	b.analyzer = internal.NewAnalyzer(scopeCollection)
-	resolvedContextArr, typesId, errors := b.analyzer.AnalyzeSyntax()
+	errors := b.analyzer.AnalyzeSyntax()
 	if !errors.IsEmpty() {
 		return errors.Format()
 	}
 
-	b.contexts = resolvedContextArr
-	b.typesId = typesId
-
 	// now build the definition
+	b.scopeCollection = scopeCollection
 	definition := b.buildDefinition()
 
 	// store it
@@ -293,115 +289,111 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 
 	files := map[string]*internal.NexemaFile{}
 
-	for _, ctx := range b.contexts {
-		ast := ctx.Owner
-		fpath := filepath.Join(ast.File.Pkg, ast.File.Name)
-		nexemaFile, ok := files[fpath]
-		if !ok {
-			nexemaFile = &internal.NexemaFile{
-				Name:  fpath,
-				Types: make([]internal.NexemaTypeDefinition, 0),
-			}
-			files[fpath] = nexemaFile
-		}
-
-		// b.imports[fpath] = []string{}
-		// for _, importStmt := range *ast.Imports {
-		// 	alias := importStmt.Alias
-		// 	b.imports[fpath] = append(b.imports[fpath], fmt.Sprintf("%s as %s", importStmt.Path.Lit, importStmt.Alias.Lit))
-		// }
-
-		for _, typeStmt := range *ast.Types {
-			typeId := b.typesId[typeStmt]
-			typeDefinition := internal.NexemaTypeDefinition{
-				Id:            typeId,
-				Name:          typeStmt.Name.Lit,
-				Modifier:      typeStmt.Modifier.String(),
-				Documentation: make([]string, 0),
-				Fields:        make([]internal.NexemaTypeFieldDefinition, 0),
-			}
-
-			if typeStmt.Documentation != nil {
-				for _, stmt := range *typeStmt.Documentation {
-					typeDefinition.Documentation = append(typeDefinition.Documentation, stmt.Text)
+	for _, scope := range b.scopeCollection.Scopes {
+		for ast, localScope := range scope.Participants {
+			fpath := filepath.Join(ast.File.Pkg, ast.File.Name)
+			nexemaFile, ok := files[fpath]
+			if !ok {
+				nexemaFile = &internal.NexemaFile{
+					Name:  fpath,
+					Types: make([]internal.NexemaTypeDefinition, 0),
 				}
+				files[fpath] = nexemaFile
 			}
 
-			if typeStmt.Fields != nil {
-				for _, stmt := range *typeStmt.Fields {
-					field := internal.NexemaTypeFieldDefinition{
-						Index:    (stmt.Index.(*internal.PrimitiveValueStmt)).RawValue.(int64),
-						Name:     stmt.Name.Lit,
-						Metadata: make(map[string]any),
+			for _, typeStmt := range *ast.Types {
+				// get object evaluated for TypeStmt
+				obj := (*scope.Objects)[typeStmt.Name.Lit]
+
+				typeDefinition := internal.NexemaTypeDefinition{
+					Id:            obj.ID,
+					Name:          typeStmt.Name.Lit,
+					Modifier:      typeStmt.Modifier.String(),
+					Documentation: make([]string, 0),
+					Fields:        make([]internal.NexemaTypeFieldDefinition, 0),
+				}
+
+				if typeStmt.Documentation != nil {
+					for _, stmt := range *typeStmt.Documentation {
+						typeDefinition.Documentation = append(typeDefinition.Documentation, stmt.Text)
 					}
+				}
 
-					if typeStmt.Modifier != internal.Token_Enum {
-						primitive := internal.GetPrimitive(stmt.ValueType.Ident.Lit)
-						switch primitive {
-						case internal.Primitive_Illegal, internal.Primitive_Type:
-							// Get type id
-							var alias *string
-							if stmt.ValueType.Ident.Alias != "" {
-								alias = &stmt.ValueType.Ident.Alias
-							}
+				if typeStmt.Fields != nil {
+					for _, stmt := range *typeStmt.Fields {
+						field := internal.NexemaTypeFieldDefinition{
+							Index:    (stmt.Index.(*internal.PrimitiveValueStmt)).RawValue.(int64),
+							Name:     stmt.Name.Lit,
+							Metadata: make(map[string]any),
+						}
 
-							t, _ := ctx.LookupType(stmt.ValueType.Ident.Lit, alias)
-							id := b.typesId[t]
-
-							valueType := internal.NexemaTypeValueType{
-								BaseNexemaValueType: internal.BaseNexemaValueType{
-									Kind:     "NexemaTypeValueType",
-									Nullable: stmt.ValueType.Nullable,
-								},
-								TypeId:      id,
-								ImportAlias: alias,
-							}
-							field.Type = valueType
-
-						default:
-							valueType := internal.NexemaPrimitiveValueType{
-								BaseNexemaValueType: internal.BaseNexemaValueType{
-									Kind:     "NexemaPrimitiveValueType",
-									Nullable: stmt.ValueType.Nullable,
-								},
-								Primitive:     primitive.String(),
-								TypeArguments: make([]internal.NexemaValueType, 0),
-							}
-
-							if stmt.ValueType.TypeArguments != nil {
-								for _, typeArg := range *stmt.ValueType.TypeArguments {
-									valueType.TypeArguments = append(valueType.TypeArguments, internal.NexemaPrimitiveValueType{
-										BaseNexemaValueType: internal.BaseNexemaValueType{
-											Kind:     "NexemaPrimitiveValueType",
-											Nullable: typeArg.Nullable,
-										},
-										Primitive:     internal.GetPrimitive(typeArg.Ident.Lit).String(),
-										TypeArguments: make([]internal.NexemaValueType, 0),
-									})
+						if typeStmt.Modifier != internal.Token_Enum {
+							primitive := internal.GetPrimitive(stmt.ValueType.Ident.Lit)
+							switch primitive {
+							case internal.Primitive_Illegal, internal.Primitive_Type:
+								// Get type id
+								alias := ""
+								if stmt.ValueType.Ident.Alias != "" {
+									alias = stmt.ValueType.Ident.Alias
 								}
+
+								t, _ := localScope.LookupObject(stmt.ValueType.Ident.Lit, alias)
+
+								valueType := internal.NexemaTypeValueType{
+									BaseNexemaValueType: internal.BaseNexemaValueType{
+										Kind:     "NexemaTypeValueType",
+										Nullable: stmt.ValueType.Nullable,
+									},
+									TypeId:      t.ID,
+									ImportAlias: stringPtr(alias),
+								}
+								field.Type = valueType
+
+							default:
+								valueType := internal.NexemaPrimitiveValueType{
+									BaseNexemaValueType: internal.BaseNexemaValueType{
+										Kind:     "NexemaPrimitiveValueType",
+										Nullable: stmt.ValueType.Nullable,
+									},
+									Primitive:     primitive.String(),
+									TypeArguments: make([]internal.NexemaValueType, 0),
+								}
+
+								if stmt.ValueType.TypeArguments != nil {
+									for _, typeArg := range *stmt.ValueType.TypeArguments {
+										valueType.TypeArguments = append(valueType.TypeArguments, internal.NexemaPrimitiveValueType{
+											BaseNexemaValueType: internal.BaseNexemaValueType{
+												Kind:     "NexemaPrimitiveValueType",
+												Nullable: typeArg.Nullable,
+											},
+											Primitive:     internal.GetPrimitive(typeArg.Ident.Lit).String(),
+											TypeArguments: make([]internal.NexemaValueType, 0),
+										})
+									}
+								}
+
+								field.Type = valueType
 							}
 
-							field.Type = valueType
+							if stmt.DefaultValue != nil {
+								field.DefaultValue = stmt.DefaultValue.Value()
+							}
 						}
 
-						if stmt.DefaultValue != nil {
-							field.DefaultValue = stmt.DefaultValue.Value()
+						if stmt.Metadata != nil {
+							for _, entry := range *stmt.Metadata {
+								key := (entry.Key.(*internal.PrimitiveValueStmt)).RawValue.(string)
+								value := (entry.Value.(*internal.PrimitiveValueStmt)).RawValue
+								field.Metadata[key] = value
+							}
 						}
+
+						typeDefinition.Fields = append(typeDefinition.Fields, field)
 					}
-
-					if stmt.Metadata != nil {
-						for _, entry := range *stmt.Metadata {
-							key := (entry.Key.(*internal.PrimitiveValueStmt)).RawValue.(string)
-							value := (entry.Value.(*internal.PrimitiveValueStmt)).RawValue
-							field.Metadata[key] = value
-						}
-					}
-
-					typeDefinition.Fields = append(typeDefinition.Fields, field)
 				}
-			}
 
-			nexemaFile.Types = append(nexemaFile.Types, typeDefinition)
+				nexemaFile.Types = append(nexemaFile.Types, typeDefinition)
+			}
 		}
 	}
 
@@ -418,4 +410,12 @@ func (b *Builder) buildDefinition() *internal.NexemaDefinition {
 	def.Hashcode = hash
 
 	return def
+}
+
+func stringPtr(val string) *string {
+	if len(val) == 0 {
+		return nil
+	}
+
+	return &val
 }
