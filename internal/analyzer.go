@@ -184,7 +184,8 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 //		- the type argument is not another list or a map
 //	b) if its a map:
 //		- it contains exactly two type arguments
-//		- key and value cannot be another map or a list
+//		- key cannot be another map, list nor binary
+//		- value cannot be another map or a list
 //		- key is not nullable and its not a custom type
 //	c) if its a custom type:
 //		- it exists and can be imported
@@ -241,8 +242,8 @@ func (a *Analyzer) validateField(typeStmt *TypeStmt, f *FieldStmt, isEnum, isUni
 			}
 
 			keyPrimitive := GetPrimitive(key.Ident.Lit)
-			if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
-				a.err("map's key type cannot be another list, map or a custom type")
+			if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_Binary || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
+				a.err("map's key type cannot be another list, map, binary or a custom type")
 				return
 			}
 
