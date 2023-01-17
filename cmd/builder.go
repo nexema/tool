@@ -2,17 +2,19 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/karrick/godirwalk"
 	"github.com/mitchellh/hashstructure/v2"
 	"gopkg.in/yaml.v3"
 	"tomasweigenast.com/nexema/tool/internal"
 )
+
+var jsonMarshaller = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const builderVersion = 1
 const nexExtension = ".nex"
@@ -118,7 +120,7 @@ func (b *Builder) Generate(outputPath, snapshotPath string) error {
 		}
 	} else {
 		// serialize definition
-		buf, err = json.Marshal(b.builtDefinition)
+		buf, err = jsonMarshaller.Marshal(b.builtDefinition)
 		if err != nil {
 			return err
 		}
@@ -156,7 +158,11 @@ func (b *Builder) Snapshot(outFolder string) error {
 	}
 
 	// todo: serialize to binary using nexemab (nexema binary)
-	buf, _ := json.Marshal(b.builtDefinition)
+	buf, err := jsonMarshaller.Marshal(b.builtDefinition)
+	if err != nil {
+		return err
+	}
+
 	err = os.WriteFile(outPath, buf, os.ModePerm)
 
 	if err != nil {

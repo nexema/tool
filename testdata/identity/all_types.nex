@@ -53,7 +53,19 @@ type NexemaMap struct {
     map_6: map(string, binary?)?
 }
 
+// This is my embedded type
 type EmbeddedType struct {
     my_union: SingleUnion
     my_enum: Colors
+}
+
+// Nexema type with fields that declare default values
+@[("obsolete": true)]
+type NexemaDefaultType struct {
+    my_string: string = "hola"
+    my_bool: bool = true
+    my_int64: int64 = -2314123
+    my_float64: float64 = 2324.242
+    my_list: list(string) = ["first", "second", "last"]
+    my_map: map(string,bool) = [("key": true), ("another": false)]
 }
