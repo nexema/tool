@@ -68,7 +68,7 @@ func (t *Tokenizer) Scan() (pos Position, tok Token, lit string, err error) {
 		tok = GetKeyword(lit)
 
 	// decimal or .8 float syntax
-	case isDecimal(ch) || (ch == '.' && isDecimal(t.peek())):
+	case isDecimal(ch) || (ch == '-' && isDecimal(t.peek())) || (ch == '.' && isDecimal(t.peek())):
 		tok, lit, err = t.scanNumber()
 
 	default:

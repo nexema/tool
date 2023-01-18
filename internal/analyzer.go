@@ -8,21 +8,21 @@ import (
 // Analyzer takes a list of ResolvedContext and do validations in order to check if it matches the
 // Nexema specification. If there is no error, a NexemaDefinition is returned.
 type Analyzer struct {
-	contexts       []*ResolvedContext // the list of contexts given as input
-	currentContext *ResolvedContext   // the context that is being validated
-	errors         *ErrorCollection   // any error encountered
-
-	typesId map[*TypeStmt]string // a map that contains the id of a TypeStmt
+	errors              *ErrorCollection // any error encountered
+	scopes              *ScopeCollection
+	currentPackageScope *PackageScope
+	currentLocalScope   *LocalScope
+	currentAst          *Ast
+	currentObject       *Object
 
 	skipFields bool // test only
 }
 
 // NewAnalyzer creates a new Analyzer
-func NewAnalyzer(input []*ResolvedContext) *Analyzer {
+func NewAnalyzer(scopes *ScopeCollection) *Analyzer {
 	return &Analyzer{
-		contexts: input,
-		errors:   NewErrorCollection(),
-		typesId:  make(map[*TypeStmt]string),
+		errors: NewErrorCollection(),
+		scopes: scopes,
 	}
 }
 
@@ -30,22 +30,30 @@ func NewAnalyzer(input []*ResolvedContext) *Analyzer {
 // checking if they match the Nexema's definition. It does not build nothing. It generates ids for each type and store them
 // in a.typesId.
 // It reports any error that is encountered.
-func (a *Analyzer) AnalyzeSyntax() ([]*ResolvedContext, map[*TypeStmt]string, *ErrorCollection) {
-	for _, context := range a.contexts {
-		a.validateContext(context)
+func (a *Analyzer) AnalyzeSyntax() *ErrorCollection {
+	// for _, context := range a.contexts {
+	// 	a.validateContext(context)
+	// }
+
+	for _, scope := range a.scopes.Scopes {
+		a.validateScope(scope)
 	}
 
-	return a.contexts, a.typesId, a.errors
+	return a.errors
 }
 
-// validateContext validates the given Ast in the context against Ast rules
-func (a *Analyzer) validateContext(context *ResolvedContext) {
-	a.currentContext = context
-	a.validateAst(context.Owner)
+// validateScope validates the current PackageScope
+func (a *Analyzer) validateScope(scope *PackageScope) {
+	a.currentPackageScope = scope
+	for participant, localScope := range scope.Participants {
+		a.currentLocalScope = localScope
+		a.validateAst(participant)
+	}
 }
 
 // validateAst validates the given ast against each type's rules.
 func (a *Analyzer) validateAst(ast *Ast) {
+	a.currentAst = ast
 	for _, typeStmt := range *ast.Types {
 		a.validateType(typeStmt)
 	}
@@ -55,10 +63,10 @@ func (a *Analyzer) validateAst(ast *Ast) {
 // 1- Metadata validates successfully
 // 2- Fields index are unique integers and correlative starting from 0 if Type is Enum.
 // 3- Each field validates successfully
+// 4- Its not imported itself (a field is not of type [CurrentType])
 func (a *Analyzer) validateType(stmt *TypeStmt) {
 
-	id := HashString(fmt.Sprintf("%s-%s", a.currentContext.Owner.File.Pkg, stmt.Name.Lit))
-	a.typesId[stmt] = id
+	a.currentObject = a.currentLocalScope.root.Objects.find(stmt.Name.Lit)
 
 	// rule 1
 	if stmt.Metadata != nil {
@@ -66,7 +74,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 	}
 
 	// rule 2
-	if len(*stmt.Fields) > 0 {
+	if stmt.Fields != nil && len(*stmt.Fields) > 0 {
 
 		// todo: a lot of optimizations can be done
 		if stmt.Modifier == Token_Enum {
@@ -126,7 +134,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field, true)
+					a.validateField(stmt, field, true, false)
 				}
 			}
 		} else {
@@ -161,7 +169,7 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 
 				// rule 3
 				if !a.skipFields {
-					a.validateField(field, false)
+					a.validateField(stmt, field, false, stmt.Modifier == Token_Union)
 				}
 			}
 		}
@@ -176,16 +184,19 @@ func (a *Analyzer) validateType(stmt *TypeStmt) {
 //		- the type argument is not another list or a map
 //	b) if its a map:
 //		- it contains exactly two type arguments
-//		- key and value cannot be another map or a list
+//		- key cannot be another map, list nor binary
+//		- value cannot be another map or a list
 //		- key is not nullable and its not a custom type
 //	c) if its a custom type:
 //		- it exists and can be imported
 //
 // 2- Default value type matches field's type
 // 3- Metadata validates successfully
+// 4- Union cannot declare nullable fields
+// 5- Type cannot be defined itself
 //
 // It does not validates imports or custom types
-func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
+func (a *Analyzer) validateField(typeStmt *TypeStmt, f *FieldStmt, isEnum, isUnion bool) {
 	if !isEnum {
 		// rule 1
 		primitive := GetPrimitive(f.ValueType.Ident.Lit)
@@ -195,18 +206,25 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 			primitive = Primitive_Type
 
 			// rule 1.c
-			var alias *string
+			alias := ""
 			if f.ValueType.Ident.Alias != "" {
-				alias = &f.ValueType.Ident.Alias
+				alias = f.ValueType.Ident.Alias
 			}
 
-			_, err := a.currentContext.LookupType(f.ValueType.Ident.Lit, alias)
+			obj, err := a.currentPackageScope.LookupObjectFor(a.currentAst, f.ValueType.Ident.Lit, alias)
 			if err != nil {
 				if errors.Is(err, ErrNeedAlias) {
-					a.err("%s already declared, try defining an alias for your import", f.ValueType.Ident.Lit)
+					a.err("Type %q already declared, try defining an alias for your import", f.ValueType.Ident.Lit)
 					return
 				} else {
-					a.err("%s not defined, maybe you missed an import?", f.ValueType.Ident.Lit)
+					a.err("Type %q not defined, maybe you missed an import?", f.ValueType.Ident.Lit)
+				}
+			}
+
+			// rule 5
+			if obj != nil {
+				if a.currentObject.ID == obj.ID {
+					a.err("%q cannot be declared itself in fields", obj.Stmt.Name.Lit)
 				}
 			}
 		} else if primitive == Primitive_Map {
@@ -224,8 +242,8 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 			}
 
 			keyPrimitive := GetPrimitive(key.Ident.Lit)
-			if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
-				a.err("map's key type cannot be another list, map or a custom type")
+			if keyPrimitive == Primitive_Illegal || keyPrimitive == Primitive_Binary || keyPrimitive == Primitive_List || keyPrimitive == Primitive_Map {
+				a.err("map's key type cannot be another list, map, binary or a custom type")
 				return
 			}
 
@@ -255,46 +273,45 @@ func (a *Analyzer) validateField(f *FieldStmt, isEnum bool) {
 				return
 			}
 
-			// todo: verify value
-			defaultValuePrimitive := f.DefaultValue.Kind()
-
-			if primitive != defaultValuePrimitive {
-				a.err("field's default value is not of type %s, it is %s", primitive.String(), defaultValuePrimitive.String())
+			if !a.validateValue(f.DefaultValue.Value(), f.DefaultValue.Kind(), primitive, f.ValueType.Nullable) {
 				return
 			}
 
 			// do not check if defaultValuePrimitive is Primitive_List because its already checked before
 			if primitive == Primitive_List {
-				fieldTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
+				valueType := (*f.ValueType.TypeArguments)[0]
+				fieldTypeArgumentPrimitive := GetPrimitive(valueType.Ident.Lit)
 
 				list := f.DefaultValue.(*ListValueStmt)
 				for _, elem := range *list {
-					elemPrimitive := elem.Kind()
-					if elemPrimitive != fieldTypeArgumentPrimitive {
-						a.err("element from list in default value is not of type %s, it is %s", fieldTypeArgumentPrimitive.String(), elemPrimitive.String())
+					if !a.validateValue(elem.Value(), elem.Kind(), fieldTypeArgumentPrimitive, valueType.Nullable) {
 						continue
 					}
 				}
 			} else if primitive == Primitive_Map {
-				fieldKeyTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
-				fieldValueTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[1].Ident.Lit)
+				keyValueType := (*f.ValueType.TypeArguments)[0]
+				valueValueType := (*f.ValueType.TypeArguments)[1]
+				fieldKeyTypeArgumentPrimitive := GetPrimitive(keyValueType.Ident.Lit)
+				fieldValueTypeArgumentPrimitive := GetPrimitive(valueValueType.Ident.Lit)
 
 				m := f.DefaultValue.(*MapValueStmt)
 				for _, entry := range *m {
-					keyPrimitive := entry.Key.Kind()
-					valuePrimitive := entry.Value.Kind()
-
-					if keyPrimitive != fieldKeyTypeArgumentPrimitive {
-						a.err("entry's key from map in default value is not of type %s, it is %s", fieldKeyTypeArgumentPrimitive.String(), keyPrimitive.String())
+					// validate key
+					if !a.validateValue(entry.Key.Value(), entry.Key.Kind(), fieldKeyTypeArgumentPrimitive, keyValueType.Nullable) {
 						continue
 					}
 
-					if valuePrimitive != fieldValueTypeArgumentPrimitive {
-						a.err("entry's value from map in default value is not of type %s, it is %s", fieldValueTypeArgumentPrimitive.String(), valuePrimitive.String())
+					// validate value
+					if !a.validateValue(entry.Value.Value(), entry.Value.Kind(), fieldValueTypeArgumentPrimitive, valueValueType.Nullable) {
 						continue
 					}
 				}
 			}
+		}
+
+		// rule 4
+		if f.ValueType.Nullable && isUnion {
+			a.err("union cannot declare nullable fields")
 		}
 	}
 
@@ -374,8 +391,40 @@ func (a *Analyzer) validateMap(m *MapValueStmt) {
 func (a *Analyzer) err(txt string, args ...any) {
 	if len(args) > 0 {
 		str := fmt.Sprintf(txt, args...)
-		a.errors.Report(fmt.Errorf("[analyzer] 0:0 -> %s", str))
+		a.errors.Report(fmt.Errorf("[analyzer] %s 0:0 -> %s", a.currentAst.File.Name, str))
 	} else {
-		a.errors.Report(fmt.Errorf("[analyzer] 0:0 -> %s", txt))
+		a.errors.Report(fmt.Errorf("[analyzer] %s 0:0 -> %s", a.currentAst.File.Name, txt))
 	}
+}
+
+func (a *Analyzer) validateValue(value interface{}, valuePrimitive, targetPrimitive Primitive, nullable bool) bool {
+	// check nullability
+	if value == nil {
+		if nullable {
+			return true
+		} else {
+			a.err("value is null but it's not declared as nullable")
+			return false
+		}
+	}
+
+	// check if value fits in Primitive defined by field
+	if valuePrimitive == Primitive_Int64 && (targetPrimitive.IsInt() || targetPrimitive.IsFloat()) {
+		if !intFits(value.(int64), targetPrimitive) {
+			a.err("value %d does not fit inside an %s", value, targetPrimitive.String())
+			return false
+		}
+	} else if valuePrimitive == Primitive_Float64 && targetPrimitive.IsFloat() {
+		if !floatFits(value.(float64), targetPrimitive) {
+			a.err("value %d does not fit inside a %s", value, targetPrimitive.String())
+			return false
+		}
+	} else {
+		if targetPrimitive != valuePrimitive {
+			a.err("value expected to be of type %s but it's of type %s", targetPrimitive.String(), valuePrimitive.String())
+			return false
+		}
+	}
+
+	return true
 }

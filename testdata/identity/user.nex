@@ -1,9 +1,0 @@
-import:
-    "."
-
-// Primary user
-type User struct {
-    id: string
-    name: string
-    selected_color: Colors
-}

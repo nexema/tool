@@ -104,6 +104,7 @@ var tokenMapping map[Token]string = map[Token]string{
 }
 
 var primitiveMapping map[Primitive]string = map[Primitive]string{
+	Primitive_Null:    "null",
 	Primitive_Uint8:   "uint8",
 	Primitive_Uint16:  "uint16",
 	Primitive_Uint32:  "uint32",
@@ -202,4 +203,22 @@ func IsPrimitive(i string) bool {
 
 func (p Primitive) String() string {
 	return primitiveMapping[p]
+}
+
+func (p Primitive) IsInt() bool {
+	switch p {
+	case Primitive_Int8, Primitive_Int16, Primitive_Int32, Primitive_Int64, Primitive_Uint8, Primitive_Uint16, Primitive_Uint32, Primitive_Uint64:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p Primitive) IsFloat() bool {
+	switch p {
+	case Primitive_Float32, Primitive_Float64:
+		return true
+	default:
+		return false
+	}
 }
