@@ -64,8 +64,10 @@ type EmbeddedType struct {
 type NexemaDefaultType struct {
     my_string: string = "hola"
     my_bool: bool = true
-    my_int64: int64 = -2314123
-    my_float64: float64 = 2324.242
+    my_int32: int32 = -2314123
+    my_float64: float64 = 2324
     my_list: list(string) = ["first", "second", "last"]
     my_map: map(string,bool) = [("key": true), ("another": false)]
+    my_nullablemap: map(string,bool?)? = [("a": null)]
+    my_nullablelist: list(float64?)? = [25, null, 43.23]
 }

@@ -273,42 +273,36 @@ func (a *Analyzer) validateField(typeStmt *TypeStmt, f *FieldStmt, isEnum, isUni
 				return
 			}
 
-			// todo: verify value
-			defaultValuePrimitive := f.DefaultValue.Kind()
-
-			if primitive != defaultValuePrimitive {
-				a.err("field's default value is not of type %s, it is %s", primitive.String(), defaultValuePrimitive.String())
+			if !a.validateValue(f.DefaultValue.Value(), f.DefaultValue.Kind(), primitive, f.ValueType.Nullable) {
 				return
 			}
 
 			// do not check if defaultValuePrimitive is Primitive_List because its already checked before
 			if primitive == Primitive_List {
-				fieldTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
+				valueType := (*f.ValueType.TypeArguments)[0]
+				fieldTypeArgumentPrimitive := GetPrimitive(valueType.Ident.Lit)
 
 				list := f.DefaultValue.(*ListValueStmt)
 				for _, elem := range *list {
-					elemPrimitive := elem.Kind()
-					if elemPrimitive != fieldTypeArgumentPrimitive {
-						a.err("element from list in default value is not of type %s, it is %s", fieldTypeArgumentPrimitive.String(), elemPrimitive.String())
+					if !a.validateValue(elem.Value(), elem.Kind(), fieldTypeArgumentPrimitive, valueType.Nullable) {
 						continue
 					}
 				}
 			} else if primitive == Primitive_Map {
-				fieldKeyTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[0].Ident.Lit)
-				fieldValueTypeArgumentPrimitive := GetPrimitive((*f.ValueType.TypeArguments)[1].Ident.Lit)
+				keyValueType := (*f.ValueType.TypeArguments)[0]
+				valueValueType := (*f.ValueType.TypeArguments)[1]
+				fieldKeyTypeArgumentPrimitive := GetPrimitive(keyValueType.Ident.Lit)
+				fieldValueTypeArgumentPrimitive := GetPrimitive(valueValueType.Ident.Lit)
 
 				m := f.DefaultValue.(*MapValueStmt)
 				for _, entry := range *m {
-					keyPrimitive := entry.Key.Kind()
-					valuePrimitive := entry.Value.Kind()
-
-					if keyPrimitive != fieldKeyTypeArgumentPrimitive {
-						a.err("entry's key from map in default value is not of type %s, it is %s", fieldKeyTypeArgumentPrimitive.String(), keyPrimitive.String())
+					// validate key
+					if !a.validateValue(entry.Key.Value(), entry.Key.Kind(), fieldKeyTypeArgumentPrimitive, keyValueType.Nullable) {
 						continue
 					}
 
-					if valuePrimitive != fieldValueTypeArgumentPrimitive {
-						a.err("entry's value from map in default value is not of type %s, it is %s", fieldValueTypeArgumentPrimitive.String(), valuePrimitive.String())
+					// validate value
+					if !a.validateValue(entry.Value.Value(), entry.Value.Kind(), fieldValueTypeArgumentPrimitive, valueValueType.Nullable) {
 						continue
 					}
 				}
@@ -401,4 +395,36 @@ func (a *Analyzer) err(txt string, args ...any) {
 	} else {
 		a.errors.Report(fmt.Errorf("[analyzer] %s 0:0 -> %s", a.currentAst.File.Name, txt))
 	}
+}
+
+func (a *Analyzer) validateValue(value interface{}, valuePrimitive, targetPrimitive Primitive, nullable bool) bool {
+	// check nullability
+	if value == nil {
+		if nullable {
+			return true
+		} else {
+			a.err("value is null but it's not declared as nullable")
+			return false
+		}
+	}
+
+	// check if value fits in Primitive defined by field
+	if valuePrimitive == Primitive_Int64 && (targetPrimitive.IsInt() || targetPrimitive.IsFloat()) {
+		if !intFits(value.(int64), targetPrimitive) {
+			a.err("value %d does not fit inside an %s", value, targetPrimitive.String())
+			return false
+		}
+	} else if valuePrimitive == Primitive_Float64 && targetPrimitive.IsFloat() {
+		if !floatFits(value.(float64), targetPrimitive) {
+			a.err("value %d does not fit inside a %s", value, targetPrimitive.String())
+			return false
+		}
+	} else {
+		if targetPrimitive != valuePrimitive {
+			a.err("value expected to be of type %s but it's of type %s", targetPrimitive.String(), valuePrimitive.String())
+			return false
+		}
+	}
+
+	return true
 }
