@@ -61,6 +61,8 @@ const (
 	Primitive_Int16
 	Primitive_Int32
 	Primitive_Int64
+	Primitive_Int  // varint
+	Primitive_Uint // uvarint
 	Primitive_Float32
 	Primitive_Float64
 	Primitive_String
@@ -113,6 +115,8 @@ var primitiveMapping map[Primitive]string = map[Primitive]string{
 	Primitive_Int16:   "int16",
 	Primitive_Int32:   "int32",
 	Primitive_Int64:   "int64",
+	Primitive_Int:     "int",
+	Primitive_Uint:    "uint",
 	Primitive_String:  "string",
 	Primitive_Binary:  "binary",
 	Primitive_Bool:    "bool",
