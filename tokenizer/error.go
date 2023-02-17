@@ -26,6 +26,6 @@ func NewTokenizerErr(err TokenizerErrKind, args ...string) *TokenizerErr {
 	}
 }
 
-func (self TokenizerErr) Is(kind TokenizerErrKind) bool {
+func (self TokenizerErr) IsErr(kind TokenizerErrKind) bool {
 	return errors.Is(self.err, kind)
 }

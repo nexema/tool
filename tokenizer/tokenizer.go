@@ -45,9 +45,9 @@ func NewPos(values ...int) *Pos {
 	}
 
 	var line, endline int
-	if len(values) > 3 {
+	if len(values) == 3 {
 		line = values[2]
-	} else if len(values) > 4 {
+	} else if len(values) == 4 {
 		line = values[2]
 		endline = values[3]
 	}
