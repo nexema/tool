@@ -15,6 +15,7 @@
 # vendor/
 testout/
 bin/
+coverage/
 
 # Go workspace file
 go.work
