@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -608,6 +609,259 @@ func TestParser_ParseDefaultsBlock(t *testing.T) {
 
 			if diff := cmp.Diff(tt.want, stmts, literalKindExporter); diff != "" {
 				t.Errorf("TestParser_ParseDefaultsBlock: %s -> mismatch (-want +got):\n%s", tt.input, diff)
+			}
+		})
+	}
+}
+
+func TestParser_ParseTypeStmt(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    *TypeStmt
+		wantErr *ParserError
+	}{
+		{
+			input: "type MyStruct struct {my_name string}",
+			want: &TypeStmt{
+				Name:          IdentStmt{*token.NewToken(token.Ident, "MyStruct"), *tokenizer.NewPos(5, 13)},
+				Modifier:      token.Struct,
+				BaseType:      nil,
+				Documentation: nil,
+				Annotations:   nil,
+				Defaults:      nil,
+				Fields: []FieldStmt{
+					{
+						Index: nil,
+						Name:  IdentStmt{*token.NewToken(token.Ident, "my_name"), *tokenizer.NewPos(22, 29)},
+						ValueType: &DeclStmt{
+							Token:    *token.NewToken(token.Ident, "string"),
+							Pos:      *tokenizer.NewPos(30, 36),
+							Args:     nil,
+							Alias:    nil,
+							Nullable: false,
+						},
+					},
+				},
+			},
+		},
+		{
+			input:   "type MyStruct struct {my_name string",
+			want:    nil,
+			wantErr: NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(36, 36)),
+		},
+		{
+			input: "type MyStruct struct {}",
+			want: &TypeStmt{
+				Name:          IdentStmt{*token.NewToken(token.Ident, "MyStruct"), *tokenizer.NewPos(5, 13)},
+				Modifier:      token.Struct,
+				BaseType:      nil,
+				Documentation: nil,
+				Annotations:   nil,
+				Defaults:      nil,
+				Fields:        nil,
+			},
+		},
+		{
+			name: "base type",
+			input: `
+			// this is my base type for any other entity
+            type Base base {
+                // The id of the entity
+                id string
+
+                #obsolete = true
+                modified_at Time
+
+                //A comment and a:
+                //another one
+                #hello = 21
+                both bool
+            }`,
+			want: &TypeStmt{
+				Name:     IdentStmt{*token.NewToken(token.Ident, "Base"), *tokenizer.NewPos()},
+				Modifier: token.Base,
+				BaseType: nil,
+				Documentation: []CommentStmt{
+					{Token: *token.NewToken(token.Comment, " this is my base type for any other entity")},
+				},
+				Annotations: nil,
+				Defaults:    nil,
+				Fields: []FieldStmt{
+					{
+						Name:      IdentStmt{Token: *token.NewToken(token.Ident, "id")},
+						ValueType: &DeclStmt{Token: *token.NewToken(token.Ident, "string")},
+						Documentation: []CommentStmt{
+							{Token: *token.NewToken(token.Comment, " The id of the entity")},
+						},
+					},
+					{
+						Name:          IdentStmt{Token: *token.NewToken(token.Ident, "modified_at")},
+						ValueType:     &DeclStmt{Token: *token.NewToken(token.Ident, "Time")},
+						Documentation: nil,
+						Annotations: []AnnotationStmt{
+							{
+								Token: *token.NewToken(token.Hash),
+								Assigment: AssignStmt{
+									Token: *token.NewToken(token.Assign),
+									Left:  IdentStmt{Token: *token.NewToken(token.Ident, "obsolete")},
+									Right: LiteralStmt{
+										Token: *token.NewToken(token.Ident, "true"),
+										Kind:  BooleanLiteral{true},
+									},
+								},
+							},
+						},
+					},
+					{
+						Name:      IdentStmt{Token: *token.NewToken(token.Ident, "both")},
+						ValueType: &DeclStmt{Token: *token.NewToken(token.Ident, "bool")},
+						Documentation: []CommentStmt{
+							{Token: *token.NewToken(token.Comment, "A comment and a:")},
+							{Token: *token.NewToken(token.Comment, "another one")},
+						},
+						Annotations: []AnnotationStmt{
+							{
+								Token: *token.NewToken(token.Hash),
+								Assigment: AssignStmt{
+									Token: *token.NewToken(token.Assign),
+									Left:  IdentStmt{Token: *token.NewToken(token.Ident, "hello")},
+									Right: LiteralStmt{
+										Token: *token.NewToken(token.Integer, "21"),
+										Kind:  IntLiteral{21},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "struct extends",
+			input: `type User extends Base {id string}`,
+			want: &TypeStmt{
+				Name:          IdentStmt{*token.NewToken(token.Ident, "User"), *tokenizer.NewPos()},
+				Modifier:      token.Struct,
+				BaseType:      &DeclStmt{Token: *token.NewToken(token.Ident, "Base")},
+				Documentation: nil,
+				Annotations:   nil,
+				Defaults:      nil,
+				Fields: []FieldStmt{
+					{
+						Name:      IdentStmt{Token: *token.NewToken(token.Ident, "id")},
+						ValueType: &DeclStmt{Token: *token.NewToken(token.Ident, "string")},
+					},
+				},
+			},
+		},
+		{
+			name: "missing brace",
+			input: `type User extends Base {
+				1 id string
+				3 both bool
+
+				defaults {
+					id = "1234"
+					both = true
+				
+			}`,
+			want:    nil,
+			wantErr: NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(4, 4, 8, 8)),
+		},
+		{
+			name: "extends with alias and defaults",
+			input: `type User extends foo.Base {
+				1 id string
+
+				defaults {
+					id = "1234"
+				}
+				
+			}`,
+			want: &TypeStmt{
+				Name:          IdentStmt{*token.NewToken(token.Ident, "User"), *tokenizer.NewPos()},
+				Modifier:      token.Struct,
+				BaseType:      &DeclStmt{Token: *token.NewToken(token.Ident, "Base"), Alias: &IdentStmt{Token: *token.NewToken(token.Ident, "foo")}},
+				Documentation: nil,
+				Annotations:   nil,
+				Defaults: []AssignStmt{
+					{
+						Token: *token.NewToken(token.Assign),
+						Left:  IdentStmt{Token: *token.NewToken(token.Ident, "id")},
+						Right: LiteralStmt{
+							Token: *token.NewToken(token.String, "1234"),
+							Kind:  StringLiteral{"1234"},
+						},
+					},
+				},
+				Fields: []FieldStmt{
+					{
+						Index:     &IdentStmt{Token: *token.NewToken(token.Integer, "1")},
+						Name:      IdentStmt{Token: *token.NewToken(token.Ident, "id")},
+						ValueType: &DeclStmt{Token: *token.NewToken(token.Ident, "string")},
+					},
+				},
+			},
+		},
+		{
+			name: "enum",
+			input: `type Color enum {
+				unknown
+				red
+				5 green
+			}`,
+			want: &TypeStmt{
+				Name:          IdentStmt{*token.NewToken(token.Ident, "Color"), *tokenizer.NewPos()},
+				Modifier:      token.Enum,
+				BaseType:      nil,
+				Documentation: nil,
+				Annotations:   nil,
+				Defaults:      nil,
+				Fields: []FieldStmt{
+					{Name: IdentStmt{Token: *token.NewToken(token.Ident, "unknown")}},
+					{Name: IdentStmt{Token: *token.NewToken(token.Ident, "red")}},
+					{
+						Index: &IdentStmt{Token: *token.NewToken(token.Integer, "5")},
+						Name:  IdentStmt{Token: *token.NewToken(token.Ident, "green")},
+					},
+				},
+			},
+		},
+		{
+			name: "modifier with extends is syntax error",
+			input: `type Color enum extends Base {
+				unknown
+				red
+				5 green
+			}`,
+			want:    nil,
+			wantErr: NewParserErr(ErrUnexpectedToken{token.Lbrace, *token.NewToken(token.Extends)}, *tokenizer.NewPos(16, 23)),
+		},
+	}
+
+	for _, tt := range tests {
+		name := tt.name
+		if len(name) == 0 {
+			name = tt.input
+		}
+		t.Run(name, func(t *testing.T) {
+			parser := newParser(tt.input)
+			parser.next()
+			parser.next()
+
+			stmts := parser.parseTypeStmt()
+			if tt.wantErr == nil {
+				require.Empty(t, parser.errors)
+			} else {
+				require.NotEmpty(t, parser.errors)
+				require.Equal(t, *tt.wantErr, *(*parser.errors)[0])
+			}
+
+			if diff := cmp.Diff(tt.want, stmts, literalKindExporter, cmp.FilterPath(func(p cmp.Path) bool {
+				return strings.Contains(p.String(), "Pos")
+			}, cmp.Ignore())); diff != "" {
+				t.Errorf("TestParser_ParseTypeStmt: %s -> mismatch (-want +got):\n%s", tt.input, diff)
 			}
 		})
 	}

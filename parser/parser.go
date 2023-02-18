@@ -153,12 +153,11 @@ func (self *Parser) parseTypeStmt() *TypeStmt {
 				return nil
 			}
 
-			// exit
 		case token.Rbrace:
-			break
+			break // exit
 
-			// read field
 		default:
+			// read field
 			self.next()
 			fieldStmt := self.parseFieldStmt(modifier == token.Enum)
 			if fieldStmt == nil {
@@ -167,6 +166,10 @@ func (self *Parser) parseTypeStmt() *TypeStmt {
 
 			fields = append(fields, *fieldStmt)
 		}
+	}
+
+	if !self.currentTokenIs(token.Rbrace) {
+		return nil
 	}
 
 	return &TypeStmt{
