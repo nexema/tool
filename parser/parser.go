@@ -246,6 +246,9 @@ func (self *Parser) parseFieldStmt(isEnum bool) *FieldStmt {
 		// read type declaration
 		self.next()
 		fieldType = self.parseDeclStmt(false)
+		if fieldType == nil {
+			return nil
+		}
 	}
 
 	return &FieldStmt{
@@ -365,7 +368,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 
 				endPos := *self.currentToken.position
 				return &DeclStmt{
-					Token:    *token.NewToken(token.Ident),
+					Token:    currentToken,
 					Pos:      *tokenizer.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
 					Args:     args,
 					Alias:    nil,

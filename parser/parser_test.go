@@ -402,17 +402,126 @@ func TestParser_ParseAnnotation(t *testing.T) {
 func TestParser_ParseField(t *testing.T) {
 	tests := []struct {
 		input                       string
-		inputAnnotationOrStatements map[int][]annotationOrComment
+		setLine                     int
+		inputAnnotationOrStatements map[int]*[]annotationOrComment
 		isEnum                      bool
 		want                        *FieldStmt
 		wantErr                     *ParserError
-	}{}
+	}{
+		{
+			input:                       "0 my_field string",
+			inputAnnotationOrStatements: nil,
+			isEnum:                      false,
+			want: &FieldStmt{
+				Index:         &IdentStmt{*token.NewToken(token.Integer, "0"), *tokenizer.NewPos(0, 1)},
+				Name:          IdentStmt{*token.NewToken(token.Ident, "my_field"), *tokenizer.NewPos(2, 10)},
+				ValueType:     &DeclStmt{*token.NewToken(token.Ident, "string"), *tokenizer.NewPos(11, 17), nil, nil, false},
+				Documentation: nil,
+				Annotations:   nil,
+			},
+			wantErr: nil,
+		},
+		{
+			input:                       "my_field string",
+			inputAnnotationOrStatements: nil,
+			isEnum:                      false,
+			want: &FieldStmt{
+				Index:         nil,
+				Name:          IdentStmt{*token.NewToken(token.Ident, "my_field"), *tokenizer.NewPos(0, 8)},
+				ValueType:     &DeclStmt{*token.NewToken(token.Ident, "string"), *tokenizer.NewPos(9, 15), nil, nil, false},
+				Documentation: nil,
+				Annotations:   nil,
+			},
+			wantErr: nil,
+		},
+		{
+			input:                       "1 my_field list(string)?",
+			inputAnnotationOrStatements: nil,
+			isEnum:                      false,
+			want: &FieldStmt{
+				Index: &IdentStmt{*token.NewToken(token.Integer, "1"), *tokenizer.NewPos(0, 1)},
+				Name:  IdentStmt{*token.NewToken(token.Ident, "my_field"), *tokenizer.NewPos(2, 10)},
+				ValueType: &DeclStmt{*token.NewToken(token.Ident, "list"), *tokenizer.NewPos(11, 23), []DeclStmt{
+					{*token.NewToken(token.Ident, "string"), *tokenizer.NewPos(16, 22), nil, nil, false},
+				}, nil, true},
+				Documentation: nil,
+				Annotations:   nil,
+			},
+			wantErr: nil,
+		},
+		{
+			input:                       "1 my_field map(string,bool)",
+			inputAnnotationOrStatements: nil,
+			isEnum:                      false,
+			want: &FieldStmt{
+				Index: &IdentStmt{*token.NewToken(token.Integer, "1"), *tokenizer.NewPos(0, 1)},
+				Name:  IdentStmt{*token.NewToken(token.Ident, "my_field"), *tokenizer.NewPos(2, 10)},
+				ValueType: &DeclStmt{*token.NewToken(token.Ident, "map"), *tokenizer.NewPos(11, 27), []DeclStmt{
+					{*token.NewToken(token.Ident, "string"), *tokenizer.NewPos(15, 21), nil, nil, false},
+					{*token.NewToken(token.Ident, "bool"), *tokenizer.NewPos(22, 26), nil, nil, false},
+				}, nil, false},
+				Documentation: nil,
+				Annotations:   nil,
+			},
+			wantErr: nil,
+		},
+		{
+			input:                       "red",
+			inputAnnotationOrStatements: nil,
+			isEnum:                      true,
+			want: &FieldStmt{
+				Name:          IdentStmt{*token.NewToken(token.Ident, "red"), *tokenizer.NewPos(0, 3)},
+				Documentation: nil,
+				Annotations:   nil,
+			},
+			wantErr: nil,
+		},
+		{
+			input:   "my_field 22 map(string,bool)",
+			wantErr: NewParserErr(ErrExpectedIdentifier{*token.NewToken(token.Integer, "22")}, *tokenizer.NewPos(9, 11)),
+		},
+		{
+			input:   "1 my_field map(string,bool)",
+			setLine: 5,
+			inputAnnotationOrStatements: map[int]*[]annotationOrComment{
+				0: {{comment: &CommentStmt{*token.NewToken(token.Comment, "this is not documentation"), *tokenizer.NewPos()}}},
+				3: {{comment: &CommentStmt{*token.NewToken(token.Comment, "this is documentation"), *tokenizer.NewPos(0, 0, 3, 3)}}},
+				4: {
+					{comment: &CommentStmt{*token.NewToken(token.Comment, "this is documentation too"), *tokenizer.NewPos(0, 0, 4, 4)}},
+					{comment: &CommentStmt{*token.NewToken(token.Comment, "hello"), *tokenizer.NewPos(0, 0, 4, 4)}},
+				},
+			},
+			want: &FieldStmt{
+				Index: &IdentStmt{*token.NewToken(token.Integer, "1"), *tokenizer.NewPos(0, 1, 5, 5)},
+				Name:  IdentStmt{*token.NewToken(token.Ident, "my_field"), *tokenizer.NewPos(2, 10)},
+				ValueType: &DeclStmt{*token.NewToken(token.Ident, "map"), *tokenizer.NewPos(11, 27), []DeclStmt{
+					{*token.NewToken(token.Ident, "string"), *tokenizer.NewPos(15, 21), nil, nil, false},
+					{*token.NewToken(token.Ident, "bool"), *tokenizer.NewPos(22, 26), nil, nil, false},
+				}, nil, false},
+				Documentation: []CommentStmt{
+					{*token.NewToken(token.Comment, "this is documentation"), *tokenizer.NewPos(0, 0, 3, 3)},
+					{*token.NewToken(token.Comment, "hello"), *tokenizer.NewPos(0, 0, 4, 4)},
+					{*token.NewToken(token.Comment, "this is documentation too"), *tokenizer.NewPos(0, 0, 4, 4)},
+				},
+				Annotations: nil,
+			},
+			wantErr: nil,
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			parser := newParser(tt.input)
 			parser.Reset()
-			parser.next()
+
+			if tt.inputAnnotationOrStatements != nil {
+				for k, v := range tt.inputAnnotationOrStatements {
+					parser.annotationsOrComments.Set(k, v)
+				}
+			}
+
+			parser.currentToken.position.Line = tt.setLine
+			parser.currentToken.position.Endline = tt.setLine
 
 			stmt := parser.parseFieldStmt(tt.isEnum)
 			if tt.wantErr == nil {
