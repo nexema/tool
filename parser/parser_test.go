@@ -256,22 +256,22 @@ func TestParser_ParseDecl(t *testing.T) {
 		{"MyEnum?", &DeclStmt{*token.NewToken(token.Ident, "MyEnum"), *tokenizer.NewPos(0, 6), nil, nil, true}, nil},
 		{"package.MyEnum", &DeclStmt{*token.NewToken(token.Ident, "MyEnum"), *tokenizer.NewPos(0, 14), nil, &IdentStmt{*token.NewToken(token.Ident, "package"), *tokenizer.NewPos(0, 7)}, false}, nil},
 		{"package.MyEnum?", &DeclStmt{*token.NewToken(token.Ident, "MyEnum"), *tokenizer.NewPos(0, 14), nil, &IdentStmt{*token.NewToken(token.Ident, "package"), *tokenizer.NewPos(0, 7)}, true}, nil},
-		{"list(bool)", &DeclStmt{*token.NewToken(token.Ident), *tokenizer.NewPos(0, 10), []DeclStmt{
+		{"list(bool)", &DeclStmt{*token.NewToken(token.Ident, "list"), *tokenizer.NewPos(0, 10), []DeclStmt{
 			{*token.NewToken(token.Ident, "bool"), *tokenizer.NewPos(5, 9), nil, nil, false},
 		}, nil, false}, nil},
-		{"list(bool)?", &DeclStmt{*token.NewToken(token.Ident), *tokenizer.NewPos(0, 10), []DeclStmt{
+		{"list(bool)?", &DeclStmt{*token.NewToken(token.Ident, "list"), *tokenizer.NewPos(0, 10), []DeclStmt{
 			{*token.NewToken(token.Ident, "bool"), *tokenizer.NewPos(5, 9), nil, nil, false},
 		}, nil, true}, nil},
-		{"list(bool?)", &DeclStmt{*token.NewToken(token.Ident), *tokenizer.NewPos(0, 11), []DeclStmt{
+		{"list(bool?)", &DeclStmt{*token.NewToken(token.Ident, "list"), *tokenizer.NewPos(0, 11), []DeclStmt{
 			{*token.NewToken(token.Ident, "bool"), *tokenizer.NewPos(5, 9), nil, nil, true},
 		}, nil, false}, nil},
-		{"list(bool?)?", &DeclStmt{*token.NewToken(token.Ident), *tokenizer.NewPos(0, 11), []DeclStmt{
+		{"list(bool?)?", &DeclStmt{*token.NewToken(token.Ident, "list"), *tokenizer.NewPos(0, 11), []DeclStmt{
 			{*token.NewToken(token.Ident, "bool"), *tokenizer.NewPos(5, 9), nil, nil, true},
 		}, nil, true}, nil},
-		{"list(package.MyEnum)", &DeclStmt{*token.NewToken(token.Ident), *tokenizer.NewPos(0, 20), []DeclStmt{
+		{"list(package.MyEnum)", &DeclStmt{*token.NewToken(token.Ident, "list"), *tokenizer.NewPos(0, 20), []DeclStmt{
 			{*token.NewToken(token.Ident, "MyEnum"), *tokenizer.NewPos(5, 19), nil, &IdentStmt{*token.NewToken(token.Ident, "package"), *tokenizer.NewPos(5, 12)}, false},
 		}, nil, false}, nil},
-		{"map(string?, package.MyEnum?)?", &DeclStmt{*token.NewToken(token.Ident), *tokenizer.NewPos(0, 29), []DeclStmt{
+		{"map(string?, package.MyEnum?)?", &DeclStmt{*token.NewToken(token.Ident, "map"), *tokenizer.NewPos(0, 29), []DeclStmt{
 			{*token.NewToken(token.Ident, "string"), *tokenizer.NewPos(4, 10), nil, nil, true},
 			{*token.NewToken(token.Ident, "MyEnum"), *tokenizer.NewPos(13, 27), nil, &IdentStmt{*token.NewToken(token.Ident, "package"), *tokenizer.NewPos(13, 20)}, true},
 		}, nil, true}, nil},
