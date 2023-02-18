@@ -52,7 +52,7 @@ func TestTokenizer_Next(t *testing.T) {
 		{",", token.NewToken(token.Comma, ","), NewPos(0, 1), nil},
 		{".", token.NewToken(token.Period, "."), NewPos(0, 1), nil},
 		{"// a comment", token.NewToken(token.Comment, ` a comment`), NewPos(0, 12), nil},
-		{"/*another comment*/", token.NewToken(token.Comment, `another comment`), NewPos(0, 19), nil},
+		{"/*another comment*/", token.NewToken(token.CommentMultiline, `another comment`), NewPos(0, 19), nil},
 		{"12345", token.NewToken(token.Integer, "12345"), NewPos(0, 5), nil},
 		{"12.345", token.NewToken(token.Decimal, "12.345"), NewPos(0, 6), nil},
 		{`"a string"`, token.NewToken(token.String, `a string`), NewPos(0, 10), nil},
@@ -132,8 +132,8 @@ func TestTokenizer_readComment(t *testing.T) {
 		{"// 漢語水平考試 😃 1234", token.NewToken(token.Comment, " 漢語水平考試 😃 1234"), NewPos(0, 16), nil},
 		{"//with more //", token.NewToken(token.Comment, "with more //"), NewPos(0, 14), nil},
 		{`//contains: "string inside"`, token.NewToken(token.Comment, `contains: "string inside"`), NewPos(0, 27), nil},
-		{"/* multiline but inline */", token.NewToken(token.Comment, " multiline but inline "), NewPos(0, 26), nil},
-		{"/* line 1 \n line \"2\"*/", token.NewToken(token.Comment, " line 1 \n line \"2\""), NewPos(0, 11, 0, 1), nil},
+		{"/* multiline but inline */", token.NewToken(token.CommentMultiline, " multiline but inline "), NewPos(0, 26), nil},
+		{"/* line 1 \n line \"2\"*/", token.NewToken(token.CommentMultiline, " line 1 \n line \"2\""), NewPos(0, 11, 0, 1), nil},
 		{"/* error! ", nil, nil, NewTokenizerErr(ErrInvalidMultilineComment)},
 	}
 	for _, tt := range tests {

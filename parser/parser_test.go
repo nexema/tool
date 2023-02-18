@@ -170,7 +170,7 @@ func TestParser_ParseLiteral(t *testing.T) {
 			},
 			Pos: *tokenizer.NewPos(0, 16),
 		}, nil},
-		{`["hello", true,`, nil, NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(15, 15))},
+		{`["hello", true,`, nil, NewParserErr(ErrExpectedLiteral{*token.Token_EOF}, *tokenizer.NewPos(15, 15))},
 		{`["hello", true`, nil, NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(14, 14))},
 		{`["hello" true`, nil, NewParserErr(ErrUnexpectedToken{token.Rbrack, *token.NewToken(token.Ident, "true")}, *tokenizer.NewPos(9, 13))},
 		{`{"str": "yes","str_2": true, "str_3": 12.3, "str_4": 98, "str_5": false, 42: "str"}`, &LiteralStmt{
@@ -217,9 +217,9 @@ func TestParser_ParseLiteral(t *testing.T) {
 				},
 			},
 		}, nil},
-		{`{"str": "yes","str_2": true,`, nil, NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(28, 28))},
+		{`{"str": "yes","str_2": true,`, nil, NewParserErr(ErrExpectedLiteral{*token.Token_EOF}, *tokenizer.NewPos(28, 28))},
 		{`{"str": "yes","str_2": true`, nil, NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(27, 27))},
-		{`{"str": "yes","str_2":`, nil, NewParserErr(ErrUnexpectedEOF{}, *tokenizer.NewPos(22, 22))},
+		{`{"str": "yes","str_2":`, nil, NewParserErr(ErrExpectedLiteral{*token.Token_EOF}, *tokenizer.NewPos(22, 22))},
 		{`{"str": "yes","str_2" true`, nil, NewParserErr(ErrUnexpectedToken{token.Colon, *token.NewToken(token.Ident, "true")}, *tokenizer.NewPos(22, 26))},
 		{`{"str": "yes" "str_2": true`, nil, NewParserErr(ErrUnexpectedToken{token.Rbrace, *token.NewToken(token.String, "str_2")}, *tokenizer.NewPos(14, 21))},
 	}
@@ -406,9 +406,7 @@ func TestParser_ParseField(t *testing.T) {
 		isEnum                      bool
 		want                        *FieldStmt
 		wantErr                     *ParserError
-	}{
-		{},
-	}
+	}{}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
