@@ -5,8 +5,13 @@ type annotationOrComment struct {
 	comment    *CommentStmt
 }
 
-func newAnnotationOrCommentArray() *[]annotationOrComment {
-	return new([]annotationOrComment)
+type annotationOrCommentEntry struct {
+	line   int
+	values *[]annotationOrComment
+}
+
+func annotationOrCommentEntryComparator(a, b annotationOrCommentEntry) bool {
+	return a.line < b.line
 }
 
 func unwrapAnnotationsOrComments(original []annotationOrComment, annotations *[]AnnotationStmt, comments *[]CommentStmt) {

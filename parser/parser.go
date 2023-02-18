@@ -5,9 +5,9 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/tidwall/btree"
 	"tomasweigenast.com/nexema/tool/token"
 	"tomasweigenast.com/nexema/tool/tokenizer"
-	"tomasweigenast.com/nexema/tool/utils"
 )
 
 type Parser struct {
@@ -17,7 +17,7 @@ type Parser struct {
 	nextToken             *tokenBuf
 	errors                *ParserErrorCollection
 	eof                   bool
-	annotationsOrComments *utils.OMap[int, *[]annotationOrComment]
+	annotationsOrComments *btree.Map[int, *[]annotationOrComment]
 }
 
 type tokenBuf struct {
@@ -27,14 +27,11 @@ type tokenBuf struct {
 
 func NewParser(input io.Reader, file *File) *Parser {
 	return &Parser{
-		file:                  file,
-		eof:                   false,
-		currentToken:          nil,
-		nextToken:             nil,
-		tokenizer:             *tokenizer.NewTokenizer(input),
-		errors:                newParserErrorCollection(),
-		annotationsOrComments: utils.NewOMap[int, *[]annotationOrComment](),
-		// annotationsOrComments: btree.NewG(32, annotationOrCommentEntryComparator),
+		file:         file,
+		eof:          false,
+		currentToken: nil,
+		nextToken:    nil,
+		tokenizer:    *tokenizer.NewTokenizer(input),
 	}
 }
 
@@ -642,14 +639,7 @@ func (self *Parser) next() {
 	switch currToken.token.Kind {
 	case token.Comment:
 		line := currToken.position.Endline
-		self.annotationsOrComments.Upsert(line, func(value *[]annotationOrComment) {
-			*value = append(*value, annotationOrComment{
-				comment: &CommentStmt{
-					Token: *currToken.token,
-					Pos:   *currToken.position,
-				},
-			})
-		}, newAnnotationOrCommentArray)
+		self.pushComment(line, &CommentStmt{Token: *currToken.token, Pos: *currToken.position})
 
 		self.next()
 		return
@@ -663,11 +653,7 @@ func (self *Parser) next() {
 		annotationStmt := self.parseAnnotationStmt()
 		if annotationStmt != nil {
 			line := annotationStmt.Pos.Endline
-			self.annotationsOrComments.Upsert(line, func(value *[]annotationOrComment) {
-				*value = append(*value, annotationOrComment{
-					annotation: annotationStmt,
-				})
-			}, newAnnotationOrCommentArray)
+			self.pushAnnotation(line, annotationStmt)
 			self.next()
 			return
 		}
@@ -750,11 +736,13 @@ func (self *Parser) getAnnotationsAndComments(from int) []annotationOrComment {
 	result := make([]annotationOrComment, 0)
 
 	previous := from
-	self.annotationsOrComments.Descend(func(key int, value *[]annotationOrComment) {
+	self.annotationsOrComments.Reverse(func(key int, value *[]annotationOrComment) bool {
 		if key < from && previous-key <= 1 {
 			result = append(result, *value...)
 			previous = key
 		}
+
+		return true
 	})
 
 	self.resetAnnotationCommentsMap()
@@ -770,8 +758,28 @@ func (self *Parser) getAnnotationsAndComments(from int) []annotationOrComment {
 	return result
 }
 
+func (self *Parser) pushAnnotation(line int, stmt *AnnotationStmt) {
+	value, ok := self.annotationsOrComments.GetMut(line)
+	if !ok {
+		value = &[]annotationOrComment{{annotation: stmt}}
+		self.annotationsOrComments.Set(line, value)
+	} else {
+		(*value) = append((*value), annotationOrComment{annotation: stmt})
+	}
+}
+
+func (self *Parser) pushComment(line int, stmt *CommentStmt) {
+	value, ok := self.annotationsOrComments.GetMut(line)
+	if !ok {
+		value = &[]annotationOrComment{{comment: stmt}}
+		self.annotationsOrComments.Set(line, value)
+	} else {
+		(*value) = append((*value), annotationOrComment{comment: stmt})
+	}
+}
+
 func (self *Parser) resetAnnotationCommentsMap() {
-	self.annotationsOrComments = utils.NewOMap[int, *[]annotationOrComment]()
+	self.annotationsOrComments = new(btree.Map[int, *[]annotationOrComment])
 }
 
 func (self *Parser) reportExpectedNextTokenErr(expected token.TokenKind) {

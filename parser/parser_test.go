@@ -124,8 +124,9 @@ func TestParser_Next(t *testing.T) {
 			var annotationsOrComments []annotationOrComment = nil
 			if parser.annotationsOrComments.Len() > 0 {
 				annotationsOrComments = make([]annotationOrComment, 0)
-				parser.annotationsOrComments.Ascend(func(k int, v *[]annotationOrComment) {
-					annotationsOrComments = append(annotationsOrComments, *v...)
+				parser.annotationsOrComments.Scan(func(key int, value *[]annotationOrComment) bool {
+					annotationsOrComments = append(annotationsOrComments, *value...)
+					return true
 				})
 			}
 
