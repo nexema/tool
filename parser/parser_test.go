@@ -538,6 +538,81 @@ func TestParser_ParseField(t *testing.T) {
 	}
 }
 
+func TestParser_ParseDefaultsBlock(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    []AssignStmt
+		wantErr *ParserError
+	}{
+		{
+			input: `defaults {my_field = "hello" another = {"first": true, "last": 2.21} list = ["a", true]}`,
+			want: []AssignStmt{
+				{
+					Token: *token.NewToken(token.Assign),
+					Pos:   *tokenizer.NewPos(10, 28),
+					Left:  IdentStmt{*token.NewToken(token.Ident, "my_field"), *tokenizer.NewPos(10, 18)},
+					Right: LiteralStmt{*token.NewToken(token.String, "hello"), StringLiteral{"hello"}, *tokenizer.NewPos(21, 28)},
+				},
+				{
+					Token: *token.NewToken(token.Assign),
+					Pos:   *tokenizer.NewPos(29, 68),
+					Left:  IdentStmt{*token.NewToken(token.Ident, "another"), *tokenizer.NewPos(29, 36)},
+					Right: LiteralStmt{
+						Token: *token.NewToken(token.Map),
+						Pos:   *tokenizer.NewPos(39, 68),
+						Kind: MapLiteral{
+							{
+								Key:   LiteralStmt{*token.NewToken(token.String, "first"), StringLiteral{"first"}, *tokenizer.NewPos(40, 47)},
+								Value: LiteralStmt{*token.NewToken(token.Ident, "true"), BooleanLiteral{true}, *tokenizer.NewPos(49, 53)},
+							},
+							{
+								Key:   LiteralStmt{*token.NewToken(token.String, "last"), StringLiteral{"last"}, *tokenizer.NewPos(55, 61)},
+								Value: LiteralStmt{*token.NewToken(token.Decimal, "2.21"), FloatLiteral{2.21}, *tokenizer.NewPos(63, 67)},
+							},
+						},
+					},
+				},
+				{
+					Token: *token.NewToken(token.Assign),
+					Pos:   *tokenizer.NewPos(69, 87),
+					Left: IdentStmt{
+						Token: *token.NewToken(token.Ident, "list"),
+						Pos:   *tokenizer.NewPos(69, 73),
+					},
+					Right: LiteralStmt{
+						Token: *token.NewToken(token.List),
+						Pos:   *tokenizer.NewPos(76, 87),
+						Kind: ListLiteral{
+							{*token.NewToken(token.String, "a"), StringLiteral{"a"}, *tokenizer.NewPos(77, 80)},
+							{*token.NewToken(token.Ident, "true"), BooleanLiteral{true}, *tokenizer.NewPos(82, 86)},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := newParser(tt.input)
+			parser.Reset()
+			parser.next()
+
+			stmts := parser.parseDefaultsBlock()
+			if tt.wantErr == nil {
+				require.Empty(t, parser.errors)
+			} else {
+				require.NotEmpty(t, parser.errors)
+				require.Equal(t, *tt.wantErr, *(*parser.errors)[0])
+			}
+
+			if diff := cmp.Diff(tt.want, stmts, literalKindExporter); diff != "" {
+				t.Errorf("TestParser_ParseDefaultsBlock: %s -> mismatch (-want +got):\n%s", tt.input, diff)
+			}
+		})
+	}
+}
+
 func expectTokenBuf(t *testing.T, expected, given *tokenBuf) {
 	if expected == nil {
 		if given != nil {

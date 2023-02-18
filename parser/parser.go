@@ -549,9 +549,9 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		// expect closing ]
-		if !self.expectCurrentToken(token.Rbrack) {
-			return nil
-		}
+		// if !self.expectCurrentToken(token.Rbrack) {
+		// 	return nil
+		// }
 
 		endPos := self.currentToken.position
 		tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
@@ -602,9 +602,9 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		// expect closing }
-		if !self.expectCurrentToken(token.Rbrace) {
-			return nil
-		}
+		// if !self.expectCurrentToken(token.Rbrace) {
+		// 	return nil
+		// }
 
 		endPos := self.currentToken.position
 		tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
@@ -695,10 +695,11 @@ func (self *Parser) expectToken(token token.TokenKind) bool {
 // expectCurrentToken ensures the currentToken kind is [token].
 func (self *Parser) expectCurrentToken(token token.TokenKind) bool {
 	if self.currentTokenIs(token) {
+		self.next()
 		return true
 	}
 
-	self.reportExpectedNextTokenErr(token)
+	self.reportExpectedCurrentTokenErr(token)
 	return false
 }
 
