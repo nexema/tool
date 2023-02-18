@@ -21,11 +21,22 @@ func (self *OMap[K, V]) Upsert(key K, update func(value V), def func() V) {
 	update(val)
 }
 
-func (self *OMap[K, V]) Reverse(f func(k K, v V)) {
+func (self *OMap[K, V]) Descend(f func(k K, v V)) {
 	for i := self.len - 1; i >= 0; i-- {
 		key := self.keys[i]
 		f(key, self.m[key])
 	}
+}
+
+func (self *OMap[K, V]) Ascend(f func(k K, v V)) {
+	for i := 0; i < self.len; i++ {
+		key := self.keys[i]
+		f(key, self.m[key])
+	}
+}
+
+func (self *OMap[K, V]) Len() int {
+	return self.len
 }
 
 func (self *OMap[K, V]) insert(k K, v V) {

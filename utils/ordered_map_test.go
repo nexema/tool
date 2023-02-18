@@ -15,7 +15,7 @@ func TestOrderedMap_GetOrDefault(t *testing.T) {
 		*value = append(*value, "another")
 	}, newListString)
 
-	oMap.Reverse(func(k int, v *[]string) {
+	oMap.Descend(func(k int, v *[]string) {
 		print(k)
 		println(v)
 	})

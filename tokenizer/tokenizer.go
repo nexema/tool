@@ -2,6 +2,7 @@ package tokenizer
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"strings"
 	"unicode"
@@ -199,7 +200,7 @@ func (self *Tokenizer) readComment() (tok *token.Token, pos *Pos, err *Tokenizer
 
 			if ch == '*' && self.peek() == '/' {
 				self.next() // consume last /
-				return token.NewToken(token.Comment, result.String()), &Pos{startPos, self.currentPos + 1, startLine, self.currentLine}, nil
+				return token.NewToken(token.CommentMultiline, result.String()), &Pos{startPos, self.currentPos + 1, startLine, self.currentLine}, nil
 			}
 
 			if ch == newline {
@@ -345,4 +346,8 @@ func isAlphabetic(ch rune) bool {
 
 func isAlphanumeric(ch rune) bool {
 	return isNumeric(ch) || isAlphabetic(ch)
+}
+
+func (self Pos) String() string {
+	return fmt.Sprintf("%d %d %d %d", self.Start, self.End, self.Line, self.Endline)
 }

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strings"
 
 	"tomasweigenast.com/nexema/tool/token"
 	"tomasweigenast.com/nexema/tool/tokenizer"
@@ -96,4 +97,26 @@ func newParserErrorCollection() *ParserErrorCollection {
 
 func (self *ParserErrorCollection) push(err *ParserError) {
 	(*self) = append((*self), err)
+}
+
+func (self *ParserErrorCollection) IsEmpty() bool {
+	return len(*self) == 0
+}
+
+func (self *ParserErrorCollection) Display() string {
+	out := make([]string, len(*self))
+	for i, err := range *self {
+		out[i] = fmt.Sprintf("%d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+	}
+
+	return strings.Join(out, "\n")
+}
+
+func (self *ParserErrorCollection) Clone() []ParserError {
+	clone := make([]ParserError, len(*self))
+	for i, elem := range *self {
+		clone[i] = *elem
+	}
+
+	return clone
 }

@@ -9,9 +9,12 @@ const (
 	EOF
 	Whitespace
 	Comment
+	CommentMultiline
 	String
 	Integer
 	Decimal
+	List
+	Map
 	Ident
 	Type
 	Struct
@@ -46,28 +49,38 @@ var (
 )
 
 var tokenKindMap map[TokenKind]string = map[TokenKind]string{
-	Hash:         "#",
-	Rbrace:       "}",
-	Lbrace:       "{",
-	Rparen:       ")",
-	Lparen:       "(",
-	Rbrack:       "]",
-	Lbrack:       "[",
-	Assign:       "=",
-	Colon:        ":",
-	Use:          "use",
-	As:           "as",
-	Comma:        ",",
-	Period:       ".",
-	QuestionMark: "?",
-	Whitespace:   " ",
-	Extends:      "extends",
-	Defaults:     "defaults",
-	Base:         "base",
-	Struct:       "struct",
-	Union:        "union",
-	Enum:         "enum",
-	Type:         "type",
+	Comment:          "comment",
+	CommentMultiline: "multiline-comment",
+	Whitespace:       "whitespace",
+	EOF:              "eof",
+	Illegal:          "illegal",
+	String:           "string",
+	Integer:          "integer",
+	Decimal:          "decimal",
+	Ident:            "ident",
+	List:             "[]",
+	Map:              "{}",
+	Hash:             "#",
+	Rbrace:           "}",
+	Lbrace:           "{",
+	Rparen:           ")",
+	Lparen:           "(",
+	Rbrack:           "]",
+	Lbrack:           "[",
+	Assign:           "=",
+	Colon:            ":",
+	Use:              "use",
+	As:               "as",
+	Comma:            ",",
+	Period:           ".",
+	QuestionMark:     "?",
+	Extends:          "extends",
+	Defaults:         "defaults",
+	Base:             "base",
+	Struct:           "struct",
+	Union:            "union",
+	Enum:             "enum",
+	Type:             "type",
 }
 
 func NewToken(kind TokenKind, literal ...string) *Token {
@@ -118,7 +131,7 @@ func (self *Token) IsEOF() bool {
 }
 
 func (self Token) String() string {
-	return self.Literal
+	return fmt.Sprintf("%s(%s)", self.Kind, self.Literal)
 }
 
 func (self TokenKind) String() string {

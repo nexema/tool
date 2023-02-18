@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 
@@ -330,7 +331,8 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 				Nullable: false,
 			}
 		} else {
-			switch self.nextToken.token.Kind {
+			nextToken := *self.nextToken
+			switch nextToken.token.Kind {
 			// if next token is (, it may contain type arguments
 			case token.Lparen:
 				self.next() // advance to get self.currentToken set to lparen
@@ -360,13 +362,13 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 				}
 
 				if self.currentToken == nil {
-					self.reportExpectedCurrentTokenErr(token.Rbrace)
+					self.reportExpectedCurrentTokenErr(token.Rparen)
 					return nil
 				}
 
 				endPos := *self.currentToken.position
 				return &DeclStmt{
-					Token:    *token.NewToken(token.Whitespace),
+					Token:    *token.NewToken(token.Ident),
 					Pos:      *tokenizer.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
 					Args:     args,
 					Alias:    nil,
@@ -380,7 +382,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 				self.next()
 
 				ident := self.parseIdent()
-				if ident != nil {
+				if ident == nil {
 					return nil
 				}
 
@@ -392,12 +394,13 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 						Token: currentToken,
 						Pos:   currentPos,
 					},
+					Nullable: self.nextTokenIsMove(token.QuestionMark),
 				}
 
 			default:
 				return &DeclStmt{
-					Token:    *self.nextToken.token,
-					Pos:      *self.nextToken.position,
+					Token:    currentToken,
+					Pos:      *tokenizer.NewPos(currentPos.Start, currentPos.End, currentPos.Line, currentPos.Endline),
 					Args:     nil,
 					Alias:    nil,
 					Nullable: self.nextTokenIsMove(token.QuestionMark),
@@ -553,10 +556,13 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		// expect closing ]
-		if self.expectCurrentToken(token.Rbrack) {
-			endPos := self.currentToken.position
-			tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		if !self.expectCurrentToken(token.Rbrack) {
+			return nil
 		}
+
+		endPos := self.currentToken.position
+		tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		literalToken = *token.NewToken(token.List)
 
 	// map literal
 	case token.Lbrace:
@@ -600,16 +606,26 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 			}
 
 			self.next()
-
 		}
+
+		// expect closing }
+		if !self.expectCurrentToken(token.Rbrace) {
+			return nil
+		}
+
+		endPos := self.currentToken.position
+		tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		literalToken = *token.NewToken(token.Map)
+
 	default:
 		self.reportErr(ErrInvalidLiteral{literalToken})
 		return nil
 	}
 
 	return &LiteralStmt{
-		Kind: literalKind,
-		Pos:  tokenPos,
+		Token: literalToken,
+		Kind:  literalKind,
+		Pos:   tokenPos,
 	}
 }
 
@@ -645,6 +661,10 @@ func (self *Parser) next() {
 		self.next()
 		return
 
+	case token.CommentMultiline:
+		self.next()
+		return
+
 	case token.Hash:
 		self.next()
 		annotationStmt := self.parseAnnotationStmt()
@@ -655,7 +675,8 @@ func (self *Parser) next() {
 					annotation: annotationStmt,
 				})
 			}, newAnnotationOrCommentArray)
-
+			self.next()
+			return
 		}
 	}
 }
@@ -736,7 +757,7 @@ func (self *Parser) getAnnotationsAndComments(from int) []annotationOrComment {
 	result := make([]annotationOrComment, 0)
 
 	previous := from
-	self.annotationsOrComments.Reverse(func(key int, value *[]annotationOrComment) {
+	self.annotationsOrComments.Descend(func(key int, value *[]annotationOrComment) {
 		if key < from && previous-key <= 1 {
 			result = append(result, *value...)
 			previous = key
@@ -805,4 +826,8 @@ func (self *Parser) reportErr(err ParserErrorKind) {
 	}
 
 	self.errors.push(NewParserErr(err, pos))
+}
+
+func (self tokenBuf) String() string {
+	return fmt.Sprintf("{token: %s, pos: %s}", self.token, self.position)
 }
