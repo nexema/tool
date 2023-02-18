@@ -296,6 +296,140 @@ func TestParser_ParseDecl(t *testing.T) {
 	}
 }
 
+func TestParser_ParseAssign(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    *AssignStmt
+		wantErr *ParserError
+	}{
+		{"my_field = true", &AssignStmt{
+			Token: *token.NewToken(token.Assign),
+			Pos:   *tokenizer.NewPos(0, 15),
+			Left: IdentStmt{
+				Token: *token.NewToken(token.Ident, "my_field"),
+				Pos:   *tokenizer.NewPos(0, 8),
+			},
+			Right: LiteralStmt{
+				Token: *token.NewToken(token.Ident, "true"),
+				Kind:  BooleanLiteral{true},
+				Pos:   *tokenizer.NewPos(11, 15),
+			},
+		}, nil},
+		{`my_field = "hello"`, &AssignStmt{
+			Token: *token.NewToken(token.Assign),
+			Pos:   *tokenizer.NewPos(0, 18),
+			Left: IdentStmt{
+				Token: *token.NewToken(token.Ident, "my_field"),
+				Pos:   *tokenizer.NewPos(0, 8),
+			},
+			Right: LiteralStmt{
+				Token: *token.NewToken(token.String, "hello"),
+				Kind:  StringLiteral{"hello"},
+				Pos:   *tokenizer.NewPos(11, 18),
+			},
+		}, nil},
+		{"my_field true", nil, NewParserErr(ErrUnexpectedToken{token.Assign, *token.NewToken(token.Ident, "true")}, *tokenizer.NewPos(9, 13))},
+		{"my_field =", nil, NewParserErr(ErrExpectedLiteral{*token.Token_EOF}, *tokenizer.NewPos(10, 10))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := newParser(tt.input)
+			parser.Reset()
+
+			stmt := parser.parseAssignStmt()
+			if tt.wantErr == nil {
+				require.Empty(t, parser.errors)
+			} else {
+				require.NotEmpty(t, parser.errors)
+				require.Equal(t, *tt.wantErr, *(*parser.errors)[0])
+			}
+
+			if diff := cmp.Diff(tt.want, stmt, literalKindExporter); diff != "" {
+				t.Errorf("TestParser_ParseAssign: %s -> mismatch (-want +got):\n%s", tt.input, diff)
+			}
+		})
+	}
+}
+
+func TestParser_ParseAnnotation(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    *AnnotationStmt
+		wantErr *ParserError
+	}{
+		{"#my_field = true", &AnnotationStmt{
+			Token: *token.NewToken(token.Hash),
+			Pos:   *tokenizer.NewPos(0, 16),
+			Assigment: AssignStmt{
+				Token: *token.NewToken(token.Assign),
+				Pos:   *tokenizer.NewPos(1, 16),
+				Left: IdentStmt{
+					Token: *token.NewToken(token.Ident, "my_field"),
+					Pos:   *tokenizer.NewPos(1, 9),
+				},
+				Right: LiteralStmt{
+					Token: *token.NewToken(token.Ident, "true"),
+					Kind:  BooleanLiteral{true},
+					Pos:   *tokenizer.NewPos(12, 16),
+				},
+			},
+		}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := newParser(tt.input)
+			parser.Reset()
+			parser.next()
+
+			stmt := parser.parseAnnotationStmt()
+			if tt.wantErr == nil {
+				require.Empty(t, parser.errors)
+			} else {
+				require.NotEmpty(t, parser.errors)
+				require.Equal(t, *tt.wantErr, *(*parser.errors)[0])
+			}
+
+			if diff := cmp.Diff(tt.want, stmt, literalKindExporter); diff != "" {
+				t.Errorf("TestParser_ParseAnnotation: %s -> mismatch (-want +got):\n%s", tt.input, diff)
+			}
+		})
+	}
+}
+
+func TestParser_ParseField(t *testing.T) {
+	tests := []struct {
+		input                       string
+		inputAnnotationOrStatements map[int][]annotationOrComment
+		isEnum                      bool
+		want                        *FieldStmt
+		wantErr                     *ParserError
+	}{
+		{},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			parser := newParser(tt.input)
+			parser.Reset()
+			parser.next()
+
+			stmt := parser.parseFieldStmt(tt.isEnum)
+			if tt.wantErr == nil {
+				require.Empty(t, parser.errors)
+			} else {
+				require.NotEmpty(t, parser.errors)
+				require.Equal(t, *tt.wantErr, *(*parser.errors)[0])
+			}
+
+			if diff := cmp.Diff(tt.want, stmt, literalKindExporter); diff != "" {
+				t.Errorf("TestParser_ParseField: %s -> mismatch (-want +got):\n%s", tt.input, diff)
+			}
+		})
+	}
+}
+
 func expectTokenBuf(t *testing.T, expected, given *tokenBuf) {
 	if expected == nil {
 		if given != nil {

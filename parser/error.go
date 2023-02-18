@@ -50,6 +50,10 @@ type (
 	ErrExpectedDeclaration struct {
 		Got token.Token
 	}
+
+	ErrExpectedLiteral struct {
+		Got token.Token
+	}
 )
 
 func (ErrUnexpectedEOF) Message() string {
@@ -82,6 +86,10 @@ func (u ErrUnexpectedValue) Message() string {
 
 func (u ErrExpectedDeclaration) Message() string {
 	return fmt.Sprintf("expected declaration, got %s instead", u.Got)
+}
+
+func (u ErrExpectedLiteral) Message() string {
+	return fmt.Sprintf("expected literal, got %s instead", u.Got)
 }
 
 func NewParserErr(err ParserErrorKind, at tokenizer.Pos) *ParserError {

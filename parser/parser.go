@@ -448,14 +448,6 @@ func (self *Parser) parseAssignStmt() *AssignStmt {
 
 	literal := self.parseLiteral()
 	if literal == nil {
-		/* TODO: probably will need this
-				let err = self.errors.pop();
-		            if let Some(info) = err {
-		                if let ParserErr::UnexpectedEofErr = info.error {
-		                    self.report_error(ParserErr::ExpectedLiteral(Token::EOF));
-		                }
-		            };*/
-
 		return nil
 	}
 
@@ -487,6 +479,7 @@ func (self *Parser) parseIdent() *IdentStmt {
 // parseLiteral parses a token literal, like strings, numbers, booleans, lists and maps
 func (self *Parser) parseLiteral() *LiteralStmt {
 	if self.currentToken == nil {
+		self.reportErr(ErrExpectedLiteral{*token.Token_EOF})
 		return nil
 	}
 
