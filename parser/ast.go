@@ -68,25 +68,29 @@ type LiteralKind interface {
 	Value() interface{}
 }
 
-type BooleanKind struct {
+type BooleanLiteral struct {
 	value bool
 }
 
-type IntKind struct {
+type IntLiteral struct {
 	value int64
 }
 
-type FloatKind struct {
+type FloatLiteral struct {
 	value float64
 }
 
-type StringKind struct {
+type StringLiteral struct {
 	value string
 }
 
-type ListKind []LiteralStmt
+type ListLiteral []LiteralStmt
 
-type MapKind map[LiteralStmt]LiteralStmt
+type MapLiteral []MapEntry
+
+type MapEntry struct {
+	Key, Value LiteralStmt
+}
 
 type TypeStmt struct {
 	Name          IdentStmt
@@ -106,55 +110,64 @@ type FieldStmt struct {
 	Annotations   []AnnotationStmt
 }
 
-func (self BooleanKind) Literal() string {
+func (self BooleanLiteral) Literal() string {
 	return fmt.Sprint(self.value)
 }
 
-func (self BooleanKind) Value() interface{} {
+func (self BooleanLiteral) Value() interface{} {
 	return self.Value
 }
 
-func (self IntKind) Literal() string {
+func (self IntLiteral) Literal() string {
 	return fmt.Sprint(self.value)
 }
 
-func (self IntKind) Value() interface{} {
+func (self IntLiteral) Value() interface{} {
 	return self.Value
 }
 
-func (self FloatKind) Literal() string {
+func (self FloatLiteral) Literal() string {
 	return fmt.Sprint(self.value)
 }
 
-func (self FloatKind) Value() interface{} {
+func (self FloatLiteral) Value() interface{} {
 	return self.Value
 }
 
-func (self StringKind) Literal() string {
+func (self StringLiteral) Literal() string {
 	return self.value
 }
 
-func (self StringKind) Value() interface{} {
+func (self StringLiteral) Value() interface{} {
 	return self.Value
 }
 
-func (self ListKind) Literal() string {
+func (self ListLiteral) Literal() string {
 	return fmt.Sprintf("[%v]", strings.Join(utils.MapArray(self, func(elem LiteralStmt) string {
 		return fmt.Sprint(elem.Kind.Value())
 	}), ", "))
 }
 
-func (self ListKind) Value() interface{} {
+func (self ListLiteral) Value() interface{} {
 	return utils.MapArray(self, func(elem LiteralStmt) interface{} {
 		return elem.Kind.Value()
 	})
 }
 
-func (self MapKind) Literal() string {
+func (self MapLiteral) Literal() string {
 	out := make([]string, len(self))
-	for k, v := range self {
-		out = append(out, fmt.Sprintf("(%v: %v)", k.Kind.Value(), v.Kind.Value()))
+	for _, v := range self {
+		out = append(out, fmt.Sprintf("(%v: %v)", v.Key.Kind.Value(), v.Value.Kind.Value()))
 	}
 
 	return fmt.Sprintf("[%s]", strings.Join(out, ", "))
+}
+
+func (self MapLiteral) Value() interface{} {
+	out := make(map[interface{}]interface{}, len(self))
+	for _, v := range self {
+		out[v.Key.Kind.Value()] = v.Value.Kind.Value()
+	}
+
+	return out
 }

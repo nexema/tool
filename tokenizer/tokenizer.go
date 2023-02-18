@@ -148,6 +148,10 @@ func (self *Tokenizer) Next() (tok *token.Token, pos *Pos, err *TokenizerErr) {
 	return tok, pos, nil
 }
 
+func (self *Tokenizer) GetCurrentPosition() *Pos {
+	return NewPos(self.currentPos, self.currentPos, self.currentLine, self.currentLine)
+}
+
 func (self *Tokenizer) readIdentifier() (tok *token.Token, pos *Pos, err *TokenizerErr) {
 	result := new(strings.Builder)
 	result.WriteRune(self.ch)

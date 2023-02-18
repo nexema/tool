@@ -1,5 +1,7 @@
 package token
 
+import "fmt"
+
 type TokenKind int8
 
 const (
@@ -43,8 +45,44 @@ var (
 	Token_EOF = &Token{Kind: EOF}
 )
 
-func NewToken(kind TokenKind, literal string) *Token {
-	return &Token{kind, literal}
+var tokenKindMap map[TokenKind]string = map[TokenKind]string{
+	Hash:         "#",
+	Rbrace:       "}",
+	Lbrace:       "{",
+	Rparen:       ")",
+	Lparen:       "(",
+	Rbrack:       "]",
+	Lbrack:       "[",
+	Assign:       "=",
+	Colon:        ":",
+	Use:          "use",
+	As:           "as",
+	Comma:        ",",
+	Period:       ".",
+	QuestionMark: "?",
+	Whitespace:   " ",
+	Extends:      "extends",
+	Defaults:     "defaults",
+	Base:         "base",
+	Struct:       "struct",
+	Union:        "union",
+	Enum:         "enum",
+	Type:         "type",
+}
+
+func NewToken(kind TokenKind, literal ...string) *Token {
+	var literalValue string
+	if len(literal) == 1 {
+		literalValue = literal[0]
+	} else {
+		var ok bool
+		literalValue, ok = tokenKindMap[kind]
+		if !ok {
+			panic(fmt.Errorf("literal for token kind %v not found", kind))
+		}
+	}
+
+	return &Token{kind, literalValue}
 }
 
 func (self *Token) ToKeyword() *Token {
@@ -73,4 +111,8 @@ func (self *Token) ToKeyword() *Token {
 	}
 
 	return &Token{kind, self.Literal}
+}
+
+func (self *Token) IsEOF() bool {
+	return self.Kind == EOF
 }
