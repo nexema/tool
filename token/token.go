@@ -116,3 +116,16 @@ func (self *Token) ToKeyword() *Token {
 func (self *Token) IsEOF() bool {
 	return self.Kind == EOF
 }
+
+func (self Token) String() string {
+	return self.Literal
+}
+
+func (self TokenKind) String() string {
+	value, ok := tokenKindMap[self]
+	if ok {
+		return value
+	}
+
+	return fmt.Sprintf("Token(%d)", self)
+}

@@ -94,7 +94,7 @@ type MapEntry struct {
 
 type TypeStmt struct {
 	Name          IdentStmt
-	Modifier      token.Token
+	Modifier      token.TokenKind
 	BaseType      *DeclStmt
 	Documentation []CommentStmt
 	Annotations   []AnnotationStmt
@@ -105,7 +105,7 @@ type TypeStmt struct {
 type FieldStmt struct {
 	Index         *IdentStmt
 	Name          IdentStmt
-	ValueType     DeclStmt
+	ValueType     *DeclStmt
 	Documentation []CommentStmt
 	Annotations   []AnnotationStmt
 }

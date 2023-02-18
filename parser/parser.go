@@ -37,6 +37,228 @@ func NewParser(input io.Reader, file *File) *Parser {
 	}
 }
 
+func (self *Parser) Parse() *Ast {
+	// read "use" statements
+	var useStmts []UseStmt
+	for self.currentTokenIs(token.Use) {
+		stmt := self.parseUseStmt()
+		if stmt == nil {
+			break
+		}
+
+		useStmts = append(useStmts, *stmt)
+		self.next()
+	}
+
+	// read typeStmts
+	var typeStmts []TypeStmt
+	for self.currentTokenIs(token.Type) {
+		self.next()
+		stmt := self.parseTypeStmt()
+		if stmt == nil {
+			break
+		}
+
+		typeStmts = append(typeStmts, *stmt)
+		self.next()
+	}
+
+	return &Ast{
+		File:           self.file,
+		UseStatements:  useStmts,
+		TypeStatements: typeStmts,
+	}
+}
+
+// Reset initializes the parser reading one token into the buffer
+func (self *Parser) Reset() *ParserError {
+	result := self.consume()
+	if result != nil {
+		return NewParserErr(ErrTokenizer{*result}, *tokenizer.NewPos())
+	}
+
+	self.eof = false
+	self.resetAnnotationCommentsMap()
+	self.errors = newParserErrorCollection()
+
+	return nil
+}
+
+// parseTypeStmt parses a type statement.
+func (self *Parser) parseTypeStmt() *TypeStmt {
+	// "type" keyword already read
+
+	// any comment or annotation read until here is added to the type
+	var annotations []AnnotationStmt = nil
+	var comments []CommentStmt = nil
+	if self.currentToken != nil {
+		// any comment or annotation read until here, while they appear one line before each other, must be added as doc
+		currentLine := self.currentToken.position.Line
+		arr := self.getAnnotationsAndComments(currentLine)
+		unwrapAnnotationsOrComments(arr, &annotations, &comments)
+	}
+
+	// read type name
+	typeName := self.parseIdent()
+	if typeName == nil {
+		return nil
+	}
+
+	self.next()
+
+	// read type modifier or "extends" keyword
+	var baseType *DeclStmt
+	modifier := token.Struct
+	currentToken := self.currentToken
+
+	if currentToken == nil {
+		return nil
+	}
+
+	switch currentToken.token.Kind {
+	case token.Extends:
+		self.next()
+		baseType = self.parseDeclStmt(true)
+		if baseType == nil {
+			self.reportErr(ErrExpectedIdentifier{*currentToken.token})
+			return nil
+		}
+
+	case token.Struct, token.Enum, token.Union, token.Base:
+		modifier = currentToken.token.Kind
+
+	default:
+		return nil
+	}
+
+	// now require {
+	if !self.expectToken(token.Lbrace) {
+		return nil
+	}
+
+	// read fields until } or "defaults" keyword
+	var fields []FieldStmt
+	var defaults []AssignStmt = nil
+
+	for !self.currentTokenIs(token.Rbrace) {
+		if self.currentToken == nil {
+			break
+		}
+
+		switch self.currentToken.token.Kind {
+		case token.Defaults:
+			self.next()
+			defaults = self.parseDefaultsBlock()
+
+			// after reading the defaults block, nothing can be declared, so expect closing
+			if !self.expectToken(token.Rbrace) {
+				return nil
+			}
+
+			// exit
+		case token.Rbrace:
+			break
+
+			// read field
+		default:
+			self.next()
+			fieldStmt := self.parseFieldStmt(modifier == token.Enum)
+			if fieldStmt == nil {
+				break
+			}
+
+			fields = append(fields, *fieldStmt)
+		}
+	}
+
+	return &TypeStmt{
+		BaseType:      baseType,
+		Name:          *typeName,
+		Modifier:      modifier,
+		Documentation: comments,
+		Annotations:   annotations,
+		Fields:        fields,
+		Defaults:      defaults,
+	}
+}
+
+// parseDefaultsBlock parses a block of declarations.
+func (self *Parser) parseDefaultsBlock() []AssignStmt {
+	// "defaults" keyword already read
+	if !self.expectCurrentToken(token.Lbrace) {
+		return nil
+	}
+
+	assigments := make([]AssignStmt, 0)
+	for !self.currentTokenIs(token.Rbrace) {
+		stmt := self.parseAssignStmt()
+		if stmt == nil {
+			return nil
+		}
+
+		assigments = append(assigments, *stmt)
+		self.next()
+	}
+
+	return assigments
+}
+
+// parseFieldStmt parses a declaration in the form:
+//
+// (index)     [ident]     [decl]
+// field_index field_name  value_type.
+//
+// Any comment or annotation that was read until this method call, will be added as
+// documentation (if comment line is self.tokenizer.currentLine-1) and annotations, respectively.
+func (self *Parser) parseFieldStmt(isEnum bool) *FieldStmt {
+
+	var annotations []AnnotationStmt = nil
+	var comments []CommentStmt = nil
+	if self.currentToken != nil {
+		// any comment or annotation read until here, while they appear one line before each other, must be added as doc
+		currentLine := self.currentToken.position.Line
+		arr := self.getAnnotationsAndComments(currentLine)
+		unwrapAnnotationsOrComments(arr, &annotations, &comments)
+	}
+
+	if self.currentToken == nil {
+		self.reportErr(ErrUnexpectedEOF{})
+		return nil
+	}
+
+	var fieldIndex *IdentStmt
+
+	// if current token is a number, its the index
+	if self.currentTokenIs(token.Integer) {
+		fieldIndex = &IdentStmt{
+			Token: *self.currentToken.token,
+			Pos:   *self.currentToken.position,
+		}
+		self.next()
+	}
+
+	// read field name
+	fieldName := self.parseIdent()
+	if fieldName == nil {
+		return nil
+	}
+
+	var fieldType *DeclStmt
+	if !isEnum {
+		// read type declaration
+		self.next()
+		fieldType = self.parseDeclStmt(false)
+	}
+
+	return &FieldStmt{
+		Index:         fieldIndex,
+		Name:          *fieldName,
+		ValueType:     fieldType,
+		Documentation: comments,
+		Annotations:   annotations,
+	}
+}
+
 // parseUseStmt parses a statement in the following form:
 //
 // use "path/to/my/package"
@@ -78,6 +300,114 @@ func (self *Parser) parseUseStmt() *UseStmt {
 	}
 
 	return nil
+}
+
+// parseDeclStmt parses a statement in the following form:
+//
+// string
+// int
+// list(string)
+// map(int, string)
+// MyType
+func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
+	if self.currentToken == nil {
+		if reportErr {
+			self.reportErr(ErrExpectedDeclaration{*token.Token_EOF})
+		}
+		return nil
+	}
+
+	currentToken := *self.currentToken.token
+	currentPos := *self.currentToken.position
+
+	if currentToken.Kind == token.Ident {
+		if self.nextToken == nil {
+			return &DeclStmt{
+				Token:    currentToken,
+				Pos:      currentPos,
+				Args:     nil,
+				Alias:    nil,
+				Nullable: false,
+			}
+		} else {
+			switch self.nextToken.token.Kind {
+			// if next token is (, it may contain type arguments
+			case token.Lparen:
+				self.next() // advance to get self.currentToken set to lparen
+
+				args := make([]DeclStmt, 0)
+
+				// while we dont reach ), read DeclStmts, separated by commas
+				for !self.nextTokenIs(token.Rparen) {
+					self.next()
+					decl := self.parseDeclStmt(true)
+					if decl == nil {
+						break
+					}
+
+					args = append(args, *decl)
+
+					self.next()
+
+					if self.currentTokenIs(token.Comma) {
+						continue
+					} else if self.currentTokenIs(token.Rparen) {
+						break
+					} else {
+						self.reportExpectedNextTokenErr(token.Rparen)
+						break
+					}
+				}
+
+				if self.currentToken == nil {
+					self.reportExpectedCurrentTokenErr(token.Rbrace)
+					return nil
+				}
+
+				endPos := *self.currentToken.position
+				return &DeclStmt{
+					Token:    *token.NewToken(token.Whitespace),
+					Pos:      *tokenizer.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
+					Args:     args,
+					Alias:    nil,
+					Nullable: self.nextTokenIsMove(token.QuestionMark),
+				}
+
+			// if its a period, maybe it contains an alias declaration
+			case token.Period:
+				// move twice to advance dot and set current token to next identifier
+				self.next()
+				self.next()
+
+				ident := self.parseIdent()
+				if ident != nil {
+					return nil
+				}
+
+				return &DeclStmt{
+					Token: ident.Token,
+					Pos:   *tokenizer.NewPos(currentPos.Start, ident.Pos.End, currentPos.Line, ident.Pos.Endline),
+					Args:  nil,
+					Alias: &IdentStmt{
+						Token: currentToken,
+						Pos:   currentPos,
+					},
+				}
+
+			default:
+				return &DeclStmt{
+					Token:    *self.nextToken.token,
+					Pos:      *self.nextToken.position,
+					Args:     nil,
+					Alias:    nil,
+					Nullable: self.nextTokenIsMove(token.QuestionMark),
+				}
+			}
+		}
+	} else {
+		self.reportErr(ErrExpectedIdentifier{currentToken})
+		return nil
+	}
 }
 
 // parseAnnotationStmt parses a declaration in the following form:
@@ -387,6 +717,49 @@ func (self *Parser) currentTokenIs(token token.TokenKind) bool {
 	return self.currentToken.token.Kind == token
 }
 
+// nextTokenIsMove reurns true if the next token's kind is [token] and advance one if true
+func (self *Parser) nextTokenIsMove(token token.TokenKind) bool {
+	if self.nextToken == nil {
+		return false
+	}
+
+	if self.nextTokenIs(token) {
+		self.next()
+		return true
+	}
+
+	return false
+}
+
+// getAnnotationsAndComments returns every annotation or comment statement that has been read until this call
+func (self *Parser) getAnnotationsAndComments(from int) []annotationOrComment {
+	result := make([]annotationOrComment, 0)
+
+	previous := from
+	self.annotationsOrComments.Reverse(func(key int, value *[]annotationOrComment) {
+		if key < from && previous-key <= 1 {
+			result = append(result, *value...)
+			previous = key
+		}
+	})
+
+	self.resetAnnotationCommentsMap()
+
+	if len(result) == 0 {
+		return nil
+	}
+
+	for i, j := 0, len(result)-1; i < j; i, j = i+1, j-1 {
+		result[i], result[j] = result[j], result[i]
+	}
+
+	return result
+}
+
+func (self *Parser) resetAnnotationCommentsMap() {
+	self.annotationsOrComments = utils.NewOMap[int, *[]annotationOrComment]()
+}
+
 func (self *Parser) reportExpectedNextTokenErr(expected token.TokenKind) {
 	var nextToken token.Token
 	var pos tokenizer.Pos
@@ -402,6 +775,24 @@ func (self *Parser) reportExpectedNextTokenErr(expected token.TokenKind) {
 		self.errors.push(NewParserErr(ErrUnexpectedEOF{}, pos))
 	} else {
 		self.errors.push(NewParserErr(ErrUnexpectedToken{expected, nextToken}, pos))
+	}
+}
+
+func (self *Parser) reportExpectedCurrentTokenErr(expected token.TokenKind) {
+	var currentToken token.Token
+	var pos tokenizer.Pos
+	if self.currentToken == nil {
+		currentToken = *token.Token_EOF
+		pos = *self.tokenizer.GetCurrentPosition()
+	} else {
+		currentToken = *self.currentToken.token
+		pos = *self.currentToken.position
+	}
+
+	if currentToken.IsEOF() {
+		self.errors.push(NewParserErr(ErrUnexpectedEOF{}, pos))
+	} else {
+		self.errors.push(NewParserErr(ErrUnexpectedToken{expected, currentToken}, pos))
 	}
 }
 
