@@ -1,5 +1,0 @@
-type SingleUnion union {
-    field_1: string
-    field_2: bool
-    field_3: list(string?)
-}
