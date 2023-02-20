@@ -70,3 +70,14 @@ func (self *ParseTree) Insert(path string, ast *Ast) {
 func (self *ParseTree) Lookup(path string) *ParseNode {
 	return self.root.lookup(strings.Split(path, "/"))
 }
+
+func (self *ParseTree) Root() *ParseNode {
+	return self.root
+}
+
+func (self *ParseNode) Iter(f func(pkgName string, node *ParseNode)) {
+	self.Children.Scan(func(key string, value *ParseNode) bool {
+		f(key, value)
+		return true
+	})
+}
