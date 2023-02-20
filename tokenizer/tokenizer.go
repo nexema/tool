@@ -43,7 +43,7 @@ func NewPos(values ...int) *Pos {
 		panic("must provide less than 4 values")
 	} else if len(values) < 2 {
 		values = append(values, 0)
-		values = append(values, 1)
+		values = append(values, 0)
 	}
 
 	var line, endline int

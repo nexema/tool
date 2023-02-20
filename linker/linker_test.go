@@ -50,7 +50,7 @@ func TestLinker_Link(t *testing.T) {
 				NewLinkerErr(ErrCircularDependency{
 					Src:  &parser.File{Path: "identity/user", FileName: "user.nex"},
 					Dest: &parser.File{Path: "common", FileName: "address.nex"},
-				}, *tokenizer.NewPos(0, 1)),
+				}, *tokenizer.NewPos(0, 0)),
 			},
 		},
 		{
@@ -112,6 +112,34 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
+				}, *tokenizer.NewPos(0, 0)),
+			},
+		},
+		{
+			name: "duplicated alias in imports are not allowed",
+			input: func() *parser.ParseTree {
+				tree := parser.NewParseTree()
+				tree.Insert("common", newAst("common/address.nex", []string{"Address"}, []string{"identity:foo", "another:foo"}))
+				tree.Insert("identity", newAst("identity/user.nex", []string{}, []string{}))
+				tree.Insert("another", newAst("another/admin.nex", []string{}, []string{}))
+				return tree
+			},
+			wantErrs: LinkerErrorCollection{
+				NewLinkerErr(ErrAliasAlreadyDefined{
+					Alias: "foo",
+				}, *tokenizer.NewPos(0, 0)),
+			},
+		},
+		{
+			name: "package not found",
+			input: func() *parser.ParseTree {
+				tree := parser.NewParseTree()
+				tree.Insert("common", newAst("common/address.nex", []string{"Address"}, []string{"identity"}))
+				return tree
+			},
+			wantErrs: LinkerErrorCollection{
+				NewLinkerErr(ErrPackageNotFound{
+					Name: "identity",
 				}, *tokenizer.NewPos(0, 0)),
 			},
 		},

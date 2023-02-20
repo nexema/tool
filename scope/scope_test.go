@@ -27,6 +27,17 @@ func TestScope_FindObject(t *testing.T) {
 			wantNeedAlias: false,
 		},
 		{
+			name:     "single local non match",
+			typeName: "B",
+			localScope: &LocalScope{
+				objects: map[string]*Object{
+					"A": {Name: "A"},
+				},
+			},
+			wantObject:    nil,
+			wantNeedAlias: false,
+		},
+		{
 			name:     "single import match",
 			typeName: "A",
 			localScope: &LocalScope{

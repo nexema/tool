@@ -139,6 +139,8 @@ func (self *Linker) resolveImports() {
 						self.errors.push(NewLinkerErr(ErrAliasAlreadyDefined{imp.Alias}, imp.Source().Alias.Pos))
 						continue
 					}
+
+					aliases[imp.Alias] = true
 				}
 
 				// check if impPath is not equal to pkgScope.Path
