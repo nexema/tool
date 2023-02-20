@@ -50,6 +50,40 @@ func (self *LocalScope) File() *parser.File {
 	return self.file
 }
 
+func (self *LocalScope) FindObject(name, alias string) (obj *Object, needAlias bool) {
+	candidates := make(match)
+
+	// if alias is empty, lookup locally
+	if len(alias) == 0 {
+		localObj, ok := self.objects[name]
+		if ok {
+			candidates.push("", localObj)
+		}
+	}
+
+	// lookup in imported types
+	if len(self.resolvedScopes) > 0 {
+		for resolvedScope, imp := range self.resolvedScopes {
+			matches := resolvedScope.FindObjects(name)
+			candidates.push(imp.Alias, matches...)
+		}
+	}
+
+	count := candidates.count()
+	if count == 0 {
+		return nil, false
+	} else if count == 1 {
+		return candidates.single(alias), false
+	} else {
+		// decide
+		if len(alias) == 0 {
+			return nil, true
+		}
+
+		return candidates.single(alias), false
+	}
+}
+
 func NewScope(path, packageName string) *Scope {
 	return &Scope{
 		path:        path,
@@ -79,4 +113,51 @@ func (self *Scope) GetAllObjects() []*Object {
 	}
 
 	return arr
+}
+
+func (self *Scope) FindObjects(name string) []*Object {
+	arr := make([]*Object, 0)
+
+	for _, ls := range self.localScopes {
+		obj, ok := ls.objects[name]
+		if ok {
+			arr = append(arr, obj)
+		}
+	}
+
+	return arr
+}
+
+// match is a map where each key represents an alias and the value is the list of objects under that alias
+type match map[string][]*Object
+
+func (self *match) push(alias string, obj ...*Object) {
+	if _, ok := (*self)[alias]; !ok {
+		(*self)[alias] = make([]*Object, 0)
+	}
+
+	(*self)[alias] = append((*self)[alias], obj...)
+}
+
+func (self *match) count() int {
+	count := 0
+
+	for _, arr := range *self {
+		count += len(arr)
+	}
+
+	return count
+}
+
+func (self *match) single(alias string) *Object {
+	objs, ok := (*self)[alias]
+	if !ok {
+		return nil
+	}
+
+	if len(objs) == 0 {
+		return nil
+	}
+
+	return objs[0]
 }
