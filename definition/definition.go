@@ -8,8 +8,9 @@ type NexemaFile struct {
 	Types       []TypeDefinition `json:"types"`
 }
 
-// NexemaDefinition represents a generated project definition
-type NexemaDefinition struct {
-	Version int          `json:"version"` // The Nexema version, at the moment, always 1
-	Files   []NexemaFile `json:"files"`
+// NexemaSnapshot represents a generated project definition
+type NexemaSnapshot struct {
+	Version  int          `json:"version"` // The Nexema version, at the moment, always 1
+	Hashcode uint64       `json:"hashcode"`
+	Files    []NexemaFile `json:"files"`
 }

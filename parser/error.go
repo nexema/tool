@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -118,6 +119,10 @@ func (self *ParserErrorCollection) Display() string {
 	}
 
 	return strings.Join(out, "\n")
+}
+
+func (self *ParserErrorCollection) AsError() error {
+	return errors.New(self.Display())
 }
 
 func (self *ParserErrorCollection) Clone() []ParserError {

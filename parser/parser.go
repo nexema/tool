@@ -35,6 +35,10 @@ func NewParser(input io.Reader, file *File) *Parser {
 	}
 }
 
+func (self *Parser) Errors() *ParserErrorCollection {
+	return self.errors
+}
+
 func (self *Parser) Parse() *Ast {
 	// read "use" statements
 	var useStmts []UseStmt

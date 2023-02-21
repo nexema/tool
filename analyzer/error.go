@@ -169,3 +169,7 @@ func (self *AnalyzerErrorCollection) Display() string {
 
 	return strings.Join(out, "\n")
 }
+
+func (self *AnalyzerErrorCollection) AsError() error {
+	return errors.New(self.Display())
+}

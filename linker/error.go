@@ -1,6 +1,7 @@
 package linker
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -84,4 +85,8 @@ func (self *LinkerErrorCollection) Display() string {
 	}
 
 	return strings.Join(out, "\n")
+}
+
+func (self *LinkerErrorCollection) AsError() error {
+	return errors.New(self.Display())
 }

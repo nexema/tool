@@ -32,6 +32,18 @@ func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 	}
 }
 
+func (self *Analyzer) HasAnalysisErrors() bool {
+	return !self.errors.IsEmpty()
+}
+
+func (self *Analyzer) Files() []definition.NexemaFile {
+	return self.files
+}
+
+func (self *Analyzer) Errors() *AnalyzerErrorCollection {
+	return self.errors
+}
+
 // Analyze starts analyzing and logs any error encountered
 func (self *Analyzer) Analyze() {
 	for _, scope := range self.scopes {

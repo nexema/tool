@@ -26,6 +26,18 @@ func NewLinker(parseTree *parser.ParseTree) *Linker {
 	}
 }
 
+func (self *Linker) LinkedScopes() []*scope.Scope {
+	return self.scopes
+}
+
+func (self *Linker) HasLinkErrors() bool {
+	return len(*self.errors) > 0
+}
+
+func (self *Linker) Errors() *LinkerErrorCollection {
+	return self.errors
+}
+
 func (self *Linker) Link() {
 	self.buildScopes()
 	self.resolveImports()
