@@ -115,7 +115,7 @@ func (self BooleanLiteral) Literal() string {
 }
 
 func (self BooleanLiteral) Value() interface{} {
-	return self.Value
+	return self.value
 }
 
 func (self IntLiteral) Literal() string {
@@ -123,7 +123,7 @@ func (self IntLiteral) Literal() string {
 }
 
 func (self IntLiteral) Value() interface{} {
-	return self.Value
+	return self.value
 }
 
 func (self FloatLiteral) Literal() string {
@@ -131,7 +131,7 @@ func (self FloatLiteral) Literal() string {
 }
 
 func (self FloatLiteral) Value() interface{} {
-	return self.Value
+	return self.value
 }
 
 func (self StringLiteral) Literal() string {
@@ -139,7 +139,7 @@ func (self StringLiteral) Literal() string {
 }
 
 func (self StringLiteral) Value() interface{} {
-	return self.Value
+	return self.value
 }
 
 func (self ListLiteral) Literal() string {
@@ -179,4 +179,28 @@ func (self *DeclStmt) Format() (name, alias string) {
 	}
 
 	return
+}
+
+func MakeBooleanLiteral(v bool) BooleanLiteral {
+	return BooleanLiteral{v}
+}
+
+func MakeStringLiteral(v string) StringLiteral {
+	return StringLiteral{v}
+}
+
+func MakeIntLiteral(v int64) IntLiteral {
+	return IntLiteral{v}
+}
+
+func MakeFloatLiteral(v float64) FloatLiteral {
+	return FloatLiteral{v}
+}
+
+func MakeListLiteral(values ...LiteralStmt) ListLiteral {
+	return values
+}
+
+func MakeMapLiteral(values ...MapEntry) MapLiteral {
+	return values
 }

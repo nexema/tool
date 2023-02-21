@@ -399,3 +399,144 @@ func TestAnalyzer_ValidateType(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalyzer_GetAssignments(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           []parser.AssignStmt
+		isAnnotation    bool
+		wantAssignments *definition.Assignments
+		wantErrs        *AnalyzerErrorCollection
+	}{
+		{
+			name: "assignments",
+			input: []parser.AssignStmt{
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "obsolete")},
+					Right: parser.LiteralStmt{Kind: parser.MakeBooleanLiteral(true)},
+				},
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "another")},
+					Right: parser.LiteralStmt{Kind: parser.MakeStringLiteral("hello")},
+				},
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "int")},
+					Right: parser.LiteralStmt{Kind: parser.MakeIntLiteral(22)},
+				},
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "float")},
+					Right: parser.LiteralStmt{Kind: parser.MakeFloatLiteral(22.4453)},
+				},
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "list")},
+					Right: parser.LiteralStmt{Kind: parser.MakeListLiteral(parser.LiteralStmt{Kind: parser.MakeStringLiteral("a")})},
+				},
+				{
+					Left: parser.IdentStmt{Token: *token.NewToken(token.Ident, "map")},
+					Right: parser.LiteralStmt{Kind: parser.MakeMapLiteral(parser.MapEntry{
+						Key:   parser.LiteralStmt{Kind: parser.MakeStringLiteral("a")},
+						Value: parser.LiteralStmt{Kind: parser.MakeStringLiteral("b")},
+					})},
+				},
+			},
+			isAnnotation: false,
+			wantAssignments: &definition.Assignments{
+				"obsolete": true,
+				"another":  "hello",
+				"int":      int64(22),
+				"float":    float64(22.4453),
+				"list":     []interface{}{"a"},
+				"map": map[interface{}]interface{}{
+					"a": "b",
+				},
+			},
+			wantErrs: &AnalyzerErrorCollection{},
+		},
+		{
+			name: "wrong annotation value",
+			input: []parser.AssignStmt{
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "list")},
+					Right: parser.LiteralStmt{Kind: parser.MakeListLiteral(parser.LiteralStmt{Kind: parser.MakeStringLiteral("a")})},
+				},
+				{
+					Left: parser.IdentStmt{Token: *token.NewToken(token.Ident, "map")},
+					Right: parser.LiteralStmt{Kind: parser.MakeMapLiteral(parser.MapEntry{
+						Key:   parser.LiteralStmt{Kind: parser.MakeStringLiteral("a")},
+						Value: parser.LiteralStmt{Kind: parser.MakeStringLiteral("b")},
+					})},
+				},
+			},
+			isAnnotation:    true,
+			wantAssignments: nil,
+			wantErrs: &AnalyzerErrorCollection{
+				NewAnalyzerError(ErrWrongAnnotationValue{}, *tokenizer.NewPos()),
+				NewAnalyzerError(ErrWrongAnnotationValue{}, *tokenizer.NewPos()),
+			},
+		},
+		{
+			name: "duplicated keys are not allowed",
+			input: []parser.AssignStmt{
+				{
+					Left:  parser.IdentStmt{Token: *token.NewToken(token.Ident, "list")},
+					Right: parser.LiteralStmt{Kind: parser.MakeListLiteral(parser.LiteralStmt{Kind: parser.MakeStringLiteral("a")})},
+				},
+				{
+					Left: parser.IdentStmt{Token: *token.NewToken(token.Ident, "list")},
+					Right: parser.LiteralStmt{Kind: parser.MakeMapLiteral(parser.MapEntry{
+						Key:   parser.LiteralStmt{Kind: parser.MakeStringLiteral("a")},
+						Value: parser.LiteralStmt{Kind: parser.MakeStringLiteral("b")},
+					})},
+				},
+			},
+			wantAssignments: nil,
+			wantErrs: &AnalyzerErrorCollection{
+				NewAnalyzerError(ErrAssignmentKeyAlreadyInUse{KeyName: "list"}, *tokenizer.NewPos()),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			analyzer := NewAnalyzer([]*scope.Scope{})
+			analyzer.currScope = &scope.Scope{}
+			analyzer.currLocalScope = &scope.LocalScope{}
+
+			wantAssigments := analyzer.getAssignments(&test.input, test.isAnnotation)
+			if diff := cmp.Diff(test.wantErrs, analyzer.errors, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("TestAnalyzer_GetAssignments: %s: wantErrs mismatch (-want +got):\n%s", test.name, diff)
+			}
+
+			if analyzer.errors.IsEmpty() {
+				if diff := cmp.Diff(*test.wantAssignments, wantAssigments); diff != "" {
+					t.Errorf("TestAnalyzer_GetAssignments: %s: wantAssigments mismatch (-want +got):\n%s", test.name, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestAnalyzer_SanitizeComments(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []parser.CommentStmt
+		want  []string
+	}{
+		{
+			name: "comments",
+			input: []parser.CommentStmt{
+				{Token: *token.NewToken(token.Comment, "  this will be sanitized    ")},
+			},
+			want: []string{"this will be sanitized"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := sanitizeComments(&test.input)
+			if diff := cmp.Diff(test.want, got, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("TestAnalyzer_SanitizeComments: %s: mismatch (-want +got):\n%s", test.name, diff)
+			}
+		})
+	}
+}
