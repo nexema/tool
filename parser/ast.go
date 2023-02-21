@@ -171,3 +171,12 @@ func (self MapLiteral) Value() interface{} {
 
 	return out
 }
+
+func (self *DeclStmt) Format() (name, alias string) {
+	name = self.Token.Literal
+	if self.Alias != nil {
+		alias = self.Alias.Token.Literal
+	}
+
+	return
+}
