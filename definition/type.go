@@ -11,4 +11,5 @@ type TypeDefinition struct {
 	Modifier      token.TokenKind
 	BaseType      *uint64
 	Fields        []*FieldDefinition
+	Defaults      Assignments
 }

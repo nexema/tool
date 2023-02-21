@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"path"
 	"strconv"
 	"strings"
 
@@ -20,12 +21,14 @@ type Analyzer struct {
 	currScope      *scope.Scope
 	currLocalScope *scope.LocalScope
 	currTypeId     uint64
+	files          []definition.NexemaFile
 }
 
 func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 	return &Analyzer{
 		scopes: scopes,
 		errors: newAnalyzerErrorCollection(),
+		files:  make([]definition.NexemaFile, 0),
 	}
 }
 
@@ -45,10 +48,23 @@ func (self *Analyzer) analyzeScope(s *scope.Scope) {
 
 func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 	self.currLocalScope = ls
+	file := ls.File()
+	nexFile := definition.NexemaFile{
+		Types:       make([]definition.TypeDefinition, 0),
+		FileName:    file.FileName,
+		Path:        file.Path,
+		PackageName: path.Base(file.Path),
+	}
+
 	for _, obj := range *ls.Objects() {
 		self.currTypeId = obj.Id
-		self.analyzeTypeStmt(obj.Source())
+		def := self.analyzeTypeStmt(obj.Source())
+		if def != nil {
+			nexFile.Types = append(nexFile.Types, *def)
+		}
 	}
+
+	self.files = append(self.files, nexFile)
 }
 
 // analyzeTypeStmt analyses a TypeStmt in order to match the following set of rules:
@@ -56,6 +72,7 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 // 1- modifier is token.Struct, token.Enum, token.Union or token.Base
 // 2- if struct extends another type, check it exists and is a valid Base type
 // 3- each field validates against its own rules
+// 4- each default value, if any, is declared once and points to a valid field
 //
 // If succeed, it outputs a valid definition.TypeDefinition
 func (self *Analyzer) analyzeTypeStmt(stmt *parser.TypeStmt) *definition.TypeDefinition {
@@ -87,6 +104,11 @@ func (self *Analyzer) analyzeTypeStmt(stmt *parser.TypeStmt) *definition.TypeDef
 		if fieldDef != nil {
 			def.Fields = append(def.Fields, fieldDef)
 		}
+	}
+
+	// rule 4
+	if stmt.Defaults != nil {
+		def.Defaults = self.getAssignments(&stmt.Defaults, false)
 	}
 
 	if stmt.Documentation != nil {
