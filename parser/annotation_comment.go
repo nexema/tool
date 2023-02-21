@@ -5,15 +5,6 @@ type annotationOrComment struct {
 	comment    *CommentStmt
 }
 
-type annotationOrCommentEntry struct {
-	line   int
-	values *[]annotationOrComment
-}
-
-func annotationOrCommentEntryComparator(a, b annotationOrCommentEntry) bool {
-	return a.line < b.line
-}
-
 func unwrapAnnotationsOrComments(original []annotationOrComment, annotations *[]AnnotationStmt, comments *[]CommentStmt) {
 	if original == nil {
 		return

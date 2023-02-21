@@ -43,7 +43,7 @@ func (e ErrAlreadyDefined) Message() string {
 }
 
 func (ErrSelfImport) Message() string {
-	return fmt.Sprintf("package imported by itself")
+	return "package imported by itself"
 }
 
 func (e ErrPackageNotFound) Message() string {

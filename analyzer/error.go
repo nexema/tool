@@ -82,7 +82,7 @@ func (e ErrWrongArgumentsLen) Message() string {
 }
 
 func (e ErrWrongAnnotationValue) Message() string {
-	return fmt.Sprintf("annotation value must be a value of type string, int64, float64 or boolean")
+	return "annotation value must be a value of type string, int64, float64 or boolean"
 }
 
 func (e ErrNonNullableUnionFields) Message() string {

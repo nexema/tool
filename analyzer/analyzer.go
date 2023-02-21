@@ -82,7 +82,6 @@ func (self *Analyzer) analyzeTypeStmt(stmt *parser.TypeStmt) *definition.TypeDef
 	switch stmt.Modifier {
 	case token.Struct, token.Enum, token.Union, token.Base:
 		def.Modifier = stmt.Modifier
-		break
 
 	default:
 		self.errors.push(ErrUnknownTypeModifier{stmt.Modifier}, stmt.Name.Pos)
@@ -200,7 +199,6 @@ func (self *Analyzer) analyzeFieldStmt(field *parser.FieldStmt, names *map[strin
 							if key.Nullable {
 								wrongArgs = true
 							}
-							break
 
 						default:
 							wrongArgs = true
