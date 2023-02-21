@@ -1,6 +1,10 @@
 package token
 
-import "fmt"
+import (
+	"fmt"
+
+	jsoniter "github.com/json-iterator/go"
+)
 
 type TokenKind int8
 
@@ -141,4 +145,8 @@ func (self TokenKind) String() string {
 	}
 
 	return fmt.Sprintf("Token(%d)", self)
+}
+
+func (self TokenKind) MarshalJSON() ([]byte, error) {
+	return jsoniter.Marshal(tokenKindMap[self])
 }
