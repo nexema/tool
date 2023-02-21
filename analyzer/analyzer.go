@@ -89,6 +89,7 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 // If succeed, it outputs a valid definition.TypeDefinition
 func (self *Analyzer) analyzeTypeStmt(stmt *parser.TypeStmt) *definition.TypeDefinition {
 	def := new(definition.TypeDefinition)
+	def.Name = stmt.Name.Token.Literal
 
 	// rule 1
 	switch stmt.Modifier {
@@ -243,6 +244,7 @@ func (self *Analyzer) analyzeFieldStmt(field *parser.FieldStmt, names *map[strin
 	if field.Index == nil {
 		if indexes.Len() > 0 {
 			fieldIndex, _ = indexes.GetAt(indexes.Len() - 1)
+			fieldIndex += 1
 		}
 	} else {
 		fieldIndex = toInt(field.Index.Token.Literal) // its sure Literal will be a number
@@ -263,6 +265,8 @@ func (self *Analyzer) analyzeFieldStmt(field *parser.FieldStmt, names *map[strin
 			}
 		}
 	}
+
+	indexes.Insert(fieldIndex)
 
 	def.Index = fieldIndex
 

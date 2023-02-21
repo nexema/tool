@@ -72,6 +72,11 @@ func (self *Parser) Parse() *Ast {
 	}
 }
 
+func (self *Parser) Begin() {
+	self.Reset()
+	self.next()
+}
+
 // Reset initializes the parser reading one token into the buffer
 func (self *Parser) Reset() *ParserError {
 	result := self.consume()

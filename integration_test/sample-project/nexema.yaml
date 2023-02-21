@@ -1,0 +1,7 @@
+version: 1
+generators:
+  dart:
+    bin: ../path/to/dart/generator
+    options:
+      useDateTime: true
+      useBigInt: false

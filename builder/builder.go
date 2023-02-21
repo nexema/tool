@@ -106,9 +106,9 @@ func (self *Builder) Build() error {
 	return nil
 }
 
-// Snapshot generates and saves a snapshot file for a previously built definition.
+// SaveSnapshot generates and saves a snapshot file for a previously built definition.
 // This method must be called after self.Build
-func (self *Builder) Snapshot(outFolder string) error {
+func (self *Builder) SaveSnapshot(outFolder string) error {
 	if self.snapshot == nil {
 		return errors.New("definition not build")
 	}
@@ -135,6 +135,11 @@ func (self *Builder) Snapshot(outFolder string) error {
 	return nil
 }
 
+// Snapshot returns the built NexemaSnapshot
+func (self *Builder) Snapshot() *definition.NexemaSnapshot {
+	return self.snapshot
+}
+
 // scanProject looks up at self.inputPath for a nexema.yaml file
 func (self *Builder) scanProject() error {
 	buf, err := os.ReadFile(filepath.Join(self.inputPath, "nexema.yaml"))
@@ -142,9 +147,18 @@ func (self *Builder) scanProject() error {
 		return fmt.Errorf("nexema.yaml could not be read. Error: %s", err.Error())
 	}
 
+	self.config = &NexemaConfig{}
 	err = yaml.Unmarshal(buf, &self.config)
 	if err != nil {
 		return fmt.Errorf("invalid nexema.yaml file. Error: %s", err.Error())
+	}
+
+	if self.config.Version != builderVersion {
+		return fmt.Errorf("invalid Nexema builder version %d", self.config.Version)
+	}
+
+	if len(self.config.Generators) == 0 {
+		return fmt.Errorf("you must specify at least one generator in nexema.yaml")
 	}
 
 	return nil
@@ -159,10 +173,16 @@ func (self *Builder) parseFile(p string) error {
 
 	// todo: maybe re-use the parser
 	packagePath, _ := filepath.Rel(self.inputPath, path.Dir(p))
+	if packagePath == "." {
+		packagePath = "root"
+	}
+
 	parser := parser.NewParser(bytes.NewBuffer(fileContents), &parser.File{
 		FileName: path.Base(p),
 		Path:     packagePath,
 	})
+
+	parser.Begin()
 
 	// parse
 	ast := parser.Parse()
