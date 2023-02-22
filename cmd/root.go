@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -39,13 +38,20 @@ func init() {
 					Name:      "init",
 					Usage:     "Initializes a new project",
 					ArgsUsage: "[the path where to initialize the project]",
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:     "overwrite",
+							Usage:    "Overwrites any previous existing nexema.yaml at specified at",
+							Required: false,
+						},
+					},
 					Action: func(c *cli.Context) error {
 						path := c.Args().First()
 						if len(path) == 0 {
-							return errors.New("path is required")
+							return cli.NewExitError("path is required", 1)
 						}
-						fmt.Printf("Initializing a new module at %s\n", path)
-						return nil
+
+						return modInit(path, c.Bool("overwrite"))
 					},
 				},
 			},
@@ -62,7 +68,7 @@ func init() {
 			Action: func(c *cli.Context) error {
 				path := c.String("path")
 				if path == "" {
-					return cli.NewExitError("Path is required", 1)
+					return cli.NewExitError("path is required", 1)
 				}
 				fmt.Printf("Building the project at %s...\n", path)
 				return nil
@@ -80,7 +86,7 @@ func init() {
 			Action: func(c *cli.Context) error {
 				path := c.String("path")
 				if path == "" {
-					return cli.NewExitError("Path is required", 1)
+					return cli.NewExitError("path is required", 1)
 				}
 				fmt.Printf("Generating code for the project at %s...\n", path)
 				return nil
@@ -98,7 +104,7 @@ func init() {
 			Action: func(c *cli.Context) error {
 				path := c.String("path")
 				if path == "" {
-					return cli.NewExitError("Path is required", 1)
+					return cli.NewExitError("path is required", 1)
 				}
 				fmt.Printf("Formatting code for the project at %s...\n", path)
 				return nil

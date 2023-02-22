@@ -16,6 +16,7 @@
 testout/
 bin/
 coverage/
+example/
 
 # Go workspace file
 go.work
