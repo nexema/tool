@@ -58,20 +58,20 @@ func init() {
 		},
 		{
 			Name:  "build",
-			Usage: "Builds a project",
+			Usage: "Builds a project and optionally outputs a snapshot file",
 			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "path",
-					Usage: "Path to the project directory",
+				cli.StringFlag{
+					Name:  "out",
+					Usage: "The path to the output folder where to write the snapshot file",
 				},
 			},
 			Action: func(c *cli.Context) error {
-				path := c.String("path")
-				if path == "" {
+				path := c.Args().First()
+				if len(path) == 0 {
 					return cli.NewExitError("path is required", 1)
 				}
-				fmt.Printf("Building the project at %s...\n", path)
-				return nil
+
+				return buildCmd(path, c.String("out"))
 			},
 		},
 		{

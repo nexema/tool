@@ -108,31 +108,31 @@ func (self *Builder) Build() error {
 
 // SaveSnapshot generates and saves a snapshot file for a previously built definition.
 // This method must be called after self.Build
-func (self *Builder) SaveSnapshot(outFolder string) error {
+func (self *Builder) SaveSnapshot(outFolder string) (filename string, err error) {
 	if self.snapshot == nil {
-		return errors.New("definition not build")
+		return "", errors.New("definition not build")
 	}
 
 	outPath := filepath.Join(outFolder, fmt.Sprintf("%d.nexs", self.snapshot.Hashcode))
 
-	err := os.Mkdir(filepath.Dir(outPath), os.ModePerm)
+	err = os.Mkdir(outFolder, os.ModePerm)
 	if err != nil && !errors.Is(err, os.ErrExist) {
-		return fmt.Errorf("could not save snapshot. %s", err.Error())
+		return "", fmt.Errorf("could not save snapshot. %s", err.Error())
 	}
 
 	// todo: serialize to binary using nexemab (nexema binary)
 	buf, err := jsoniter.Marshal(self.snapshot)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = os.WriteFile(outPath, buf, os.ModePerm)
 
 	if err != nil {
-		return fmt.Errorf("could not save Nexema snapshot. %s", err.Error())
+		return "", fmt.Errorf("could not save Nexema snapshot. %s", err.Error())
 	}
 
-	return nil
+	return outPath, nil
 }
 
 // Snapshot returns the built NexemaSnapshot
