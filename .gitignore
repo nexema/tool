@@ -20,3 +20,5 @@ example/
 
 # Go workspace file
 go.work
+dist/
+github_token.sh
