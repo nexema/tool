@@ -9,5 +9,5 @@ goreleaser release --snapshot --clean
 else
 git tag -a v$VERSION -m "Release version v$VERSION"
 git push origin v$VERSION
-goreleaser release
+goreleaser release --clean
 fi
