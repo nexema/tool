@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/tidwall/btree"
 	"tomasweigenast.com/nexema/tool/definition"
 	"tomasweigenast.com/nexema/tool/parser"
@@ -76,6 +77,11 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 		}
 	}
 
+	var err error
+	nexFile.Id, err = hashstructure.Hash(&nexFile, hashstructure.FormatV2, nil)
+	if err != nil {
+		panic(err)
+	}
 	self.files = append(self.files, nexFile)
 }
 

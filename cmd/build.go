@@ -1,9 +1,19 @@
 package cmd
 
-import "fmt"
+import (
+	"fmt"
+
+	"tomasweigenast.com/nexema/tool/builder"
+)
 
 func buildCmd(path, snapshotOut string) error {
-	builder, err := build(path)
+	builder := builder.NewBuilder(path)
+	err := builder.Discover()
+	if err != nil {
+		return err
+	}
+
+	err = builder.Build()
 	if err != nil {
 		return err
 	}

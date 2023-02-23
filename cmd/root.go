@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli"
+	"tomasweigenast.com/nexema/tool/nexema"
 )
 
 const helpText = `Nexema - binary interchange made simple
@@ -77,19 +78,29 @@ func init() {
 		{
 			Name:  "generate",
 			Usage: "Builds a project and generates source code",
+
 			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "path",
-					Usage: "Path to the project directory",
+				cli.StringFlag{
+					Name:  "snapshot-file",
+					Usage: "generate from a snapshot file",
+				},
+				cli.StringSliceFlag{
+					Required: true,
+					Name:     "for",
+					Usage:    "the generators to use and their output path",
 				},
 			},
 			Action: func(c *cli.Context) error {
-				path := c.String("path")
-				if path == "" {
+
+				path := c.Args().First()
+				snapshotPath := c.String("snapshot-file")
+				if len(path) == 0 {
 					return cli.NewExitError("path is required", 1)
 				}
-				fmt.Printf("Generating code for the project at %s...\n", path)
-				return nil
+
+				generateFor := c.StringSlice("for")
+
+				return generateCmd(path, snapshotPath, generateFor)
 			},
 		},
 		{
@@ -114,6 +125,8 @@ func init() {
 }
 
 func Execute() {
+	nexema.Run()
+
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Println(err)

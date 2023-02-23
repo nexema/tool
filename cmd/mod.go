@@ -7,7 +7,7 @@ import (
 	"path"
 
 	"gopkg.in/yaml.v3"
-	"tomasweigenast.com/nexema/tool/builder"
+	"tomasweigenast.com/nexema/tool/nexema"
 )
 
 func modInit(p string, overwrite bool) error {
@@ -16,10 +16,10 @@ func modInit(p string, overwrite bool) error {
 		return err
 	}
 
-	config := builder.NexemaConfig{
+	config := nexema.NexemaConfig{
 		Version:    1,
 		Name:       path.Base(p),
-		Generators: make(builder.NexemaGenerators),
+		Generators: make(nexema.NexemaGenerators),
 	}
 
 	out, err := yaml.Marshal(config)
