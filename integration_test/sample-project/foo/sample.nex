@@ -1,0 +1,4 @@
+type Sample struct {
+    id string
+    name string
+}
