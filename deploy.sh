@@ -1,5 +1,5 @@
 #!/bin/bash
-. ./github_token.sh
+source ./github_token.sh
 
 VERSION=$(cat VERSION)
 
