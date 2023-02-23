@@ -107,10 +107,10 @@ func (self *Builder) Build() error {
 
 	// build snapshot
 	files := make(map[uint64]definition.NexemaFile)
-	ids := make([]uint64, len(files))
-	for i, file := range analyzer.Files() {
+	ids := make([]uint64, 0)
+	for _, file := range analyzer.Files() {
 		files[file.Id] = file
-		ids[i] = file.Id
+		ids = append(ids, file.Id)
 	}
 
 	snapshotHashcode, err := hashstructure.Hash(&ids, hashstructure.FormatV2, &hashstructure.HashOptions{})
