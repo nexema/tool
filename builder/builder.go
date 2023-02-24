@@ -106,7 +106,7 @@ func (self *Builder) Build() error {
 	}
 
 	// build snapshot
-	files := make(map[uint64]definition.NexemaFile)
+	files := make([]definition.NexemaFile, 0)
 	ids := make([]uint64, 0)
 	for _, file := range analyzer.Files() {
 		files[file.Id] = file
