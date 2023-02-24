@@ -1,0 +1,176 @@
+{
+    "$id": "https://example.com/person.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "NexemaSnapshot",
+    "type": "object",
+    "required": ["version", "hashcode", "files"],
+    "properties": {
+        "version": {
+            "type": "integer",
+            "description": "The nexema version used to generate the snapshot."
+        },
+        "hashcode": {
+            "type": "integer",
+            "description": "The hashcode of the snapshot."
+        },
+        "files": {
+            "type": "array",
+            "description": "Age in years which must be equal to or greater than zero.",
+            "items": { "$ref": "#/$defs/NexemaFile" }
+        }
+    },
+    "$defs": {
+        "NexemaFile": {
+            "type": "object",
+            "required": ["id", "fileName", "packageName", "path", "types"],
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "description": "The id of the file"
+                },
+                "fileName": {
+                    "type": "string",
+                    "description": "The name of the file"
+                },
+                "packageName": {
+                    "type": "string",
+                    "description": "The name of the package where the file is defined"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "The full path to the file"
+                },
+                "types": {
+                    "type": "array",
+                    "description": "The list of defined types in the file.",
+                    "items": { "$ref": "#/$defs/TypeDefinition" }
+                }
+            }
+        },
+        "TypeDefinition": {
+            "type": "object",
+            "required": ["id", "name", "documentation", "modifier", "annotations", "defaults", "fields"],
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "description": "The id of the type"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the type"
+                },
+                "documentation": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of comments defined as documentation"
+                },
+                "modifier": {
+                    "type": "string",
+                    "description": "The modifier of the type"
+                },
+                "baseType": {
+                    "type": "integer",
+                    "description": "The id of the base type"
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "A list of annotated key value pairs",
+                    "additionalProperties": true
+                },
+                "defaults": {
+                    "type": "object",
+                    "description": "The default values for the fields in the type",
+                    "additionalProperties": true
+                },
+                "fields": {
+                    "description": "The list of fields defined in the type",
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/FieldDefinition" }
+                }
+            }
+        },
+        "FieldDefinition": {
+            "type": "object",
+            "required": ["name", "index", "type", "documentation", "annotations"],
+            "properties": {
+                "name": {
+                    "description": "The name of the field",
+                    "type": "string"
+                },
+                "index": {
+                    "description": "The index of the field",
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "The name of the field",
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/PrimitiveValueType"
+                        },
+                        {
+                            "$ref": "#/$defs/CustomValueType"
+                        }
+                    ]
+                },
+                "documentation": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of comments defined as documentation"
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "A list of annotated key value pairs",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "PrimitiveValueType": {
+            "type": "object",
+            "description": "Defines a value type that is a primitive",
+            "required": ["primitive", "nullable", "arguments"],
+            "properties": {
+                "primitive": {
+                    "type": "string",
+                    "description": "The primitive value type"
+                },
+                "nullable": {
+                    "type": "boolean",
+                    "description": "Indicates if the value can be NULL"
+                },
+                "arguments": {
+                    "type": "array",
+                    "items": { 
+                        "oneOf": [
+                            {
+                                "$ref": "#/$defs/PrimitiveValueType"
+                            },
+                            {
+                                "$ref": "#/$defs/CustomValueType"
+                            }
+                        ]    
+                    },
+                    "description": "A list of arguments if the type is generic"
+                }
+            }
+        },
+        "CustomValueType": {
+            "description": "Defines a value type that is a user defined type",
+            "type": "object",
+            "required": [],
+            "properties": {
+                "objectId": {
+                    "type": "integer",
+                    "description": "The id of the type"
+                },
+                "nullable": {
+                    "type": "boolean",
+                    "description": "Indicates if the value can NULL"
+                }
+            }
+        }
+    }
+}
