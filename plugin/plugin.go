@@ -19,12 +19,12 @@ func NewPlugin(name, binPath string) *Plugin {
 }
 
 // Run sends blob to the plugin stdin and returns the output of the plugin
-func (p *Plugin) Run(blob []byte) (*PluginResult, error) {
+func (p *Plugin) Run(blob []byte, arguments []string) (*PluginResult, error) {
 	blob = append(blob, '\n') // always append a new line
 	buffer := bytes.NewBuffer(blob)
 	respBuffer := new(bytes.Buffer)
 
-	cmd := exec.Command(p.BinPath)
+	cmd := exec.Command(p.BinPath, arguments...)
 	cmd.Stdin = buffer
 	cmd.Stdout = respBuffer
 

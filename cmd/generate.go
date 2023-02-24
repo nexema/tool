@@ -46,7 +46,7 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 	}
 
 	cfg := builder.Config()
-	snapshotBuffer, err := jsoniter.Marshal(snapshot)
+	pluginRequestBuffer, err := jsoniter.Marshal(snapshot)
 	if err != nil {
 		return fmt.Errorf("could not encode nexema snapshot, error: %s", err)
 	}
@@ -62,7 +62,7 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 			return err
 		}
 
-		result, err := plugin.Run(snapshotBuffer)
+		result, err := plugin.Run(pluginRequestBuffer, []string{outputPath})
 		if err != nil {
 			return err
 		}
