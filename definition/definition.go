@@ -2,11 +2,11 @@ package definition
 
 // NexemaFile represents a .nex file and its contents
 type NexemaFile struct {
-	Id          uint64           `json:"id"`
-	FileName    string           `json:"fileName"`
-	PackageName string           `json:"packageName"`
-	Path        string           `json:"path"`
-	Types       []TypeDefinition `json:"types"`
+	Id          uint64           `json:"id"`          // The id of the file
+	FileName    string           `json:"fileName"`    // The name of the file, without any path
+	PackageName string           `json:"packageName"` // The name of the package
+	Path        string           `json:"path"`        // The path to the file, relative to nexema.yaml
+	Types       []TypeDefinition `json:"types"`       // The list of types defined
 }
 
 // NexemaSnapshot represents a generated project definition
