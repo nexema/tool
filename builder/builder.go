@@ -109,7 +109,7 @@ func (self *Builder) Build() error {
 	files := make([]definition.NexemaFile, 0)
 	ids := make([]uint64, 0)
 	for _, file := range analyzer.Files() {
-		files[file.Id] = file
+		files = append(files, file)
 		ids = append(ids, file.Id)
 	}
 

@@ -10,6 +10,9 @@ type TokenizerErr struct {
 type TokenizerErrKind error
 
 func (self TokenizerErr) Error() string {
+	if self.err == nil {
+		return "unknown"
+	}
 	return self.err.Error()
 }
 
