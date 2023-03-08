@@ -107,7 +107,7 @@ func (self *Builder) Build() error {
 
 	// build snapshot
 	files := make([]definition.NexemaFile, 0)
-	ids := make([]uint64, 0)
+	ids := make([]string, 0)
 	for _, file := range analyzer.Files() {
 		files = append(files, file)
 		ids = append(ids, file.Id)
@@ -121,7 +121,7 @@ func (self *Builder) Build() error {
 	self.snapshot = &definition.NexemaSnapshot{
 		Version:  builderVersion,
 		Files:    files,
-		Hashcode: snapshotHashcode,
+		Hashcode: fmt.Sprint(snapshotHashcode),
 	}
 
 	return nil
@@ -134,7 +134,7 @@ func (self *Builder) SaveSnapshot(outFolder string) (filename string, err error)
 		return "", errors.New("definition not build")
 	}
 
-	outPath := filepath.Join(outFolder, fmt.Sprintf("%d.nexs", self.snapshot.Hashcode))
+	outPath := filepath.Join(outFolder, fmt.Sprintf("%s.nexs", self.snapshot.Hashcode))
 
 	err = os.Mkdir(outFolder, os.ModePerm)
 	if err != nil && !errors.Is(err, os.ErrExist) {

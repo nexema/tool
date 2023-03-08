@@ -26,7 +26,7 @@ type PrimitiveValueType struct {
 }
 
 type CustomValueType struct {
-	ObjectId uint64 `json:"objectId"`
+	ObjectId string `json:"objectId"`
 	Nullable bool   `json:"nullable"`
 }
 

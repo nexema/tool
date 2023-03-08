@@ -19,7 +19,7 @@ func TestBuilder_Build(t *testing.T) {
 	snapshot := builder.Snapshot()
 	want := &definition.NexemaSnapshot{
 		Version:  1,
-		Hashcode: 1128978876879954002,
+		Hashcode: "1128978876879954002",
 		Files: []definition.NexemaFile{
 			{
 				FileName:    "sample.nex",
