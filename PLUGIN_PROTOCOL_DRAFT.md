@@ -5,7 +5,7 @@ Nexema will compile the project and will generate a json snapshot, which will fo
 Nexema will pass to the plugin the following list of arguments:
 
 ```
-output-path=[...] // the path to the folder where Nexema will write the output files generated for the plugin
+--output-path=[...] // the path to the folder where Nexema will write the output files generated for the plugin
 ... // other plugin options
 ```
 
