@@ -2,8 +2,9 @@ package plugin
 
 // PluginResult is the output of a Nexema generator plugin
 type PluginResult struct {
-	ExitCode int             `json:"exitCode"`
-	Files    []GeneratedFile `json:"files"`
+	ExitCode int              `json:"exitCode"`
+	Files    *[]GeneratedFile `json:"files"`
+	Error    *string          `json:"error"`
 }
 
 type GeneratedFile struct {

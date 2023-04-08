@@ -68,11 +68,21 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 		}
 
 		if result.ExitCode != 0 {
-			return fmt.Errorf("plugin %q failed with exit code %d", pluginName, result.ExitCode)
+			var err string
+			if result.Error != nil {
+				err = *result.Error
+			} else {
+				err = "no error specified"
+			}
+			return fmt.Errorf("plugin %q failed with exit code %d (%s)", pluginName, result.ExitCode, err)
+		}
+
+		if result.Files == nil {
+			return fmt.Errorf("no error was returned from the plugin but no file was returned too")
 		}
 
 		// start writing each file to its location
-		for _, file := range result.Files {
+		for _, file := range *result.Files {
 			// get file in snapshot
 			snapshotFile := snapshot.Files[file.Id]
 			filepath := p.Join(outputPath, snapshotFile.Path, file.Name)
