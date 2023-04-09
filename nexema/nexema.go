@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
+	log "github.com/sirupsen/logrus"
 )
 
 const pluginDiscoverUrl = "https://raw.githubusercontent.com/nexema/.wkp/main/wkp.json"
@@ -27,10 +28,19 @@ func Run() {
 	}
 
 	nexemaFolder = path.Join(dir, "nexema")
+	log.Debugf("Ensuring %s folder exists", nexemaFolder)
 	err = os.MkdirAll(nexemaFolder, os.ModePerm)
 	if err != nil {
-		panic(fmt.Errorf("could not create .nexema folder at user configuration directory. Error: %s", err))
+		panic(fmt.Errorf("could not create nexema folder at user configuration directory. Error: %s", err))
 	}
+
+	pluginsFolder := path.Join(nexemaFolder, "plugins")
+	err = os.MkdirAll(pluginsFolder, os.ModePerm)
+	if err != nil {
+		panic(fmt.Errorf("could not create plugins folder at user configuration directory. Error: %s", err))
+	}
+
+	initLogger()
 }
 
 // DiscoverWellKnownPlugins looks up for Nexema's well known plugin directory and extracts its information
@@ -77,6 +87,41 @@ func GetWellKnownPlugin(name string) (pluginPath string, err error) {
 	return
 }
 
+// GetPluginInfo returns information about an installed Nexema plugin
+func GetPluginInfo(name string) *PluginInfo {
+	pluginPath := path.Join(nexemaFolder, "plugins", name)
+	_, err := os.Stat(pluginPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+
+		panic(err)
+	}
+
+	return &PluginInfo{
+		Path:    pluginPath,
+		Name:    name,
+		Version: "1",
+	}
+}
+
+// InstallPlugin installs a Nexema plugin
+func InstallPlugin(name string) error {
+	pluginInfo := GetPluginInfo(name)
+	if pluginInfo != nil {
+		return fmt.Errorf("Plugin %s already installed", name)
+	}
+
+	pluginPath := path.Join(nexemaFolder, "plugins", name)
+	err := downloadPlugin(name, pluginPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func GetInstalledPlugins() []PluginInfo {
 	installed := make([]PluginInfo, 0)
 
@@ -96,13 +141,15 @@ func GetInstalledPlugins() []PluginInfo {
 			panic("invalid .plugins file")
 		}
 
-		installed = append(installed, PluginInfo{parts[0], parts[1]})
+		installed = append(installed, PluginInfo{parts[0], parts[1], ""})
 	}
 
 	return installed
 }
 
 func downloadPlugin(name, pluginPath string) error {
+	log.Debug("Downloading plugin ", name)
+
 	if discoveredPlugins == nil {
 		err := DiscoverWellKnownPlugins()
 		if err != nil {
@@ -117,28 +164,35 @@ func downloadPlugin(name, pluginPath string) error {
 	}
 
 	// create an output folder for it
-	err := os.Mkdir(path.Join(nexemaFolder, "plugins", name), os.ModePerm)
+	pluginFolder := path.Join(nexemaFolder, "plugins", name)
+	err := os.Mkdir(pluginFolder, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("could not create output folder for plugin %q", name)
+		return fmt.Errorf("could not create output folder for plugin %q, error: %s", name, err)
 	}
 
+	log.Debug("Running installation steps...")
 	for _, step := range wkp.InstallSteps {
 		step = strings.ReplaceAll(step, "%packageName%", wkp.PackageName)
 		step = strings.ReplaceAll(step, "%version%", wkp.Version)
 
-		toks := strings.Split(step, " ")
-		commandName := toks[0]
-		args := toks[0:]
+		log.Debug("Going to run: ", step)
 
-		cmd := exec.Command(commandName, args...)
+		toks := strings.Split(step, " ")
+		// commandName := toks[0]
+		// args := toks[0:]
+
+		cmd := exec.Command("sudo", toks...)
 		cmd.Stderr = os.Stderr
 		output, err := cmd.Output()
 		if err != nil {
+			os.RemoveAll(pluginFolder)
 			return fmt.Errorf("could not execute command %q, error: %s", step, err)
 		}
 
-		fmt.Printf("[nexema] ran %q output -> %s\n", step, output)
+		log.Debugf("[nexema] ran %q output -> %s\n", step, output)
 	}
+
+	log.Debugln("Plugin installed. Updating .plugins file")
 
 	// once installed, write to .plugins
 	f, err := os.OpenFile(path.Join(nexemaFolder, "plugins", ".plugins"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -151,5 +205,20 @@ func downloadPlugin(name, pluginPath string) error {
 		return fmt.Errorf("fatal error -> could not write to .plugins file, error: %s", err)
 	}
 
+	log.Debugln("Plugin installed succesfully")
+
 	return nil
+}
+
+func initLogger() {
+	// logFile := path.Join(nexemaFolder, fmt.Sprintf("log_%d.txt", time.Now().Unix()))
+	// f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	// if err != nil {
+	// 	panic(fmt.Errorf("failed to create logfile (%s): %s", logFile, err))
+	// }
+
+	// defer f.Close()
+
+	// log.SetOutput(f)
+	log.SetOutput(os.Stdout)
 }

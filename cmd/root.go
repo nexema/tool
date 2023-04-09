@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"tomasweigenast.com/nexema/tool/nexema"
 )
 
@@ -16,6 +17,10 @@ Usage:
 Available commands:
 {{range .Commands}}{{if not .HideHelp}}   {{join .Names ", "}}{{ "\t"}}{{.Usage}}{{ "\n" }}{{end}}{{end}}{{end}}{{if .VisibleFlags}}
 {{end}}
+
+Available flags:
+{{range .VisibleFlags}}   {{.}}
+{{end}}
 About:
 	Made by Tomás Weigenast <tomaswegenast@gmail.com>
 	v1.0.0
@@ -25,22 +30,33 @@ About:
 var app *cli.App
 
 func init() {
+	var verboseLogging bool = true
+
 	app = &cli.App{
 		CustomAppHelpTemplate: helpText,
 		CommandNotFound:       cli.ShowCommandCompletions,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:        "verbose",
+				Required:    false,
+				Hidden:      false,
+				Destination: &verboseLogging,
+				Usage:       "Print all logs to the console",
+			},
+		},
 	}
 
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:  "mod",
 			Usage: "Manages Nexema projects",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:      "init",
 					Usage:     "Initializes a new project",
 					ArgsUsage: "[the path where to initialize the project]",
 					Flags: []cli.Flag{
-						cli.BoolFlag{
+						&cli.BoolFlag{
 							Name:     "overwrite",
 							Usage:    "Overwrites any previous existing nexema.yaml at specified at",
 							Required: false,
@@ -61,7 +77,7 @@ func init() {
 			Name:  "build",
 			Usage: "Builds a project and optionally outputs a snapshot file",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "out",
 					Usage: "The path to the output folder where to write the snapshot file",
 				},
@@ -80,11 +96,11 @@ func init() {
 			Usage: "Builds a project and generates source code",
 
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "snapshot-file",
 					Usage: "generate from a snapshot file",
 				},
-				cli.StringSliceFlag{
+				&cli.StringSliceFlag{
 					Required: true,
 					Name:     "for",
 					Usage:    "the generators to use and their output path",
@@ -144,6 +160,11 @@ func init() {
 			},
 		},
 	}
+
+	if verboseLogging {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 }
 
 func Execute() {

@@ -10,4 +10,5 @@ type WellKnownPlugin struct {
 type PluginInfo struct {
 	Name    string
 	Version string
+	Path    string
 }

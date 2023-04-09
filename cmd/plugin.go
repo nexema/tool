@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"tomasweigenast.com/nexema/tool/nexema"
 )
 
@@ -13,8 +13,7 @@ func pluginInstall(c *cli.Context) error {
 		return fmt.Errorf("plugin name is required")
 	}
 
-	nexema.GetWellKnownPlugin(pluginName)
-	return nil
+	return nexema.InstallPlugin(pluginName)
 }
 
 func pluginList(c *cli.Context) error {
