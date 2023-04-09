@@ -121,6 +121,28 @@ func init() {
 				return nil
 			},
 		},
+		{
+			Name:  "plugin",
+			Usage: "Manage Nexema plugins",
+			Subcommands: cli.Commands{
+				{
+					Name:   "list",
+					Usage:  "List installed Nexema plugins",
+					Action: pluginList,
+				},
+				{
+					Name:   "discover",
+					Usage:  "List all well-known Nexema plugins",
+					Action: pluginDiscover,
+				},
+				{
+					Name:      "install",
+					Usage:     "Installs a Nexema well-known plugin",
+					ArgsUsage: "[plugin-name]",
+					Action:    pluginInstall,
+				},
+			},
+		},
 	}
 }
 

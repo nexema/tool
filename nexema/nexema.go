@@ -1,14 +1,13 @@
 package nexema
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
+	"strings"
 
 	jsoniter "github.com/json-iterator/go"
 )
@@ -18,7 +17,6 @@ const pluginDiscoverUrl = "https://raw.githubusercontent.com/nexema/.wkp/main/wk
 var (
 	nexemaFolder      string
 	discoveredPlugins map[string]WellKnownPlugin
-	httpClient        *http.Client = &http.Client{}
 )
 
 // Run initializes the Nexema tool in the machine, creating the nexema folder in application documents folder if not found
@@ -52,6 +50,17 @@ func DiscoverWellKnownPlugins() error {
 	return nil
 }
 
+func GetWellKnownPlugins() []PluginInfo {
+	out := make([]PluginInfo, len(discoveredPlugins))
+	i := 0
+	for name, details := range discoveredPlugins {
+		out[i] = PluginInfo{Name: name, Version: details.Version}
+		i++
+	}
+
+	return out
+}
+
 // GetWellKnownPlugin returns the path to the wkp name. If cannot find it, it will try to download it using DiscoverWellKnownPlugins
 func GetWellKnownPlugin(name string) (pluginPath string, err error) {
 	pluginPath = path.Join(nexemaFolder, "plugins", name)
@@ -68,6 +77,31 @@ func GetWellKnownPlugin(name string) (pluginPath string, err error) {
 	return
 }
 
+func GetInstalledPlugins() []PluginInfo {
+	installed := make([]PluginInfo, 0)
+
+	buffer, err := os.ReadFile(path.Join(nexemaFolder, "plugins", ".plugins"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return installed
+		}
+
+		panic(err)
+	}
+
+	lines := strings.Split(string(buffer), "\n")
+	for _, line := range lines {
+		parts := strings.Split(line, ":")
+		if len(parts) != 2 {
+			panic("invalid .plugins file")
+		}
+
+		installed = append(installed, PluginInfo{parts[0], parts[1]})
+	}
+
+	return installed
+}
+
 func downloadPlugin(name, pluginPath string) error {
 	if discoveredPlugins == nil {
 		err := DiscoverWellKnownPlugins()
@@ -76,49 +110,45 @@ func downloadPlugin(name, pluginPath string) error {
 		}
 	}
 
+	// get the plugin info
 	wkp, ok := discoveredPlugins[name]
 	if !ok {
 		return fmt.Errorf("well known plugin %q not found", name)
 	}
 
-	resp, err := httpClient.Get(wkp.DownloadUrl)
+	// create an output folder for it
+	err := os.Mkdir(path.Join(nexemaFolder, "plugins", name), os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("could not download plugin %q, error: %s", name, err)
-	}
-	defer resp.Body.Close()
-
-	gzr, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
-
-	err = os.MkdirAll(pluginPath, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("could not create output directory for plugin %q, error: %s", name, pluginPath)
+		return fmt.Errorf("could not create output folder for plugin %q", name)
 	}
 
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
+	for _, step := range wkp.InstallSteps {
+		step = strings.ReplaceAll(step, "%packageName%", wkp.PackageName)
+		step = strings.ReplaceAll(step, "%version%", wkp.Version)
+
+		toks := strings.Split(step, " ")
+		commandName := toks[0]
+		args := toks[0:]
+
+		cmd := exec.Command(commandName, args...)
+		cmd.Stderr = os.Stderr
+		output, err := cmd.Output()
 		if err != nil {
-			return fmt.Errorf("could not extract plugin %q downloaded contents, error: %s", name, err)
+			return fmt.Errorf("could not execute command %q, error: %s", step, err)
 		}
 
-		outfile, err := os.Create(header.Name)
-		if err != nil {
-			return fmt.Errorf("could not save extracted contents of plugin %q, error: %s", name, err)
-		}
-		defer outfile.Close()
+		fmt.Printf("[nexema] ran %q output -> %s\n", step, output)
+	}
 
-		_, err = io.Copy(outfile, tr)
-		if err != nil {
-			return fmt.Errorf("could not copy contents of the file %q from tar, error: %s", name, err)
-		}
+	// once installed, write to .plugins
+	f, err := os.OpenFile(path.Join(nexemaFolder, "plugins", ".plugins"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("fatal error -> could not open .plugins file, error: %s", err)
+	}
+
+	defer f.Close()
+	if _, err := f.WriteString(fmt.Sprintf("%s:%s", name, wkp.Version)); err != nil {
+		return fmt.Errorf("fatal error -> could not write to .plugins file, error: %s", err)
 	}
 
 	return nil
