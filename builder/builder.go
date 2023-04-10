@@ -26,7 +26,7 @@ const builderVersion = 1
 type Builder struct {
 	inputPath string // the path to the input folder
 
-	config   *nexema.NexemaConfig
+	config   *nexema.NexemaProjectConfig
 	snapshot *definition.NexemaSnapshot // the generated snapshot
 
 	parserErrors parser.ParserErrorCollection
@@ -41,7 +41,7 @@ func NewBuilder(inputPath string) *Builder {
 }
 
 // Config returns the discovered nexema.yaml file
-func (self *Builder) Config() *nexema.NexemaConfig {
+func (self *Builder) Config() *nexema.NexemaProjectConfig {
 	return self.config
 }
 
@@ -168,7 +168,7 @@ func (self *Builder) scanProject() error {
 		return fmt.Errorf("nexema.yaml could not be read. Error: %s", err.Error())
 	}
 
-	self.config = &nexema.NexemaConfig{}
+	self.config = &nexema.NexemaProjectConfig{}
 	err = yaml.Unmarshal(buf, &self.config)
 	if err != nil {
 		return fmt.Errorf("invalid nexema.yaml file. Error: %s", err.Error())

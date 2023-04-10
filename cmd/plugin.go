@@ -34,8 +34,8 @@ func pluginDiscover(c *cli.Context) error {
 
 	plugins := nexema.GetWellKnownPlugins()
 	fmt.Printf("=========================\nNexema available plugins\n\n")
-	for _, info := range plugins {
-		fmt.Printf("    %s: v%s\n", info.Name, info.Version)
+	for name, info := range plugins {
+		fmt.Printf("    %s: v%s\n", name, info.Version)
 	}
 	fmt.Println("=========================")
 
