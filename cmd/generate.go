@@ -46,7 +46,7 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 	}
 
 	cfg := builder.Config()
-	snapshotBuffer, err := jsoniter.Marshal(snapshot)
+	pluginRequestBuffer, err := jsoniter.Marshal(snapshot)
 	if err != nil {
 		return fmt.Errorf("could not encode nexema snapshot, error: %s", err)
 	}
@@ -62,21 +62,41 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 			return err
 		}
 
-		result, err := plugin.Run(snapshotBuffer)
+		result, err := plugin.Run(pluginRequestBuffer, []string{fmt.Sprintf(`--output-path=%s`, outputPath)})
 		if err != nil {
 			return err
 		}
 
 		if result.ExitCode != 0 {
-			return fmt.Errorf("plugin %q failed with exit code %d", pluginName, result.ExitCode)
+			var err string
+			if result.Error != nil {
+				err = *result.Error
+			} else {
+				err = "no error specified"
+			}
+			return fmt.Errorf("plugin %q failed with exit code %d (%s)", pluginName, result.ExitCode, err)
+		}
+
+		if result.Files == nil {
+			return fmt.Errorf("no error was returned from the plugin but no file was returned too")
 		}
 
 		// start writing each file to its location
-		for _, file := range result.Files {
+		for _, file := range *result.Files {
 			// get file in snapshot
-			snapshotFile := snapshot.Files[file.Id]
+			snapshotFile := snapshot.FindFile(file.Id)
+			if snapshotFile == nil {
+				return fmt.Errorf("unable to find file %q", file.Id)
+			}
+
 			filepath := p.Join(outputPath, snapshotFile.Path, file.Name)
-			err := os.WriteFile(filepath, []byte(file.Contents), os.ModePerm)
+			outputFolder := p.Dir(filepath)
+			err := os.MkdirAll(outputFolder, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("could not create output folder %q for file %q, error: %s", outputFolder, snapshotFile.FileName, err)
+			}
+
+			err = os.WriteFile(filepath, []byte(file.Contents), os.ModePerm)
 			if err != nil {
 				return fmt.Errorf("could not write file %q, error: %s", filepath, err)
 			}

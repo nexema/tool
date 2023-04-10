@@ -26,7 +26,7 @@ const builderVersion = 1
 type Builder struct {
 	inputPath string // the path to the input folder
 
-	config   *nexema.NexemaConfig
+	config   *nexema.NexemaProjectConfig
 	snapshot *definition.NexemaSnapshot // the generated snapshot
 
 	parserErrors parser.ParserErrorCollection
@@ -41,7 +41,7 @@ func NewBuilder(inputPath string) *Builder {
 }
 
 // Config returns the discovered nexema.yaml file
-func (self *Builder) Config() *nexema.NexemaConfig {
+func (self *Builder) Config() *nexema.NexemaProjectConfig {
 	return self.config
 }
 
@@ -106,10 +106,10 @@ func (self *Builder) Build() error {
 	}
 
 	// build snapshot
-	files := make(map[uint64]definition.NexemaFile)
-	ids := make([]uint64, 0)
+	files := make([]definition.NexemaFile, 0)
+	ids := make([]string, 0)
 	for _, file := range analyzer.Files() {
-		files[file.Id] = file
+		files = append(files, file)
 		ids = append(ids, file.Id)
 	}
 
@@ -121,7 +121,7 @@ func (self *Builder) Build() error {
 	self.snapshot = &definition.NexemaSnapshot{
 		Version:  builderVersion,
 		Files:    files,
-		Hashcode: snapshotHashcode,
+		Hashcode: fmt.Sprint(snapshotHashcode),
 	}
 
 	return nil
@@ -134,7 +134,7 @@ func (self *Builder) SaveSnapshot(outFolder string) (filename string, err error)
 		return "", errors.New("definition not build")
 	}
 
-	outPath := filepath.Join(outFolder, fmt.Sprintf("%d.nexs", self.snapshot.Hashcode))
+	outPath := filepath.Join(outFolder, fmt.Sprintf("%s.nexs", self.snapshot.Hashcode))
 
 	err = os.Mkdir(outFolder, os.ModePerm)
 	if err != nil && !errors.Is(err, os.ErrExist) {
@@ -156,6 +156,11 @@ func (self *Builder) SaveSnapshot(outFolder string) (filename string, err error)
 	return outPath, nil
 }
 
+// HasOutput returns true if builder built something
+func (self *Builder) HasOutput() bool {
+	return self.snapshot != nil && self.snapshot.Hashcode != "0"
+}
+
 // Snapshot returns the built NexemaSnapshot
 func (self *Builder) Snapshot() *definition.NexemaSnapshot {
 	return self.snapshot
@@ -168,7 +173,7 @@ func (self *Builder) scanProject() error {
 		return fmt.Errorf("nexema.yaml could not be read. Error: %s", err.Error())
 	}
 
-	self.config = &nexema.NexemaConfig{}
+	self.config = &nexema.NexemaProjectConfig{}
 	err = yaml.Unmarshal(buf, &self.config)
 	if err != nil {
 		return fmt.Errorf("invalid nexema.yaml file. Error: %s", err.Error())

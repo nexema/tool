@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"fmt"
 	"path"
 	"strconv"
 	"strings"
@@ -21,7 +22,7 @@ type Analyzer struct {
 
 	currScope      *scope.Scope
 	currLocalScope *scope.LocalScope
-	currTypeId     uint64
+	currTypeId     string
 	files          []definition.NexemaFile
 }
 
@@ -78,7 +79,9 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 	}
 
 	var err error
-	nexFile.Id, err = hashstructure.Hash(&nexFile, hashstructure.FormatV2, nil)
+	var hashcode uint64
+	hashcode, err = hashstructure.Hash(&nexFile, hashstructure.FormatV2, nil)
+	nexFile.Id = fmt.Sprint(hashcode)
 	if err != nil {
 		panic(err)
 	}

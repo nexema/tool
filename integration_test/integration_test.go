@@ -12,19 +12,23 @@ import (
 
 func TestBuilder_Build(t *testing.T) {
 	builder := builder.NewBuilder("sample-project")
-	err := builder.Build()
+	err := builder.Discover()
+	require.NoError(t, err)
+
+	err = builder.Build()
 
 	require.NoError(t, err)
 
 	snapshot := builder.Snapshot()
 	want := &definition.NexemaSnapshot{
 		Version:  1,
-		Hashcode: 1128978876879954002,
-		Files: map[uint64]definition.NexemaFile{
-			0: {
+		Hashcode: "10820260093162658565",
+		Files: []definition.NexemaFile{
+			{
 				FileName:    "sample.nex",
 				PackageName: "foo",
 				Path:        "foo",
+				Id:          "14449249460196398142",
 				Types: []definition.TypeDefinition{
 					{
 						Name:     "Sample",
