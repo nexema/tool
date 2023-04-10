@@ -156,6 +156,11 @@ func (self *Builder) SaveSnapshot(outFolder string) (filename string, err error)
 	return outPath, nil
 }
 
+// HasOutput returns true if builder built something
+func (self *Builder) HasOutput() bool {
+	return self.snapshot != nil && self.snapshot.Hashcode != "0"
+}
+
 // Snapshot returns the built NexemaSnapshot
 func (self *Builder) Snapshot() *definition.NexemaSnapshot {
 	return self.snapshot

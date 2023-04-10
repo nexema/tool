@@ -29,6 +29,7 @@ type Nexema struct {
 	discoveredPlugins *map[string]WellKnownPlugin
 	config            *NexemaConfig
 	configFile        *os.File
+	logFile           *os.File
 }
 
 // NexemaConfig contains information about the installed Nexema binary
@@ -76,6 +77,7 @@ func Run() error {
 func Exit() {
 	if singleton.configFile != nil {
 		singleton.configFile.Close()
+		singleton.logFile.Close()
 	}
 }
 
@@ -217,14 +219,12 @@ func downloadPlugin(name string) error {
 
 func (n *Nexema) initLogger() {
 	logFile := path.Join(n.nexemaFolder, "log.txt")
-	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	var err error
+	n.logFile, err = os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		panic(fmt.Errorf("failed to create logfile (%s): %s", logFile, err))
 	}
-
-	defer f.Close()
-
-	log.SetOutput(f)
+	log.SetOutput(n.logFile)
 	log.SetOutput(os.Stdout)
 }
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"tomasweigenast.com/nexema/tool/nexema"
 )
@@ -30,19 +29,17 @@ About:
 var app *cli.App
 
 func init() {
-	var verboseLogging bool = true
-
 	app = &cli.App{
 		CustomAppHelpTemplate: helpText,
 		CommandNotFound:       cli.ShowCommandCompletions,
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:        "verbose",
-				Required:    false,
-				Hidden:      false,
-				Destination: &verboseLogging,
-				Usage:       "Print all logs to the console",
-			},
+		Flags:                 []cli.Flag{
+			// &cli.BoolFlag{
+			// 	Name:        "verbose",
+			// 	Required:    false,
+			// 	Hidden:      false,
+			// 	Destination: &verboseLogging,
+			// 	Usage:       "Print all logs to the console",
+			// },
 		},
 	}
 
@@ -64,11 +61,42 @@ func init() {
 					},
 					Action: func(c *cli.Context) error {
 						path := c.Args().First()
-						if len(path) == 0 {
-							return cli.NewExitError("path is required", 1)
+						if len(path) == 0 || path == "." {
+							dir, err := os.Getwd()
+							if err != nil {
+								return err
+							}
+
+							path = dir
 						}
 
 						return modInit(path, c.Bool("overwrite"))
+					},
+				},
+				{
+					Name:  "generator",
+					Usage: "Configures the generators of the plugin",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "add",
+							Usage:     "Adds a new generator",
+							ArgsUsage: "[plugin name]",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     "bin-path",
+									Usage:    "The path to the plugin executable, if it's a non well known plugin",
+									Required: false,
+									Hidden:   false,
+								},
+							},
+							Action: addGenerator,
+						},
+						{
+							Name:      "remove",
+							Usage:     "Removes a generator",
+							ArgsUsage: "[plugin name]",
+							Action:    removeGenerator,
+						},
 					},
 				},
 			},
@@ -87,13 +115,7 @@ func init() {
 				if len(path) == 0 {
 					return cli.NewExitError("path is required", 1)
 				}
-
-				flags := c.FlagNames()
-				gflg := c.LocalFlagNames()
-				_ = flags
-				_ = gflg
 				outputPath := c.String("out")
-
 				return buildCmd(path, outputPath)
 			},
 		},
@@ -166,11 +188,6 @@ func init() {
 			},
 		},
 	}
-
-	if verboseLogging {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-
 }
 
 func Execute() {
