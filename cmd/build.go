@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/sirupsen/logrus"
 	"tomasweigenast.com/nexema/tool/builder"
 )
 
@@ -13,19 +12,25 @@ func buildCmd(path, snapshotOut string) error {
 		return err
 	}
 
+	logrus.Infof("Building project...")
 	err = builder.Build()
 	if err != nil {
 		return err
 	}
 
+	if !builder.HasOutput() {
+		logrus.Infoln("Nothing to build")
+		return nil
+	}
+
 	if len(snapshotOut) > 0 {
-		fmt.Println("saving snapshot...")
+		logrus.Infoln("saving snapshot...")
 		filepath, err := builder.SaveSnapshot(snapshotOut)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("snapshot file saved at %s\n", filepath)
+		logrus.Infof("snapshot file saved at %s\n", filepath)
 
 		return nil
 	}

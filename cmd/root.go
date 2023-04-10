@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"tomasweigenast.com/nexema/tool/nexema"
 )
 
@@ -15,6 +15,10 @@ Usage:
 {{if .Commands}}
 Available commands:
 {{range .Commands}}{{if not .HideHelp}}   {{join .Names ", "}}{{ "\t"}}{{.Usage}}{{ "\n" }}{{end}}{{end}}{{end}}{{if .VisibleFlags}}
+{{end}}
+
+Available flags:
+{{range .VisibleFlags}}   {{.}}
 {{end}}
 About:
 	Made by Tomás Weigenast <tomaswegenast@gmail.com>
@@ -28,19 +32,28 @@ func init() {
 	app = &cli.App{
 		CustomAppHelpTemplate: helpText,
 		CommandNotFound:       cli.ShowCommandCompletions,
+		Flags:                 []cli.Flag{
+			// &cli.BoolFlag{
+			// 	Name:        "verbose",
+			// 	Required:    false,
+			// 	Hidden:      false,
+			// 	Destination: &verboseLogging,
+			// 	Usage:       "Print all logs to the console",
+			// },
+		},
 	}
 
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:  "mod",
 			Usage: "Manages Nexema projects",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:      "init",
 					Usage:     "Initializes a new project",
 					ArgsUsage: "[the path where to initialize the project]",
 					Flags: []cli.Flag{
-						cli.BoolFlag{
+						&cli.BoolFlag{
 							Name:     "overwrite",
 							Usage:    "Overwrites any previous existing nexema.yaml at specified at",
 							Required: false,
@@ -48,11 +61,42 @@ func init() {
 					},
 					Action: func(c *cli.Context) error {
 						path := c.Args().First()
-						if len(path) == 0 {
-							return cli.NewExitError("path is required", 1)
+						if len(path) == 0 || path == "." {
+							dir, err := os.Getwd()
+							if err != nil {
+								return err
+							}
+
+							path = dir
 						}
 
 						return modInit(path, c.Bool("overwrite"))
+					},
+				},
+				{
+					Name:  "generator",
+					Usage: "Configures the generators of the plugin",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "add",
+							Usage:     "Adds a new generator",
+							ArgsUsage: "[plugin name]",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     "bin-path",
+									Usage:    "The path to the plugin executable, if it's a non well known plugin",
+									Required: false,
+									Hidden:   false,
+								},
+							},
+							Action: addGenerator,
+						},
+						{
+							Name:      "remove",
+							Usage:     "Removes a generator",
+							ArgsUsage: "[plugin name]",
+							Action:    removeGenerator,
+						},
 					},
 				},
 			},
@@ -61,7 +105,7 @@ func init() {
 			Name:  "build",
 			Usage: "Builds a project and optionally outputs a snapshot file",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "out",
 					Usage: "The path to the output folder where to write the snapshot file",
 				},
@@ -71,8 +115,8 @@ func init() {
 				if len(path) == 0 {
 					return cli.NewExitError("path is required", 1)
 				}
-
-				return buildCmd(path, c.String("out"))
+				outputPath := c.String("out")
+				return buildCmd(path, outputPath)
 			},
 		},
 		{
@@ -80,11 +124,11 @@ func init() {
 			Usage: "Builds a project and generates source code",
 
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "snapshot-file",
 					Usage: "generate from a snapshot file",
 				},
-				cli.StringSliceFlag{
+				&cli.StringSliceFlag{
 					Required: true,
 					Name:     "for",
 					Usage:    "the generators to use and their output path",
@@ -121,6 +165,28 @@ func init() {
 				return nil
 			},
 		},
+		{
+			Name:  "plugin",
+			Usage: "Manage Nexema plugins",
+			Subcommands: cli.Commands{
+				{
+					Name:   "list",
+					Usage:  "List installed Nexema plugins",
+					Action: pluginList,
+				},
+				{
+					Name:   "discover",
+					Usage:  "List all well-known Nexema plugins",
+					Action: pluginDiscover,
+				},
+				{
+					Name:      "install",
+					Usage:     "Installs a Nexema well-known plugin",
+					ArgsUsage: "[plugin-name]",
+					Action:    pluginInstall,
+				},
+			},
+		},
 	}
 }
 
@@ -131,4 +197,6 @@ func Execute() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	nexema.Exit()
 }

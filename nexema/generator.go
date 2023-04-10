@@ -9,7 +9,7 @@ import (
 type NexemaGenerators map[string]NexemaGenerator
 type NexemaGenerator struct {
 	Options map[string]any `yaml:"options" json:"options"`
-	BinPath string         `yaml:"bin" json:"bin"`
+	BinPath string         `yaml:"bin,omitempty" json:"bin,omitempty"`
 }
 
 func (self *NexemaGenerators) GetPlugin(name string) (*plugin.Plugin, error) {

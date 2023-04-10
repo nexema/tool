@@ -26,7 +26,7 @@ type PrimitiveValueType struct {
 }
 
 type CustomValueType struct {
-	ObjectId uint64 `json:"objectId"`
+	ObjectId string `json:"objectId"`
 	Nullable bool   `json:"nullable"`
 }
 
@@ -40,7 +40,7 @@ func (CustomValueType) Kind() BaseValueTypeKind {
 
 func (self PrimitiveValueType) MarshalJSON() ([]byte, error) {
 	m := map[string]interface{}{
-		"$kind":     self.Kind(),
+		"kind":      self.Kind(),
 		"primitive": self.Primitive,
 		"nullable":  self.Nullable,
 		"arguments": self.Arguments,
@@ -50,7 +50,7 @@ func (self PrimitiveValueType) MarshalJSON() ([]byte, error) {
 
 func (self CustomValueType) MarshalJSON() ([]byte, error) {
 	m := map[string]interface{}{
-		"$kind":    self.Kind(),
+		"kind":     self.Kind(),
 		"objectId": self.ObjectId,
 		"nullable": self.Nullable,
 	}

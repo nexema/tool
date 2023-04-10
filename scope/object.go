@@ -1,6 +1,8 @@
 package scope
 
 import (
+	"fmt"
+
 	"github.com/mitchellh/hashstructure/v2"
 	"tomasweigenast.com/nexema/tool/parser"
 )
@@ -8,7 +10,7 @@ import (
 // Object represents an Ast Type statement.
 type Object struct {
 	src  *parser.TypeStmt
-	Id   uint64 // calculated as the hashcode of src
+	Id   string // calculated as the hashcode of src
 	Name string // extracted from src Name identifier
 }
 
@@ -22,7 +24,7 @@ func NewObject(from *parser.TypeStmt) *Object {
 	return &Object{
 		src:  from,
 		Name: name,
-		Id:   hashcode,
+		Id:   fmt.Sprint(hashcode),
 	}
 }
 
