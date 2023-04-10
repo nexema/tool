@@ -16,7 +16,7 @@ func modInit(p string, overwrite bool) error {
 		return err
 	}
 
-	config := nexema.NexemaConfig{
+	config := nexema.NexemaProjectConfig{
 		Version:    1,
 		Name:       path.Base(p),
 		Generators: make(nexema.NexemaGenerators),

@@ -174,4 +174,6 @@ func Execute() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	nexema.Exit()
 }

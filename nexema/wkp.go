@@ -8,7 +8,7 @@ type WellKnownPlugin struct {
 }
 
 type PluginInfo struct {
-	Name    string
-	Version string
-	Path    string
+	Name    string // the name of the plugin
+	Version string // the installed version
+	Path    string // the path to the binary
 }
