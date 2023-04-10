@@ -15,3 +15,13 @@ type NexemaSnapshot struct {
 	Hashcode string       `json:"hashcode"`
 	Files    []NexemaFile `json:"files"`
 }
+
+func (s *NexemaSnapshot) FindFile(id string) *NexemaFile {
+	for _, file := range s.Files {
+		if file.Id == id {
+			return &file
+		}
+	}
+
+	return nil
+}

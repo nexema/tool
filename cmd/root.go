@@ -88,7 +88,13 @@ func init() {
 					return cli.NewExitError("path is required", 1)
 				}
 
-				return buildCmd(path, c.String("out"))
+				flags := c.FlagNames()
+				gflg := c.LocalFlagNames()
+				_ = flags
+				_ = gflg
+				outputPath := c.String("out")
+
+				return buildCmd(path, outputPath)
 			},
 		},
 		{

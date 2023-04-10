@@ -62,7 +62,7 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 			return err
 		}
 
-		result, err := plugin.Run(pluginRequestBuffer, []string{outputPath})
+		result, err := plugin.Run(pluginRequestBuffer, []string{fmt.Sprintf(`--output-path=%s`, outputPath)})
 		if err != nil {
 			return err
 		}
@@ -84,9 +84,19 @@ func generateCmd(path, snapshotFile string, generateFor []string) error {
 		// start writing each file to its location
 		for _, file := range *result.Files {
 			// get file in snapshot
-			snapshotFile := snapshot.Files[file.Id]
+			snapshotFile := snapshot.FindFile(file.Id)
+			if snapshotFile == nil {
+				return fmt.Errorf("unable to find file %q", file.Id)
+			}
+
 			filepath := p.Join(outputPath, snapshotFile.Path, file.Name)
-			err := os.WriteFile(filepath, []byte(file.Contents), os.ModePerm)
+			outputFolder := p.Dir(filepath)
+			err := os.MkdirAll(outputFolder, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("could not create output folder %q for file %q, error: %s", outputFolder, snapshotFile.FileName, err)
+			}
+
+			err = os.WriteFile(filepath, []byte(file.Contents), os.ModePerm)
 			if err != nil {
 				return fmt.Errorf("could not write file %q, error: %s", filepath, err)
 			}
