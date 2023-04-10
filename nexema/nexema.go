@@ -174,6 +174,7 @@ func downloadPlugin(name, pluginPath string) error {
 	for _, step := range wkp.InstallSteps {
 		step = strings.ReplaceAll(step, "%packageName%", wkp.PackageName)
 		step = strings.ReplaceAll(step, "%version%", wkp.Version)
+		step = strings.ReplaceAll(step, "%outputFolder%", pluginFolder)
 
 		log.Debug("Going to run: ", step)
 
