@@ -113,7 +113,11 @@ func init() {
 			Action: func(c *cli.Context) error {
 				path := c.Args().First()
 				if len(path) == 0 {
-					return cli.NewExitError("path is required", 1)
+					var err error
+					path, err = os.Getwd()
+					if err != nil {
+						return err
+					}
 				}
 				outputPath := c.String("out")
 				return buildCmd(path, outputPath)

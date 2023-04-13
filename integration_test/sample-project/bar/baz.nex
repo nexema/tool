@@ -1,0 +1,8 @@
+use:
+    "foo"
+
+type Account union {
+    admin bool
+    user Sample
+    another Another
+}

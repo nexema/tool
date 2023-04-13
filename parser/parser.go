@@ -42,7 +42,8 @@ func (self *Parser) Errors() *ParserErrorCollection {
 func (self *Parser) Parse() *Ast {
 	// read "use" statements
 	var useStmts []UseStmt
-	for self.currentTokenIs(token.Use) {
+	for self.currentTokenIs(token.Use) && self.nextTokenIs(token.Colon) {
+		self.next()
 		stmt := self.parseUseStmt()
 		if stmt == nil {
 			break
