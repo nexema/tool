@@ -22,13 +22,13 @@ func TestBuilder_Build(t *testing.T) {
 	snapshot := builder.Snapshot()
 	want := &definition.NexemaSnapshot{
 		Version:  1,
-		Hashcode: "10820260093162658565",
+		Hashcode: "16740850243460541223",
 		Files: []definition.NexemaFile{
 			{
 				FileName:    "sample.nex",
 				PackageName: "foo",
 				Path:        "foo",
-				Id:          "14449249460196398142",
+				Id:          "2472758977982914045",
 				Types: []definition.TypeDefinition{
 					{
 						Name:     "Sample",
@@ -42,8 +42,28 @@ func TestBuilder_Build(t *testing.T) {
 							{
 								Name:  "name",
 								Index: 1,
-								Type:  definition.PrimitiveValueType{Primitive: definition.String},
+								Type:  definition.CustomValueType{ObjectId: "15292658956539431885"},
 							},
+							{
+								Name:  "a_map",
+								Index: 2,
+								Type: definition.PrimitiveValueType{
+									Primitive: "map",
+									Arguments: []definition.BaseValueType{
+										definition.PrimitiveValueType{Primitive: definition.String},
+										definition.CustomValueType{ObjectId: "15292658956539431885"},
+									},
+								},
+							},
+						},
+					},
+					{
+						Name:     "Another",
+						Modifier: token.Enum,
+						Fields: []*definition.FieldDefinition{
+							{Name: "unknown"},
+							{Name: "red", Index: 1},
+							{Name: "blue", Index: 2},
 						},
 					},
 				},

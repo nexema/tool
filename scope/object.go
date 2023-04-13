@@ -9,15 +9,15 @@ import (
 
 // Object represents an Ast Type statement.
 type Object struct {
-	src  *parser.TypeStmt
+	src  parser.TypeStmt
 	Id   string // calculated as the hashcode of src
 	Name string // extracted from src Name identifier
 }
 
 // NewObject creates a new Object from the given TypeStmt
-func NewObject(from *parser.TypeStmt) *Object {
+func NewObject(from parser.TypeStmt) *Object {
 	name := from.Name.Token.Literal
-	hashcode, err := hashstructure.Hash(*from, hashstructure.FormatV2, nil)
+	hashcode, err := hashstructure.Hash(from, hashstructure.FormatV2, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +29,7 @@ func NewObject(from *parser.TypeStmt) *Object {
 }
 
 func (self *Object) Source() *parser.TypeStmt {
-	return self.src
+	return &self.src
 }
 
 // Import represents an `use` statement.

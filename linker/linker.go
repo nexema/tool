@@ -206,7 +206,7 @@ func (self *Linker) createScope(packageName string, node *parser.ParseNode) {
 
 		// push types
 		for _, stmt := range ast.TypeStatements {
-			obj := scope.NewObject(&stmt)
+			obj := scope.NewObject(stmt)
 
 			if _, ok := objects[obj.Name]; ok {
 				self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, obj.Source().Name.Pos))

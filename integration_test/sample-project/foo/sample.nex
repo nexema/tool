@@ -1,4 +1,11 @@
 type Sample struct {
     id string
-    name string
+    name Another
+    a_map map(string, Another)
+}
+
+type Another enum {
+    unknown
+    red
+    blue
 }

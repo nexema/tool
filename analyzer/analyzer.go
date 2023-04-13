@@ -305,11 +305,13 @@ func (self *Analyzer) getObject(decl *parser.DeclStmt) *scope.Object {
 			self.errors.push(ErrTypeNotFound{name, alias}, decl.Pos)
 		}
 	} else {
-		if obj.Source().Modifier != token.Base {
-			self.errors.push(ErrNotValidBaseType{name, alias}, decl.Pos)
-		} else {
-			return obj
-		}
+		// todo: may this check if obj is Base and don't allow it to use
+		return obj
+		// if obj.Source().Modifier != token.Base {
+		// 	self.errors.push(ErrNotValidBaseType{name, alias}, decl.Pos)
+		// } else {
+		// 	return obj
+		// }
 	}
 
 	return nil

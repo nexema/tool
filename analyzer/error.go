@@ -137,6 +137,8 @@ func (e ErrTypeNotFound) Message() string {
 	fullName := e.Alias
 	if len(e.Alias) > 0 {
 		fullName += "." + e.Name
+	} else {
+		fullName += e.Name
 	}
 
 	return fmt.Sprintf("type %q not found, are you missing an import?", fullName)
