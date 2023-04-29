@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/tidwall/btree"
@@ -33,11 +34,12 @@ func (self *ParseNode) insert(parts []string, ast *Ast) {
 	currentNode, ok := self.Children.Get(currentKey)
 	if !ok {
 		currentNode = NewParseNode()
+		currentNode.Path = parts[0]
 	}
 
 	if len(parts) == 1 {
 		path := ast.File.Path
-		currentNode.Path = path
+		currentNode.Path = filepath.Dir(path)
 		currentNode.AstList = append(currentNode.AstList, ast)
 	} else {
 		currentNode.insert(parts[1:], ast)
@@ -60,7 +62,8 @@ func (self *ParseNode) lookup(parts []string) *ParseNode {
 }
 
 func NewParseTree() *ParseTree {
-	return &ParseTree{NewParseNode()}
+	rootNode := NewParseNode()
+	return &ParseTree{rootNode}
 }
 
 func (self *ParseTree) Insert(path string, ast *Ast) {
