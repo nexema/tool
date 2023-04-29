@@ -1,6 +1,6 @@
 package scope
 
-import "tomasweigenast.com/nexema/tool/parser"
+import "tomasweigenast.com/nexema/tool/internal/parser"
 
 // Scope represents a collection of local scopes, a.k.a .nex files.
 // So, Scope is a Nexema package.

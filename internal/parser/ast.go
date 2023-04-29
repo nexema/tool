@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"tomasweigenast.com/nexema/tool/token"
-	"tomasweigenast.com/nexema/tool/tokenizer"
-	"tomasweigenast.com/nexema/tool/utils"
+	"tomasweigenast.com/nexema/tool/internal/reference"
+	"tomasweigenast.com/nexema/tool/internal/token"
+	"tomasweigenast.com/nexema/tool/internal/utils"
 )
 
 type File struct {
-	Path     string
-	FileName string
+	Path string
 }
 
 type Ast struct {
@@ -22,7 +21,7 @@ type Ast struct {
 
 type CommentStmt struct {
 	Token token.Token
-	Pos   tokenizer.Pos
+	Pos   reference.Pos
 }
 
 type UseStmt struct {
@@ -34,17 +33,17 @@ type UseStmt struct {
 type AnnotationStmt struct {
 	Token     token.Token
 	Assigment AssignStmt
-	Pos       tokenizer.Pos
+	Pos       reference.Pos
 }
 
 type IdentStmt struct {
 	Token token.Token
-	Pos   tokenizer.Pos
+	Pos   reference.Pos
 }
 
 type DeclStmt struct {
 	Token    token.Token
-	Pos      tokenizer.Pos
+	Pos      reference.Pos
 	Args     []DeclStmt
 	Alias    *IdentStmt
 	Nullable bool
@@ -54,13 +53,13 @@ type AssignStmt struct {
 	Token token.Token // the "=" token
 	Left  IdentStmt
 	Right LiteralStmt
-	Pos   tokenizer.Pos
+	Pos   reference.Pos
 }
 
 type LiteralStmt struct {
 	Token token.Token
 	Kind  LiteralKind
-	Pos   tokenizer.Pos
+	Pos   reference.Pos
 }
 
 type LiteralKind interface {

@@ -1,13 +1,13 @@
 package parser
 
 import (
-	"fmt"
 	"io"
 	"strconv"
 
 	"github.com/tidwall/btree"
-	"tomasweigenast.com/nexema/tool/token"
-	"tomasweigenast.com/nexema/tool/tokenizer"
+	"tomasweigenast.com/nexema/tool/internal/reference"
+	"tomasweigenast.com/nexema/tool/internal/token"
+	"tomasweigenast.com/nexema/tool/internal/tokenizer"
 )
 
 type Parser struct {
@@ -22,7 +22,7 @@ type Parser struct {
 
 type tokenBuf struct {
 	token    *token.Token
-	position *tokenizer.Pos
+	position *reference.Pos
 }
 
 func NewParser(input io.Reader, file *File) *Parser {
@@ -42,8 +42,7 @@ func (self *Parser) Errors() *ParserErrorCollection {
 func (self *Parser) Parse() *Ast {
 	// read "use" statements
 	var useStmts []UseStmt
-	for self.currentTokenIs(token.Use) && self.nextTokenIs(token.Colon) {
-		self.next()
+	for self.currentTokenIs(token.Use) && self.nextTokenIs(token.String) {
 		stmt := self.parseUseStmt()
 		if stmt == nil {
 			break
@@ -82,7 +81,13 @@ func (self *Parser) Begin() {
 func (self *Parser) Reset() *ParserError {
 	result := self.consume()
 	if result != nil {
-		return NewParserErr(ErrTokenizer{*result}, *tokenizer.NewPos())
+		return NewParserErr(ErrTokenizer{*result}, self.getReference())
+	}
+
+	// advance one more to get nextToken into currentToken
+	result = self.consume()
+	if result != nil {
+		return NewParserErr(ErrTokenizer{*result}, self.getReference())
 	}
 
 	self.eof = false
@@ -128,7 +133,7 @@ func (self *Parser) parseTypeStmt() *TypeStmt {
 		self.next()
 		baseType = self.parseDeclStmt(true)
 		if baseType == nil {
-			self.reportErr(ErrExpectedIdentifier{*currentToken.token})
+			self.pushError(ErrExpectedIdentifier{*currentToken.token})
 			return nil
 		}
 
@@ -233,7 +238,7 @@ func (self *Parser) parseFieldStmt(isEnum bool) *FieldStmt {
 	}
 
 	if self.currentToken == nil {
-		self.reportErr(ErrUnexpectedEOF{})
+		self.pushError(ErrUnexpectedEOF{})
 		return nil
 	}
 
@@ -282,7 +287,7 @@ func (self *Parser) parseUseStmt() *UseStmt {
 
 	// now we need the path as a string
 	if self.currentToken == nil {
-		self.reportErr(ErrUnexpectedValue{"literal with import path", *token.Token_EOF})
+		self.pushError(ErrUnexpectedValue{"literal with import path", *token.Token_EOF})
 		return nil
 	}
 
@@ -326,7 +331,7 @@ func (self *Parser) parseUseStmt() *UseStmt {
 func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 	if self.currentToken == nil {
 		if reportErr {
-			self.reportErr(ErrExpectedDeclaration{*token.Token_EOF})
+			self.pushError(ErrExpectedDeclaration{*token.Token_EOF})
 		}
 		return nil
 	}
@@ -382,7 +387,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 				endPos := *self.currentToken.position
 				return &DeclStmt{
 					Token:    currentToken,
-					Pos:      *tokenizer.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
+					Pos:      *reference.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
 					Args:     args,
 					Alias:    nil,
 					Nullable: self.nextTokenIsMove(token.QuestionMark),
@@ -401,7 +406,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 
 				return &DeclStmt{
 					Token: ident.Token,
-					Pos:   *tokenizer.NewPos(currentPos.Start, ident.Pos.End, currentPos.Line, ident.Pos.Endline),
+					Pos:   *reference.NewPos(currentPos.Start, ident.Pos.End, currentPos.Line, ident.Pos.Endline),
 					Args:  nil,
 					Alias: &IdentStmt{
 						Token: currentToken,
@@ -413,7 +418,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 			default:
 				return &DeclStmt{
 					Token:    currentToken,
-					Pos:      *tokenizer.NewPos(currentPos.Start, currentPos.End, currentPos.Line, currentPos.Endline),
+					Pos:      *reference.NewPos(currentPos.Start, currentPos.End, currentPos.Line, currentPos.Endline),
 					Args:     nil,
 					Alias:    nil,
 					Nullable: self.nextTokenIsMove(token.QuestionMark),
@@ -421,7 +426,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 			}
 		}
 	} else {
-		self.reportErr(ErrExpectedIdentifier{currentToken})
+		self.pushError(ErrExpectedIdentifier{currentToken})
 		return nil
 	}
 }
@@ -468,14 +473,14 @@ func (self *Parser) parseAssignStmt() *AssignStmt {
 		Token: *token.NewToken(token.Assign),
 		Left:  *ident,
 		Right: *literal,
-		Pos:   *tokenizer.NewPos(ident.Pos.Start, literal.Pos.End, ident.Pos.Line, literal.Pos.Endline),
+		Pos:   *reference.NewPos(ident.Pos.Start, literal.Pos.End, ident.Pos.Line, literal.Pos.Endline),
 	}
 }
 
 // parseIdent parses an identifier.
 func (self *Parser) parseIdent() *IdentStmt {
 	if self.currentToken == nil {
-		self.reportErr(ErrExpectedIdentifier{*token.Token_EOF})
+		self.pushError(ErrExpectedIdentifier{*token.Token_EOF})
 		return nil
 	}
 
@@ -492,7 +497,7 @@ func (self *Parser) parseIdent() *IdentStmt {
 // parseLiteral parses a token literal, like strings, numbers, booleans, lists and maps
 func (self *Parser) parseLiteral() *LiteralStmt {
 	if self.currentToken == nil {
-		self.reportErr(ErrExpectedLiteral{*token.Token_EOF})
+		self.pushError(ErrExpectedLiteral{*token.Token_EOF})
 		return nil
 	}
 
@@ -508,7 +513,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 	case token.Integer:
 		num, err := strconv.ParseInt(literal, 10, 64)
 		if err != nil {
-			self.reportErr(ErrNumberParse{err, literal})
+			self.pushError(ErrNumberParse{err, literal})
 			return nil
 		}
 
@@ -517,7 +522,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 	case token.Decimal:
 		num, err := strconv.ParseFloat(literal, 64)
 		if err != nil {
-			self.reportErr(ErrNumberParse{err, literal})
+			self.pushError(ErrNumberParse{err, literal})
 			return nil
 		}
 
@@ -529,7 +534,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		} else if literal == "false" {
 			literalKind = BooleanLiteral{false}
 		} else {
-			self.reportErr(ErrInvalidLiteral{literalToken})
+			self.pushError(ErrInvalidLiteral{literalToken})
 			return nil
 		}
 
@@ -568,7 +573,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		endPos := self.currentToken.position
-		tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		tokenPos = *reference.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
 		literalToken = *token.NewToken(token.List)
 
 	// map literal
@@ -622,11 +627,11 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		endPos := self.currentToken.position
-		tokenPos = *tokenizer.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		tokenPos = *reference.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
 		literalToken = *token.NewToken(token.Map)
 
 	default:
-		self.reportErr(ErrInvalidLiteral{literalToken})
+		self.pushError(ErrInvalidLiteral{literalToken})
 		return nil
 	}
 
@@ -641,7 +646,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 func (self *Parser) next() {
 	err := self.consume()
 	if err != nil {
-		self.errors.push(NewParserErr(ErrTokenizer{}, *self.tokenizer.GetCurrentPosition()))
+		self.pushError(ErrTokenizer{})
 		return
 	}
 
@@ -803,51 +808,51 @@ func (self *Parser) resetAnnotationCommentsMap() {
 
 func (self *Parser) reportExpectedNextTokenErr(expected token.TokenKind) {
 	var nextToken token.Token
-	var pos tokenizer.Pos
+	var pos *reference.Pos
 	if self.nextToken == nil {
 		nextToken = *token.Token_EOF
-		pos = *self.tokenizer.GetCurrentPosition()
+		pos = self.tokenizer.GetCurrentPosition()
 	} else {
 		nextToken = *self.nextToken.token
-		pos = *self.nextToken.position
+		pos = self.nextToken.position
 	}
 
 	if nextToken.IsEOF() {
-		self.errors.push(NewParserErr(ErrUnexpectedEOF{}, pos))
+		self.pushError(ErrUnexpectedEOF{}, pos)
 	} else {
-		self.errors.push(NewParserErr(ErrUnexpectedToken{expected, nextToken}, pos))
+		self.pushError(ErrUnexpectedToken{expected, nextToken}, pos)
 	}
 }
 
 func (self *Parser) reportExpectedCurrentTokenErr(expected token.TokenKind) {
 	var currentToken token.Token
-	var pos tokenizer.Pos
+	var pos *reference.Pos
 	if self.currentToken == nil {
 		currentToken = *token.Token_EOF
-		pos = *self.tokenizer.GetCurrentPosition()
+		pos = self.tokenizer.GetCurrentPosition()
 	} else {
 		currentToken = *self.currentToken.token
-		pos = *self.currentToken.position
+		pos = self.currentToken.position
 	}
 
 	if currentToken.IsEOF() {
-		self.errors.push(NewParserErr(ErrUnexpectedEOF{}, pos))
+		self.pushError(ErrUnexpectedEOF{}, pos)
 	} else {
-		self.errors.push(NewParserErr(ErrUnexpectedToken{expected, currentToken}, pos))
+		self.pushError(ErrUnexpectedToken{expected, currentToken}, pos)
 	}
 }
 
-func (self *Parser) reportErr(err ParserErrorKind) {
-	var pos tokenizer.Pos
-	if self.currentToken == nil {
-		pos = *self.tokenizer.GetCurrentPosition()
-	} else {
-		pos = *self.currentToken.position
-	}
-
-	self.errors.push(NewParserErr(err, pos))
+func (self Parser) getReference(values ...int) *reference.Reference {
+	return reference.NewReference(self.file.Path, reference.NewPos(values...))
 }
 
-func (self tokenBuf) String() string {
-	return fmt.Sprintf("{token: %s, pos: %s}", self.token, self.position)
+func (self *Parser) pushError(err ParserErrorKind, pos ...*reference.Pos) {
+	var position *reference.Pos
+	if len(pos) == 0 {
+		position = self.tokenizer.GetCurrentPosition()
+	} else {
+		position = pos[0]
+	}
+
+	self.errors.push(NewParserErr(err, reference.NewReference(self.file.Path, position)))
 }

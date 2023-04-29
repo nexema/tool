@@ -1,4 +1,4 @@
-package tests
+package tokenizer
 
 import (
 	"bufio"
@@ -9,20 +9,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
-	"tomasweigenast.com/nexema/tool/internal/tokenizer"
 )
 
 func TestTokenizerErr_IsErr(t *testing.T) {
 	tests := []struct {
 		name string
-		err  *tokenizer.TokenizerErr
+		err  *TokenizerErr
 		is   error
 		want bool
 	}{
-		{"ErrInvalidMultilineComment matches", tokenizer.NewTokenizerErr(tokenizer.ErrInvalidMultilineComment), tokenizer.ErrInvalidMultilineComment, true},
-		{"ErrInvalidString matches", tokenizer.NewTokenizerErr(tokenizer.ErrInvalidString), tokenizer.ErrInvalidString, true},
-		{"ErrUnknownToken matches", tokenizer.NewTokenizerErr(tokenizer.ErrUnknownToken), tokenizer.ErrUnknownToken, true},
-		{"other error does not match", tokenizer.NewTokenizerErr(tokenizer.ErrUnknownToken), io.EOF, false},
+		{"ErrInvalidMultilineComment matches", NewTokenizerErr(ErrInvalidMultilineComment), ErrInvalidMultilineComment, true},
+		{"ErrInvalidString matches", NewTokenizerErr(ErrInvalidString), ErrInvalidString, true},
+		{"ErrUnknownToken matches", NewTokenizerErr(ErrUnknownToken), ErrUnknownToken, true},
+		{"other error does not match", NewTokenizerErr(ErrUnknownToken), io.EOF, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -37,9 +36,9 @@ func TestTokenizer_Next(t *testing.T) {
 		input   string
 		wantTok *token.Token
 		wantPos *reference.Pos
-		wantErr *tokenizer.TokenizerErr
+		wantErr *TokenizerErr
 	}{
-		{"<", nil, nil, tokenizer.NewTokenizerErr(tokenizer.ErrUnknownToken, "<")},
+		{"<", nil, nil, NewTokenizerErr(ErrUnknownToken, "<")},
 		{"?", token.NewToken(token.QuestionMark, "?"), reference.NewPos(0, 1), nil},
 		// {" ", token.NewToken(token.EOF, ""), NewPos(0, 0), nil},
 		{"=", token.NewToken(token.Assign, "="), reference.NewPos(0, 1), nil},
@@ -62,7 +61,7 @@ func TestTokenizer_Next(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			tokenizer := tokenizer.NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
+			tokenizer := NewTokenizer(bufio.NewReader(bytes.NewBufferString(tt.input)))
 			gotTok, gotPos, gotErr := tokenizer.Next()
 			require.Equal(t, tt.wantErr, gotErr)
 			require.Equal(t, tt.wantTok, gotTok)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mitchellh/hashstructure/v2"
-	"tomasweigenast.com/nexema/tool/parser"
+	"tomasweigenast.com/nexema/tool/internal/parser"
 )
 
 // Object represents an Ast Type statement.

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"tomasweigenast.com/nexema/tool/token"
-	"tomasweigenast.com/nexema/tool/tokenizer"
+	"tomasweigenast.com/nexema/tool/internal/reference"
+	"tomasweigenast.com/nexema/tool/internal/token"
+	"tomasweigenast.com/nexema/tool/internal/tokenizer"
 )
 
 type ParserError struct {
-	At   tokenizer.Pos
+	At   reference.Reference
 	Kind ParserErrorKind
 }
 
@@ -93,8 +94,8 @@ func (u ErrExpectedLiteral) Message() string {
 	return fmt.Sprintf("expected literal, got %s instead", u.Got)
 }
 
-func NewParserErr(err ParserErrorKind, at tokenizer.Pos) *ParserError {
-	return &ParserError{at, err}
+func NewParserErr(err ParserErrorKind, at *reference.Reference) *ParserError {
+	return &ParserError{*at, err}
 }
 
 type ParserErrorCollection []*ParserError
@@ -115,7 +116,7 @@ func (self *ParserErrorCollection) IsEmpty() bool {
 func (self *ParserErrorCollection) Display() string {
 	out := make([]string, len(*self))
 	for i, err := range *self {
-		out[i] = fmt.Sprintf("%d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+		out[i] = fmt.Sprintf("%s -> %s", err.At, err.Kind.Message())
 	}
 
 	return strings.Join(out, "\n")
@@ -125,11 +126,11 @@ func (self *ParserErrorCollection) AsError() error {
 	return errors.New(self.Display())
 }
 
-func (self *ParserErrorCollection) Clone() []ParserError {
-	clone := make([]ParserError, len(*self))
-	for i, elem := range *self {
-		clone[i] = *elem
-	}
+// func (self *ParserErrorCollection) Clone() []ParserError {
+// 	clone := make([]ParserError, len(*self))
+// 	for i, elem := range *self {
+// 		clone[i] = *elem
+// 	}
 
-	return clone
-}
+// 	return clone
+// }

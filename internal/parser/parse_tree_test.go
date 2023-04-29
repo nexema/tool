@@ -8,10 +8,10 @@ import (
 
 func TestParseTree_Insert(t *testing.T) {
 	parseTree := NewParseTree()
-	parseTree.Insert("identity", newAst("identity", "user.nex"))
-	parseTree.Insert("identity", newAst("identity", "account.nex"))
-	parseTree.Insert("common", newAst("common", "common.nex"))
-	parseTree.Insert("common/address", newAst("common/address", "address.nex"))
+	parseTree.Insert("identity", newAst("identity/user.nex"))
+	parseTree.Insert("identity", newAst("identity/account.nex"))
+	parseTree.Insert("common", newAst("common/common.nex"))
+	parseTree.Insert("common/address", newAst("common/address/address.nex"))
 
 	node := parseTree.Lookup("common")
 	require.NotNil(t, node)
@@ -24,11 +24,10 @@ func TestParseTree_Insert(t *testing.T) {
 	require.Equal(t, 0, node.Children.Len())
 }
 
-func newAst(path, fileName string) *Ast {
+func newAst(path string) *Ast {
 	return &Ast{
 		File: &File{
-			Path:     path,
-			FileName: fileName,
+			Path: path,
 		},
 	}
 }
