@@ -3,38 +3,30 @@ package rules
 import (
 	"fmt"
 
-	analyzer_error "tomasweigenast.com/nexema/tool/internal/analyzer/error"
+	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
 // DuplicatedDefaultValue checks if the are no duplicated default values in a struct
-type DuplicatedDefaultValue struct {
-	group *AnalyzerRuleCollection
-}
+type DuplicatedDefaultValue struct{}
 
-func (self DuplicatedDefaultValue) Validate(value any) []analyzer_error.AnalyzerErrorKind {
-	typeStmt := value.(*parser.TypeStmt)
-
-	if typeStmt.Defaults == nil || len(typeStmt.Defaults) == 0 {
-		return nil
-	}
-
-	check := map[string]any{}
-	errs := make([]analyzer_error.AnalyzerErrorKind, 0)
-	for _, stmt := range typeStmt.Defaults {
-		key := stmt.Left.Token.Literal
-		if _, ok := check[key]; !ok {
-			errs = append(errs, errDuplicatedDefaultValue{FieldName: key})
-		} else {
-			check[key] = true
+func (self DuplicatedDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
+	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
+		if source.Defaults == nil || len(source.Defaults) == 0 {
+			return
 		}
-	}
 
-	if len(errs) == 0 {
-		return nil
-	}
-
-	return errs
+		check := map[string]any{}
+		for _, stmt := range source.Defaults {
+			key := stmt.Left.Token.Literal
+			if _, ok := check[key]; ok {
+				context.ReportError(errDuplicatedDefaultValue{FieldName: key}, stmt.Pos)
+			} else {
+				check[key] = true
+			}
+		}
+	})
 }
 
 type errDuplicatedDefaultValue struct {

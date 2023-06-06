@@ -3,43 +3,35 @@ package rules
 import (
 	"fmt"
 
-	analyzer_error "tomasweigenast.com/nexema/tool/internal/analyzer/error"
+	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
 // DefaultValueValidField checks if the field defined in a default value declaration exists
-type DefaultValueValidField struct {
-	group *AnalyzerRuleCollection
-}
+type DefaultValueValidField struct{}
 
-func (self DefaultValueValidField) Validate(value any) []analyzer_error.AnalyzerErrorKind {
-	typeStmt := value.(*parser.TypeStmt)
+func (self DefaultValueValidField) Analyze(context *analyzer.AnalyzerContext) {
+	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
+		if source.Defaults == nil || len(source.Defaults) == 0 {
+			return
+		}
 
-	if typeStmt.Defaults == nil || len(typeStmt.Defaults) == 0 {
-		return nil
-	}
+		for _, stmt := range source.Defaults {
+			fieldName := stmt.Left.Token.Literal
 
-	errs := make([]analyzer_error.AnalyzerErrorKind, 0)
-	for _, stmt := range typeStmt.Defaults {
-		fieldName := stmt.Left.Token.Literal
+			var fieldStmt *parser.FieldStmt
+			for _, field := range source.Fields {
+				if field.Name.Token.Literal == fieldName {
+					fieldStmt = &field
+				}
+			}
 
-		var fieldStmt *parser.FieldStmt
-		for _, field := range typeStmt.Fields {
-			if field.Name.Token.Literal == fieldName {
-				fieldStmt = &field
+			if fieldStmt == nil {
+				context.ReportError(errDefaultValueValidField{FieldName: fieldName}, stmt.Pos)
 			}
 		}
-
-		if fieldStmt == nil {
-			errs = append(errs, errDefaultValueValidField{FieldName: fieldName})
-		}
-	}
-
-	if len(errs) == 0 {
-		return nil
-	}
-
-	return errs
+	})
 }
 
 type errDefaultValueValidField struct {

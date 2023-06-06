@@ -3,29 +3,27 @@ package rules
 import (
 	"fmt"
 
-	analyzer_error "tomasweigenast.com/nexema/tool/internal/analyzer/error"
+	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
-// ValidBaseType checks if the base type in a struct exists and is a valid Base type.
-type ValidBaseType struct {
-	group *AnalyzerRuleCollection
-}
+// ValidBaseType checks if the extended type in a struct exists and is a valid Base type.
+type ValidBaseType struct{}
 
-func (self ValidBaseType) Validate(value any) []analyzer_error.AnalyzerErrorKind {
-	typeStmt := value.(*parser.TypeStmt)
+func (self ValidBaseType) Analyze(context *analyzer.AnalyzerContext) {
+	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
+		src := object.Source()
+		if src.BaseType == nil {
+			return
+		}
 
-	if typeStmt.BaseType == nil {
-		return nil
-	}
-
-	obj := self.group.ResolveObject(typeStmt.BaseType)
-	if obj != nil && obj.Source().Modifier != token.Base {
-		return []analyzer_error.AnalyzerErrorKind{errWrongBaseType{TypeName: obj.Name}}
-	}
-
-	return nil
+		baseType := context.GetObject(src.BaseType)
+		if baseType != nil && baseType.Source().Modifier != token.Base {
+			context.ReportError(errWrongBaseType{TypeName: baseType.Name}, src.BaseType.Pos)
+		}
+	})
 }
 
 type errWrongBaseType struct {

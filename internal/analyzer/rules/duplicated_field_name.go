@@ -3,34 +3,26 @@ package rules
 import (
 	"fmt"
 
-	analyzer_error "tomasweigenast.com/nexema/tool/internal/analyzer/error"
+	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
 // DuplicatedFieldName checks if field names defined in a struct are not duplicated
-type DuplicatedFieldName struct {
-	group *AnalyzerRuleCollection
-}
+type DuplicatedFieldName struct{}
 
-func (self DuplicatedFieldName) Validate(value any) []analyzer_error.AnalyzerErrorKind {
-	typeStmt := value.(*parser.TypeStmt)
-
-	errs := make([]analyzer_error.AnalyzerErrorKind, 0)
-	check := map[string]bool{}
-	for _, stmt := range typeStmt.Fields {
-		fieldName := stmt.Name.Token.Literal
-		if _, ok := check[fieldName]; !ok {
-			errs = append(errs, errDuplicatedFieldName{FieldName: fieldName})
-		} else {
-			check[fieldName] = true
+func (self DuplicatedFieldName) Analyze(context *analyzer.AnalyzerContext) {
+	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
+		check := map[string]bool{}
+		for _, stmt := range source.Fields {
+			fieldName := stmt.Name.Token.Literal
+			if _, ok := check[fieldName]; ok {
+				context.ReportError(errDuplicatedFieldName{FieldName: fieldName}, stmt.Name.Pos)
+			} else {
+				check[fieldName] = true
+			}
 		}
-	}
-
-	if len(errs) == 0 {
-		return nil
-	}
-
-	return errs
+	})
 }
 
 type errDuplicatedFieldName struct {
