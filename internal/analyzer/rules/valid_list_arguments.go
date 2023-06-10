@@ -9,7 +9,7 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
-// ValidListArguments checks if the value type defined as list contains exactly one type argument and also is a valid Nexema value type
+// ValidListArguments checks if the value type defined as list contains exactly one type argument and also it is a valid Nexema value type
 type ValidListArguments struct{}
 
 func (self ValidListArguments) Analyze(context *analyzer.AnalyzerContext) {
