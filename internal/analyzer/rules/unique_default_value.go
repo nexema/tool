@@ -8,10 +8,10 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
-// DuplicatedDefaultValue checks if the are no duplicated default values in a struct
-type DuplicatedDefaultValue struct{}
+// UniqueDefaultValue checks if the are no duplicated default values in a struct
+type UniqueDefaultValue struct{}
 
-func (self DuplicatedDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
+func (self UniqueDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		if source.Defaults == nil || len(source.Defaults) == 0 {
 			return
@@ -29,12 +29,12 @@ func (self DuplicatedDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self DuplicatedDefaultValue) Throws() analyzer.RuleThrow {
+func (self UniqueDefaultValue) Throws() analyzer.RuleThrow {
 	return analyzer.Error
 }
 
-func (self DuplicatedDefaultValue) Key() string {
-	return "duplicated-default-value"
+func (self UniqueDefaultValue) Key() string {
+	return "unique-default-value"
 }
 
 type errDuplicatedDefaultValue struct {

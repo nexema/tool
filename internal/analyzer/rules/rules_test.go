@@ -136,7 +136,7 @@ func TestRule_DuplicatedDefaultValue(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			file := &parser.File{Path: "test"}
-			rule := &DuplicatedDefaultValue{}
+			rule := &UniqueDefaultValue{}
 			obj := scope.NewObject(*test.input)
 			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
@@ -206,7 +206,7 @@ func TestRule_DuplicatedFieldName(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			file := &parser.File{Path: "test"}
-			rule := &DuplicatedFieldName{}
+			rule := &UniqueFieldName{}
 			obj := scope.NewObject(*test.input)
 			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,

@@ -8,10 +8,10 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
-// DuplicatedFieldName checks if field names defined in a struct are not duplicated
-type DuplicatedFieldName struct{}
+// UniqueFieldName checks if field names defined in a struct are not duplicated
+type UniqueFieldName struct{}
 
-func (self DuplicatedFieldName) Analyze(context *analyzer.AnalyzerContext) {
+func (self UniqueFieldName) Analyze(context *analyzer.AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		check := map[string]bool{}
 		for _, stmt := range source.Fields {
@@ -25,12 +25,12 @@ func (self DuplicatedFieldName) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self DuplicatedFieldName) Throws() analyzer.RuleThrow {
+func (self UniqueFieldName) Throws() analyzer.RuleThrow {
 	return analyzer.Error
 }
 
-func (self DuplicatedFieldName) Key() string {
-	return "duplicated-field-name"
+func (self UniqueFieldName) Key() string {
+	return "unique-field-name"
 }
 
 type errDuplicatedFieldName struct {
