@@ -29,6 +29,10 @@ func (self DuplicatedFieldName) Throws() analyzer.RuleThrow {
 	return analyzer.Error
 }
 
+func (self DuplicatedFieldName) Key() string {
+	return "duplicated-field-name"
+}
+
 type errDuplicatedFieldName struct {
 	FieldName string
 }

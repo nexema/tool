@@ -33,6 +33,10 @@ func (self DuplicatedDefaultValue) Throws() analyzer.RuleThrow {
 	return analyzer.Error
 }
 
+func (self DuplicatedDefaultValue) Key() string {
+	return "duplicated-default-value"
+}
+
 type errDuplicatedDefaultValue struct {
 	FieldName string
 }

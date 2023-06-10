@@ -30,6 +30,10 @@ func (self ValidBaseType) Throws() analyzer.RuleThrow {
 	return analyzer.Error
 }
 
+func (self ValidBaseType) Key() string {
+	return "valid-base-type"
+}
+
 type errWrongBaseType struct {
 	TypeName string
 }

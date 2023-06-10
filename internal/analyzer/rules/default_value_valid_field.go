@@ -38,6 +38,10 @@ func (self DefaultValueValidField) Throws() analyzer.RuleThrow {
 	return analyzer.Error
 }
 
+func (self DefaultValueValidField) Key() string {
+	return "default-value-valid-field"
+}
+
 type errDefaultValueValidField struct {
 	FieldName string
 }

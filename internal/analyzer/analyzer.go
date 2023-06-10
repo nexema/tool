@@ -45,6 +45,9 @@ type AnalyzerRule interface {
 
 	// Throws indicates what kind of error is thrown by the rule
 	Throws() RuleThrow
+
+	// Key returns an unique identifier for the rule
+	Key() string
 }
 
 // NewAnalyzerContext creates a new AnalyzerContext
