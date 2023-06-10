@@ -24,7 +24,7 @@ func (self UniqueFieldIndex) Analyze(context *analyzer.AnalyzerContext) {
 
 			fieldIndex, _ := strconv.Atoi(stmt.Index.Token.Literal)
 			if _, ok := check[fieldIndex]; ok {
-				context.ReportError(errDuplicatedFieldIndex{FieldIndex: fieldIndex}, stmt.Name.Pos)
+				context.ReportError(errDuplicatedFieldIndex{FieldIndex: fieldIndex}, stmt.Index.Pos)
 			} else {
 				check[fieldIndex] = true
 			}

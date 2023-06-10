@@ -89,7 +89,7 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 	}
 }
 
-func TestRule_DuplicatedDefaultValue(t *testing.T) {
+func TestRule_UniqueDefaultValue(t *testing.T) {
 
 	for _, test := range []struct {
 		name    string
@@ -159,7 +159,7 @@ func TestRule_DuplicatedDefaultValue(t *testing.T) {
 	}
 }
 
-func TestRule_DuplicatedFieldName(t *testing.T) {
+func TestRule_UniqueFieldName(t *testing.T) {
 
 	for _, test := range []struct {
 		name    string
@@ -311,68 +311,61 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 
 	for _, test := range []struct {
 		name    string
-		input   []*parser.TypeStmt
+		input   *parser.TypeStmt
 		wantErr []analyzer.AnalyzerErrorKind
 	}{
 		{
-			name: "valid Base type",
-			input: []*parser.TypeStmt{
-				utils.NewTypeBuilder("Test").
-					Modifier(token.Struct).
-					Base("Target").
-					Result(),
-
-				utils.NewTypeBuilder("Target").
-					Modifier(token.Base).
-					Result(),
-			},
+			name: "unique field indexes",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").Index(0).Result()).
+				Field(utils.NewFieldBuilder("b").Index(1).Result()).
+				Field(utils.NewFieldBuilder("c").Index(2).Result()).
+				Field(utils.NewFieldBuilder("d").Result()).
+				Field(utils.NewFieldBuilder("e").Index(4).Result()).
+				Result(),
 			wantErr: nil,
 		},
 		{
-			name: "invalid Base type",
-			input: []*parser.TypeStmt{
-				utils.NewTypeBuilder("Test").
-					Modifier(token.Struct).
-					Base("Target").
-					Result(),
-
-				utils.NewTypeBuilder("Target").
-					Modifier(token.Enum).
-					Result(),
-			},
+			name: "non unique field indexes",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").Index(0).Result()).
+				Field(utils.NewFieldBuilder("b").Index(1).Result()).
+				Field(utils.NewFieldBuilder("c").Index(1).Result()).
+				Field(utils.NewFieldBuilder("d").Result()).
+				Field(utils.NewFieldBuilder("e").Index(4).Result()).
+				Result(),
 			wantErr: []analyzer.AnalyzerErrorKind{
-				errWrongBaseType{TypeName: "Target"},
+				errDuplicatedFieldIndex{FieldIndex: 1},
 			},
 		},
 		{
-			name: "invalid Base type",
-			input: []*parser.TypeStmt{
-				utils.NewTypeBuilder("Test").
-					Modifier(token.Struct).
-					Base("Target").
-					Result(),
-			},
-			wantErr: []analyzer.AnalyzerErrorKind{
-				analyzer.ErrTypeNotFound{Name: "Target"},
-			},
+			name: "unique field indexes without defining",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").Result()).
+				Field(utils.NewFieldBuilder("b").Result()).
+				Field(utils.NewFieldBuilder("c").Result()).
+				Field(utils.NewFieldBuilder("d").Result()).
+				Field(utils.NewFieldBuilder("e").Result()).
+				Result(),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			file := &parser.File{Path: "test"}
-			rule := &ValidBaseType{}
-			objs := map[string]*scope.Object{}
-			for _, stmt := range test.input {
-				obj := scope.NewObject(*stmt)
-				objs[obj.Name] = obj
-			}
+			rule := &UniqueFieldIndex{}
+			obj := scope.NewObject(*test.input)
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+				obj.Name: obj,
+			}))
 
 			rule.Analyze(context)
 			errors := context.Errors()
 
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
-				t.Errorf("expected errors (%v) but got none", test.wantErr)
+				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
 				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
 				errors.Iterate(func(err *analyzer.AnalyzerError) {
