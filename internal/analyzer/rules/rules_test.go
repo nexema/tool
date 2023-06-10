@@ -436,19 +436,15 @@ func TestRule_ValidFieldType(t *testing.T) {
 			},
 		},
 		{
-			name: "custom value type from other file",
+			name: "circular import",
 			input: []*parser.TypeStmt{
 				utils.NewTypeBuilder("Test").
 					Modifier(token.Struct).
-					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
-					Result(),
-				utils.NewTypeBuilder("Test").
-					Modifier(token.Struct).
-					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
+					Field(utils.NewFieldBuilder("a").BasicValueType("Test", false).Result()).
 					Result(),
 			},
 			wantErr: []analyzer.AnalyzerErrorKind{
-				analyzer.ErrTypeNotFound{Name: "Other"},
+				errTypeNotAllowed{},
 			},
 		},
 	} {

@@ -28,8 +28,8 @@ func (self ValidMapArguments) Analyze(context *analyzer.AnalyzerContext) {
 
 			keyArgument := stmt.ValueType.Args[0]
 			valueArgument := stmt.ValueType.Args[1]
-			verifyFieldType(&keyArgument, context) // maybe there is a cleaner way?
-			verifyFieldType(&valueArgument, context)
+			verifyFieldType(&keyArgument, context, object) // maybe there is a cleaner way?
+			verifyFieldType(&valueArgument, context, object)
 		}
 	})
 }

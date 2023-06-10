@@ -26,7 +26,7 @@ func (self ValidListArguments) Analyze(context *analyzer.AnalyzerContext) {
 			}
 
 			typeArgument := stmt.ValueType.Args[0]
-			verifyFieldType(&typeArgument, context) // maybe there is a cleaner way?
+			verifyFieldType(&typeArgument, context, object) // maybe there is a cleaner way?
 		}
 	})
 }
