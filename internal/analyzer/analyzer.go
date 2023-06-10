@@ -31,9 +31,20 @@ type AnalyzerContext struct {
 	errors *AnalyzerErrorCollection
 }
 
+// RuleThrow identifies the type of error thrown by a rule
+type RuleThrow int8
+
+const (
+	Error   RuleThrow = 1 // Error prevents the project to be compiled
+	Warning RuleThrow = 2 // Warning is shown as an improvement
+)
+
 // AnalyzerRule is the base interface for every rule.
 type AnalyzerRule interface {
 	Analyze(context *AnalyzerContext)
+
+	// Throws indicates what kind of error is thrown by the rule
+	Throws() RuleThrow
 }
 
 // NewAnalyzerContext creates a new AnalyzerContext

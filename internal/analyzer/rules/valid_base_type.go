@@ -26,6 +26,10 @@ func (self ValidBaseType) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
+func (self ValidBaseType) Throws() analyzer.RuleThrow {
+	return analyzer.Error
+}
+
 type errWrongBaseType struct {
 	TypeName string
 }

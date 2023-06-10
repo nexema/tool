@@ -29,6 +29,10 @@ func (self DuplicatedDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
+func (self DuplicatedDefaultValue) Throws() analyzer.RuleThrow {
+	return analyzer.Error
+}
+
 type errDuplicatedDefaultValue struct {
 	FieldName string
 }

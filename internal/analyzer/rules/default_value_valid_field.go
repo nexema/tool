@@ -34,6 +34,10 @@ func (self DefaultValueValidField) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
+func (self DefaultValueValidField) Throws() analyzer.RuleThrow {
+	return analyzer.Error
+}
+
 type errDefaultValueValidField struct {
 	FieldName string
 }
