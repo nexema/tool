@@ -117,6 +117,7 @@ func NewFieldStmt(name string, index int, valueType *parser.DeclStmt) parser.Fie
 func NewDeclStmt(value string, alias string, args []string, nullable bool) *parser.DeclStmt {
 	var arguments []parser.DeclStmt
 	if args != nil {
+		arguments = make([]parser.DeclStmt, len(args))
 		for i, arg := range args {
 			arguments[i] = *NewDeclStmt(arg, "", nil, false)
 		}

@@ -135,6 +135,10 @@ func (self *AnalyzerContext) RunOver(callback func(object *scope.Object, source 
 	}
 }
 
+func (self *AnalyzerContext) RunRule(ruleName string) {
+
+}
+
 func (self *AnalyzerContext) Scope() *scope.LocalScope {
 	return self.scope
 }

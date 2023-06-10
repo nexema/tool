@@ -478,3 +478,83 @@ func TestRule_ValidFieldType(t *testing.T) {
 		})
 	}
 }
+
+func TestRule_ValidListArguments(t *testing.T) {
+
+	for _, test := range []struct {
+		name    string
+		input   []*parser.TypeStmt
+		wantErr []analyzer.AnalyzerErrorKind
+	}{
+		{
+			name: "valid list field",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("list", "", []string{"string"}, false)).Result()).
+					Field(utils.NewFieldBuilder("b").ValueType(utils.NewDeclStmt("list", "", []string{"Other"}, false)).Result()).
+					Result(),
+
+				utils.NewTypeBuilder("Other").
+					Modifier(token.Enum).
+					Result(),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "invalid length",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("list", "", []string{"string", "bool"}, false)).Result()).
+					Result(),
+				utils.NewTypeBuilder("Test2").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("list", "", []string{}, false)).Result()).
+					Result(),
+			},
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errInvalidListArgumentsLen{Given: 2},
+				errInvalidListArgumentsLen{Given: 0},
+			},
+		},
+		{
+			name: "invalid argument type",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("list", "", []string{"Unknown"}, false)).Result()).
+					Result(),
+			},
+			wantErr: []analyzer.AnalyzerErrorKind{
+				analyzer.ErrTypeNotFound{Name: "Unknown"},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file := &parser.File{Path: "test"}
+			rule := &ValidListArguments{}
+			objs := map[string]*scope.Object{}
+			for _, stmt := range test.input {
+				obj := scope.NewObject(*stmt)
+				objs[obj.Name] = obj
+			}
+
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+
+			rule.Analyze(context)
+			errors := context.Errors()
+
+			if len(test.wantErr) > 0 && errors.IsEmpty() {
+				t.Errorf("expected errors (%#v) but got none", test.wantErr)
+			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
+				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *analyzer.AnalyzerError) {
+					gotErrors = append(gotErrors, err.Kind)
+				})
+
+				require.Equal(t, test.wantErr, gotErrors)
+			}
+		})
+	}
+}

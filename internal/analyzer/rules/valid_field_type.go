@@ -13,22 +13,25 @@ type ValidFieldType struct{}
 func (self ValidFieldType) Analyze(context *analyzer.AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
-
-			// this should not happen
-			if stmt.ValueType == nil {
-				panic("this should not happen, field does not have a defined value type?")
-			}
-
-			typeName, _ := stmt.ValueType.Format()
-			_, valid := definition.ParsePrimitive(typeName)
-
-			if valid {
-				continue
-			} else {
-				context.GetObject(stmt.ValueType)
-			}
+			verifyFieldType(stmt.ValueType, context)
 		}
 	})
+}
+
+func verifyFieldType(stmt *parser.DeclStmt, context *analyzer.AnalyzerContext) {
+	// this should not happen
+	if stmt == nil {
+		panic("this should not happen, field does not have a defined value type?")
+	}
+
+	typeName, _ := stmt.Format()
+	_, valid := definition.ParsePrimitive(typeName)
+
+	if valid {
+		return
+	} else {
+		context.GetObject(stmt)
+	}
 }
 
 func (self ValidFieldType) Throws() analyzer.RuleThrow {
