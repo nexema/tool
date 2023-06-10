@@ -749,3 +749,63 @@ func TestRule_ValidMapKey(t *testing.T) {
 		})
 	}
 }
+
+func TestRule_NonNullableUnionField(t *testing.T) {
+
+	for _, test := range []struct {
+		name    string
+		input   *parser.TypeStmt
+		wantErr []analyzer.AnalyzerErrorKind
+	}{
+		{
+			name: "valid union fields",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Union).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"string", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("b").ValueType(utils.NewDeclStmt("string", "", []string{}, false)).Result()).
+				Field(utils.NewFieldBuilder("c").ValueType(utils.NewDeclStmt("bool", "", []string{}, false)).Result()).
+				Result(),
+
+			wantErr: nil,
+		},
+		{
+			name: "nullable union fields",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Union).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"string", "string"}, true)).Result()).
+				Field(utils.NewFieldBuilder("b").ValueType(utils.NewDeclStmt("string", "", []string{}, true)).Result()).
+				Field(utils.NewFieldBuilder("c").ValueType(utils.NewDeclStmt("bool", "", []string{}, true)).Result()).
+				Result(),
+
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errNonNullableUnionField{},
+				errNonNullableUnionField{},
+				errNonNullableUnionField{},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file := &parser.File{Path: "test"}
+			rule := &NonNullableUnionField{}
+			obj := scope.NewObject(*test.input)
+
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+				obj.Name: obj,
+			}))
+
+			rule.Analyze(context)
+			errors := context.Errors()
+
+			if len(test.wantErr) > 0 && errors.IsEmpty() {
+				t.Errorf("expected errors (%#v) but got none", test.wantErr)
+			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
+				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *analyzer.AnalyzerError) {
+					gotErrors = append(gotErrors, err.Kind)
+				})
+
+				require.Equal(t, test.wantErr, gotErrors)
+			}
+		})
+	}
+}
