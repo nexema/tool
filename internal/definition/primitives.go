@@ -30,6 +30,8 @@ var mapping map[string]ValuePrimitive = map[string]ValuePrimitive{
 	"bool":      Boolean,
 	"varint":    Int,
 	"uvarint":   Uint,
+	"int":       Int,
+	"uint":      Uint,
 	"int8":      Int8,
 	"int16":     Int16,
 	"int32":     Int32,

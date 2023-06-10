@@ -131,6 +131,31 @@ func NewDeclStmt(value string, alias string, args []string, nullable bool) *pars
 	}
 }
 
+func NewSimpleDeclStmt(value string, nullable bool) *parser.DeclStmt {
+
+	return &parser.DeclStmt{
+		Token:    *token.NewToken(token.Ident, value),
+		Nullable: nullable,
+	}
+}
+
+func NewFullDeclStmt(value string, alias string, args []parser.DeclStmt, nullable bool) *parser.DeclStmt {
+	var arguments []parser.DeclStmt
+	if args != nil {
+		arguments = make([]parser.DeclStmt, len(args))
+		for i, arg := range args {
+			arguments[i] = arg
+		}
+	}
+
+	return &parser.DeclStmt{
+		Token:    *token.NewToken(token.Ident, value),
+		Args:     arguments,
+		Nullable: nullable,
+		Alias:    NewIdentStmt(alias),
+	}
+}
+
 func NewTypeStmt(name string, modifier token.TokenKind, fields []parser.FieldStmt, defaults map[string]any) *parser.TypeStmt {
 	var defaultsToken []parser.AssignStmt
 	if defaults != nil {

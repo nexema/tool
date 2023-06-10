@@ -19,10 +19,6 @@ func (self ValidFieldType) Analyze(context *analyzer.AnalyzerContext) {
 }
 
 func verifyFieldType(stmt *parser.DeclStmt, context *analyzer.AnalyzerContext) {
-	// this should not happen
-	if stmt == nil {
-		panic("this should not happen, field does not have a defined value type?")
-	}
 
 	typeName, _ := stmt.Format()
 	_, valid := definition.ParsePrimitive(typeName)

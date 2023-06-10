@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"tomasweigenast.com/nexema/tool/internal/analyzer"
+	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
@@ -626,6 +627,111 @@ func TestRule_ValidMapArguments(t *testing.T) {
 			}
 
 			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+
+			rule.Analyze(context)
+			errors := context.Errors()
+
+			if len(test.wantErr) > 0 && errors.IsEmpty() {
+				t.Errorf("expected errors (%#v) but got none", test.wantErr)
+			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
+				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *analyzer.AnalyzerError) {
+					gotErrors = append(gotErrors, err.Kind)
+				})
+
+				require.Equal(t, test.wantErr, gotErrors)
+			}
+		})
+	}
+}
+
+func TestRule_ValidMapKey(t *testing.T) {
+
+	for _, test := range []struct {
+		name    string
+		input   *parser.TypeStmt
+		wantErr []analyzer.AnalyzerErrorKind
+	}{
+		{
+			name: "valid map key",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"string", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"bool", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"uvarint", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"uint8", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"uint16", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"uint32", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"uint64", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"varint", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"int16", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"int32", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"int64", "string"}, false)).Result()).
+				Result(),
+
+			wantErr: nil,
+		},
+		{
+			name: "invalid map key",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"float32", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"float64", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"timestamp", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"duration", "string"}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"Other", "string"}, false)).Result()).
+				Result(),
+
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errInvalidMapKey{GivenType: definition.Float32},
+				errInvalidMapKey{GivenType: definition.Float64},
+				errInvalidMapKey{GivenType: definition.Timestamp},
+				errInvalidMapKey{GivenType: definition.Duration},
+				errInvalidMapKey{},
+			},
+		},
+		{
+			name: "non nullable keys",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("string", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("bool", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("uvarint", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("uint8", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("uint16", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("uint32", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("uint64", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("varint", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("int8", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("int16", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("int32", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("int64", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
+				Result(),
+
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errInvalidMapKey{GivenType: definition.String},
+				errInvalidMapKey{GivenType: definition.Boolean},
+				errInvalidMapKey{GivenType: definition.Uint},
+				errInvalidMapKey{GivenType: definition.Uint8},
+				errInvalidMapKey{GivenType: definition.Uint16},
+				errInvalidMapKey{GivenType: definition.Uint32},
+				errInvalidMapKey{GivenType: definition.Uint64},
+				errInvalidMapKey{GivenType: definition.Int},
+				errInvalidMapKey{GivenType: definition.Int8},
+				errInvalidMapKey{GivenType: definition.Int16},
+				errInvalidMapKey{GivenType: definition.Int32},
+				errInvalidMapKey{GivenType: definition.Int64},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file := &parser.File{Path: "test"}
+			rule := &ValidMapKey{}
+			obj := scope.NewObject(*test.input)
+
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+				obj.Name: obj,
+			}))
 
 			rule.Analyze(context)
 			errors := context.Errors()

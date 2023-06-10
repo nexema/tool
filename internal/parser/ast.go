@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
@@ -177,6 +178,16 @@ func (self *DeclStmt) Format() (name, alias string) {
 	}
 
 	return
+}
+
+func (self *DeclStmt) Is(primitive definition.ValuePrimitive) bool {
+	name := self.Token.Literal
+	prim, ok := definition.ParsePrimitive(name)
+	if ok && primitive == prim {
+		return true
+	}
+
+	return false
 }
 
 func mapArray[T any, O any](in []T, f func(T) O) []O {

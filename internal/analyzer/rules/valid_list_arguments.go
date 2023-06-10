@@ -16,20 +16,7 @@ func (self ValidListArguments) Analyze(context *analyzer.AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
 
-			// this should not happen
-			if stmt.ValueType == nil {
-				panic("this should not happen, field does not have a defined value type?")
-			}
-
-			valueType, _ := stmt.ValueType.Format()
-			primitive, ok := definition.ParsePrimitive(valueType)
-
-			// checked by other rule
-			if !ok {
-				continue
-			}
-
-			if primitive != definition.List {
+			if !stmt.ValueType.Is(definition.List) {
 				continue
 			}
 
