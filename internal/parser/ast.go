@@ -6,7 +6,6 @@ import (
 
 	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
-	"tomasweigenast.com/nexema/tool/internal/utils"
 )
 
 type File struct {
@@ -142,13 +141,13 @@ func (self StringLiteral) Value() interface{} {
 }
 
 func (self ListLiteral) Literal() string {
-	return fmt.Sprintf("[%v]", strings.Join(utils.MapArray(self, func(elem LiteralStmt) string {
+	return fmt.Sprintf("[%v]", strings.Join(mapArray(self, func(elem LiteralStmt) string {
 		return fmt.Sprint(elem.Kind.Value())
 	}), ", "))
 }
 
 func (self ListLiteral) Value() interface{} {
-	return utils.MapArray(self, func(elem LiteralStmt) interface{} {
+	return mapArray(self, func(elem LiteralStmt) interface{} {
 		return elem.Kind.Value()
 	})
 }
@@ -178,6 +177,15 @@ func (self *DeclStmt) Format() (name, alias string) {
 	}
 
 	return
+}
+
+func mapArray[T any, O any](in []T, f func(T) O) []O {
+	out := make([]O, len(in))
+	for i, elem := range in {
+		out[i] = f(elem)
+	}
+
+	return out
 }
 
 func MakeBooleanLiteral(v bool) BooleanLiteral {

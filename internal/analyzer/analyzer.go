@@ -5,10 +5,9 @@ import (
 	"path"
 
 	"github.com/mitchellh/hashstructure/v2"
-	analyzer_error "tomasweigenast.com/nexema/tool/internal/analyzer/error"
-	"tomasweigenast.com/nexema/tool/internal/analyzer/rules"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
@@ -16,25 +15,38 @@ import (
 // Also, if analysis succeed, a definition is built
 type Analyzer struct {
 	scopes []*scope.Scope
-	errors *analyzer_error.AnalyzerErrorCollection
+	errors *AnalyzerErrorCollection
 
 	currScope      *scope.Scope
 	currLocalScope *scope.LocalScope
 	currTypeId     string
 	files          []definition.NexemaFile
 
-	rules map[rules.RuleType]*rules.AnalyzerRuleCollection
+	rules map[string]AnalyzerRule // the list of rules. key is the name of the rule and the value the actual rule executor
+}
+
+// AnalyzerContext provides a method to report errors in an analyzer rule, as well provides the parsed scopes to the rule.
+type AnalyzerContext struct {
+	scope  *scope.LocalScope
+	errors *AnalyzerErrorCollection
+}
+
+// AnalyzerRule is the base interface for every rule.
+type AnalyzerRule interface {
+	Analyze(context *AnalyzerContext)
+}
+
+// NewAnalyzerContext creates a new AnalyzerContext
+func NewAnalyzerContext(scope *scope.LocalScope) *AnalyzerContext {
+	return &AnalyzerContext{scope, NewAnalyzerErrorCollection()}
 }
 
 func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 	analyzer := &Analyzer{
 		scopes: scopes,
-		errors: analyzer_error.NewAnalyzerErrorCollection(),
+		errors: NewAnalyzerErrorCollection(),
 		files:  make([]definition.NexemaFile, 0),
-	}
-
-	analyzer.rules = map[rules.RuleType]*rules.AnalyzerRuleCollection{
-		rules.TypeStatementRules: rules.GetTypeStatementRules(analyzer.getObject),
+		rules:  make(map[string]AnalyzerRule),
 	}
 
 	return analyzer
@@ -66,18 +78,13 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 	for _, obj := range *ls.Objects() {
 		self.currTypeId = obj.Id
 
-		for _, rule := range self.rules[rules.TypeStatementRules].Rules {
-			rule.Validate(obj.Source())
+		for _, rule := range self.rules {
+			context := &AnalyzerContext{
+				scope:  ls,
+				errors: NewAnalyzerErrorCollection(),
+			}
+			rule.Analyze(context)
 		}
-
-		// rule := rules.ValidBaseType{ResolveObject: self.getObject}
-		// rule.Validate(obj.Source())
-
-		// typeAnalyzer := newTypeAnalyzer(self, obj.Source())
-		// def := self.analyzeTypeStmt(obj.Source())
-		// if def != nil {
-		// 	nexFile.Types = append(nexFile.Types, *def)
-		// }
 	}
 
 	var err error
@@ -90,15 +97,15 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 	self.files = append(self.files, nexFile)
 }
 
-// getObject under the hood calls FindOjbect on self.currLocalScope and reports any error if any
-func (self *Analyzer) getObject(decl *parser.DeclStmt) *scope.Object {
+// GetObject under the hood calls FindOjbect on self.currLocalScope and reports any error if any
+func (self *AnalyzerContext) GetObject(decl *parser.DeclStmt) *scope.Object {
 	name, alias := decl.Format()
-	obj, needAlias := self.currLocalScope.FindObject(name, alias)
+	obj, needAlias := self.scope.FindObject(name, alias)
 	if obj == nil {
 		if needAlias {
-			self.errors.Push(analyzer_error.ErrNeedAlias{}, decl.Pos)
+			self.errors.Push(ErrNeedAlias{}, decl.Pos)
 		} else {
-			self.errors.Push(analyzer_error.ErrTypeNotFound{name, alias}, decl.Pos)
+			self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, decl.Pos)
 		}
 	} else {
 		// todo: may this check if obj is Base and don't allow it to use
@@ -106,4 +113,22 @@ func (self *Analyzer) getObject(decl *parser.DeclStmt) *scope.Object {
 	}
 
 	return nil
+}
+
+func (self *AnalyzerContext) RunOver(callback func(object *scope.Object, source *parser.TypeStmt)) {
+	for _, obj := range *self.scope.Objects() {
+		callback(obj, obj.Source())
+	}
+}
+
+func (self *AnalyzerContext) Scope() *scope.LocalScope {
+	return self.scope
+}
+
+func (self *AnalyzerContext) ReportError(err AnalyzerErrorKind, at reference.Pos) {
+	self.errors.Push(err, at)
+}
+
+func (self *AnalyzerContext) Errors() *AnalyzerErrorCollection {
+	return self.errors
 }
