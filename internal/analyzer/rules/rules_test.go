@@ -377,3 +377,104 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 		})
 	}
 }
+
+func TestRule_ValidFieldType(t *testing.T) {
+
+	for _, test := range []struct {
+		name    string
+		input   []*parser.TypeStmt
+		wantErr []analyzer.AnalyzerErrorKind
+	}{
+		{
+			name: "valid nexema fields",
+			input: []*parser.TypeStmt{utils.NewTypeBuilder("Test").
+				Modifier(token.Struct).
+				Field(utils.NewFieldBuilder("a").BasicValueType("string", false).Result()).
+				Field(utils.NewFieldBuilder("b").BasicValueType("bool", false).Result()).
+				Field(utils.NewFieldBuilder("c").BasicValueType("varint", false).Result()).
+				Field(utils.NewFieldBuilder("d").BasicValueType("uvarint", false).Result()).
+				Field(utils.NewFieldBuilder("e").BasicValueType("int8", false).Result()).
+				Field(utils.NewFieldBuilder("f").BasicValueType("int16", false).Result()).
+				Field(utils.NewFieldBuilder("g").BasicValueType("int32", false).Result()).
+				Field(utils.NewFieldBuilder("h").BasicValueType("int64", false).Result()).
+				Field(utils.NewFieldBuilder("i").BasicValueType("uint8", false).Result()).
+				Field(utils.NewFieldBuilder("j").BasicValueType("uint16", false).Result()).
+				Field(utils.NewFieldBuilder("k").BasicValueType("uint32", false).Result()).
+				Field(utils.NewFieldBuilder("l").BasicValueType("uint64", false).Result()).
+				Field(utils.NewFieldBuilder("m").BasicValueType("float32", false).Result()).
+				Field(utils.NewFieldBuilder("n").BasicValueType("float64", false).Result()).
+				Field(utils.NewFieldBuilder("o").BasicValueType("timestamp", false).Result()).
+				Field(utils.NewFieldBuilder("p").BasicValueType("duration", false).Result()).
+				Result()},
+			wantErr: nil,
+		},
+		{
+			name: "valid custom value type",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
+					Result(),
+
+				utils.NewTypeBuilder("Other").
+					Modifier(token.Enum).
+					Result(),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "unknown value type",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
+					Result(),
+			},
+			wantErr: []analyzer.AnalyzerErrorKind{
+				analyzer.ErrTypeNotFound{Name: "Other"},
+			},
+		},
+		{
+			name: "custom value type from other file",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
+					Result(),
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
+					Result(),
+			},
+			wantErr: []analyzer.AnalyzerErrorKind{
+				analyzer.ErrTypeNotFound{Name: "Other"},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file := &parser.File{Path: "test"}
+			rule := &ValidFieldType{}
+			objs := map[string]*scope.Object{}
+			for _, stmt := range test.input {
+				obj := scope.NewObject(*stmt)
+				objs[obj.Name] = obj
+			}
+
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+
+			rule.Analyze(context)
+			errors := context.Errors()
+
+			if len(test.wantErr) > 0 && errors.IsEmpty() {
+				t.Errorf("expected errors (%#v) but got none", test.wantErr)
+			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
+				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *analyzer.AnalyzerError) {
+					gotErrors = append(gotErrors, err.Kind)
+				})
+
+				require.Equal(t, test.wantErr, gotErrors)
+			}
+		})
+	}
+}
