@@ -306,3 +306,81 @@ func TestRule_ValidBaseType(t *testing.T) {
 		})
 	}
 }
+
+func TestRule_UniqueFieldIndex(t *testing.T) {
+
+	for _, test := range []struct {
+		name    string
+		input   []*parser.TypeStmt
+		wantErr []analyzer.AnalyzerErrorKind
+	}{
+		{
+			name: "valid Base type",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Base("Target").
+					Result(),
+
+				utils.NewTypeBuilder("Target").
+					Modifier(token.Base).
+					Result(),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "invalid Base type",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Base("Target").
+					Result(),
+
+				utils.NewTypeBuilder("Target").
+					Modifier(token.Enum).
+					Result(),
+			},
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errWrongBaseType{TypeName: "Target"},
+			},
+		},
+		{
+			name: "invalid Base type",
+			input: []*parser.TypeStmt{
+				utils.NewTypeBuilder("Test").
+					Modifier(token.Struct).
+					Base("Target").
+					Result(),
+			},
+			wantErr: []analyzer.AnalyzerErrorKind{
+				analyzer.ErrTypeNotFound{Name: "Target"},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file := &parser.File{Path: "test"}
+			rule := &ValidBaseType{}
+			objs := map[string]*scope.Object{}
+			for _, stmt := range test.input {
+				obj := scope.NewObject(*stmt)
+				objs[obj.Name] = obj
+			}
+
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+
+			rule.Analyze(context)
+			errors := context.Errors()
+
+			if len(test.wantErr) > 0 && errors.IsEmpty() {
+				t.Errorf("expected errors (%v) but got none", test.wantErr)
+			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
+				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *analyzer.AnalyzerError) {
+					gotErrors = append(gotErrors, err.Kind)
+				})
+
+				require.Equal(t, test.wantErr, gotErrors)
+			}
+		})
+	}
+}
