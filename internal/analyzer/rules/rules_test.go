@@ -805,3 +805,90 @@ func TestRule_NonNullableUnionField(t *testing.T) {
 		})
 	}
 }
+
+func TestRule_SubsequentFieldIndex(t *testing.T) {
+
+	for _, test := range []struct {
+		name    string
+		input   *parser.TypeStmt
+		wantErr []analyzer.AnalyzerErrorKind
+	}{
+		{
+			name: "valid subsequent indexes",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Union).
+				Field(utils.NewFieldBuilder("a").Index(0).Result()).
+				Field(utils.NewFieldBuilder("a").Index(1).Result()).
+				Field(utils.NewFieldBuilder("a").Index(2).Result()).
+				Field(utils.NewFieldBuilder("a").Result()).
+				Field(utils.NewFieldBuilder("a").Index(4).Result()).
+				Result(),
+
+			wantErr: nil,
+		},
+		{
+			name: "not starting from zero",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Union).
+				Field(utils.NewFieldBuilder("a").Index(1).Result()).
+				Field(utils.NewFieldBuilder("a").Index(2).Result()).
+				Result(),
+
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errFirstFieldNotZero{Given: 1},
+			},
+		},
+		{
+			name: "not subsequent",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Union).
+				Field(utils.NewFieldBuilder("a").Index(0).Result()).
+				Field(utils.NewFieldBuilder("a").Index(2).Result()).
+				Field(utils.NewFieldBuilder("a").Index(4).Result()).
+				Result(),
+
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errNonSubsequentFieldIndex{FieldIndex: 2},
+				errNonSubsequentFieldIndex{FieldIndex: 4},
+			},
+		},
+		{
+			name: "not subsequent implicit",
+			input: utils.NewTypeBuilder("Test").
+				Modifier(token.Union).
+				Field(utils.NewFieldBuilder("a").Result()).
+				Field(utils.NewFieldBuilder("a").Index(2).Result()).
+				Field(utils.NewFieldBuilder("a").Index(4).Result()).
+				Result(),
+
+			wantErr: []analyzer.AnalyzerErrorKind{
+				errNonSubsequentFieldIndex{FieldIndex: 2},
+				errNonSubsequentFieldIndex{FieldIndex: 4},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file := &parser.File{Path: "test"}
+			rule := &SubsequentFieldIndex{}
+			obj := scope.NewObject(*test.input)
+
+			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+				obj.Name: obj,
+			}))
+
+			rule.Analyze(context)
+			errors := context.Errors()
+
+			if len(test.wantErr) > 0 && errors.IsEmpty() {
+				t.Errorf("expected errors (%#v) but got none", test.wantErr)
+			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
+				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *analyzer.AnalyzerError) {
+					gotErrors = append(gotErrors, err.Kind)
+				})
+
+				require.Equal(t, test.wantErr, gotErrors)
+			}
+		})
+	}
+}

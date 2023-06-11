@@ -1,5 +1,7 @@
 package utils
 
+import "strconv"
+
 func Find[T any](arr *[]T, predicate func(*T) bool) *T {
 	for _, elem := range *arr {
 		if predicate(&elem) {
@@ -18,4 +20,9 @@ func Contains[T comparable](arr *[]T, elem T) bool {
 	}
 
 	return false
+}
+
+func ToInt(s string) int {
+	i, _ := strconv.Atoi(s)
+	return i
 }
