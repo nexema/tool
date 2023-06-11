@@ -1,4 +1,4 @@
-package rules
+package analyzer_rules
 
 import (
 	"fmt"

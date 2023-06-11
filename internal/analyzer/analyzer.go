@@ -50,6 +50,15 @@ type AnalyzerRule interface {
 	Key() string
 }
 
+var defaultRules map[string]AnalyzerRule
+
+func init() {
+	defaultRules = make(map[string]AnalyzerRule)
+
+	// uniqueFieldName := rules.UniqueFieldName{}
+
+}
+
 // NewAnalyzerContext creates a new AnalyzerContext
 func NewAnalyzerContext(scope *scope.LocalScope) *AnalyzerContext {
 	return &AnalyzerContext{scope, NewAnalyzerErrorCollection()}
@@ -60,7 +69,7 @@ func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 		scopes: scopes,
 		errors: NewAnalyzerErrorCollection(),
 		files:  make([]definition.NexemaFile, 0),
-		rules:  make(map[string]AnalyzerRule),
+		rules:  defaultRules,
 	}
 
 	return analyzer
