@@ -1,7 +1,6 @@
-package analyzer_rules
+package analyzer
 
 import (
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
@@ -10,7 +9,7 @@ import (
 // ValidFieldType checks if the value type of a field is a valid Nexema type or an imported type
 type ValidFieldType struct{}
 
-func (self ValidFieldType) Analyze(context *analyzer.AnalyzerContext) {
+func (self ValidFieldType) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
 			verifyFieldType(stmt.ValueType, context, object)
@@ -18,7 +17,7 @@ func (self ValidFieldType) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func verifyFieldType(stmt *parser.DeclStmt, context *analyzer.AnalyzerContext, object *scope.Object) {
+func verifyFieldType(stmt *parser.DeclStmt, context *AnalyzerContext, object *scope.Object) {
 
 	typeName, _ := stmt.Format()
 	_, valid := definition.ParsePrimitive(typeName)
@@ -33,8 +32,8 @@ func verifyFieldType(stmt *parser.DeclStmt, context *analyzer.AnalyzerContext, o
 	}
 }
 
-func (self ValidFieldType) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self ValidFieldType) Throws() RuleThrow {
+	return Error
 }
 
 func (self ValidFieldType) Key() string {

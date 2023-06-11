@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
@@ -12,7 +11,7 @@ import (
 // ValidListArguments checks if the value type defined as list contains exactly one type argument and also it is a valid Nexema value type
 type ValidListArguments struct{}
 
-func (self ValidListArguments) Analyze(context *analyzer.AnalyzerContext) {
+func (self ValidListArguments) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
 
@@ -31,8 +30,8 @@ func (self ValidListArguments) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self ValidListArguments) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self ValidListArguments) Throws() RuleThrow {
+	return Error
 }
 
 func (self ValidListArguments) Key() string {

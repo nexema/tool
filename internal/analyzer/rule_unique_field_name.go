@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
@@ -11,7 +10,7 @@ import (
 // UniqueFieldName checks if field names defined in a struct are not duplicated
 type UniqueFieldName struct{}
 
-func (self UniqueFieldName) Analyze(context *analyzer.AnalyzerContext) {
+func (self UniqueFieldName) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		check := map[string]bool{}
 		for _, stmt := range source.Fields {
@@ -25,8 +24,8 @@ func (self UniqueFieldName) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self UniqueFieldName) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self UniqueFieldName) Throws() RuleThrow {
+	return Error
 }
 
 func (self UniqueFieldName) Key() string {

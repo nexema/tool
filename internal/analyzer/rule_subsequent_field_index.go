@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/utils"
@@ -12,7 +11,7 @@ import (
 // SubsequentFieldIndex checks if field indexes are subsequent and start from 0
 type SubsequentFieldIndex struct{}
 
-func (self SubsequentFieldIndex) Analyze(context *analyzer.AnalyzerContext) {
+func (self SubsequentFieldIndex) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		if len(source.Fields) == 0 {
 			return
@@ -45,8 +44,8 @@ func (self SubsequentFieldIndex) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self SubsequentFieldIndex) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self SubsequentFieldIndex) Throws() RuleThrow {
+	return Error
 }
 
 func (self SubsequentFieldIndex) Key() string {

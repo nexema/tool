@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
@@ -27,7 +26,7 @@ var availableKeyTypes = map[definition.ValuePrimitive]bool{
 	definition.Int64:   true,
 }
 
-func (self ValidMapKey) Analyze(context *analyzer.AnalyzerContext) {
+func (self ValidMapKey) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
 
@@ -50,8 +49,8 @@ func (self ValidMapKey) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self ValidMapKey) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self ValidMapKey) Throws() RuleThrow {
+	return Error
 }
 
 func (self ValidMapKey) Key() string {

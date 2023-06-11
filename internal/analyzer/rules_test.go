@@ -1,10 +1,9 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
@@ -17,7 +16,7 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "field exists",
@@ -41,7 +40,7 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 					Result()).
 				Default("b", "hello").
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDefaultValueValidField{FieldName: "b"},
 			},
 		},
@@ -60,7 +59,7 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 				Default("b", "hello").
 				Default("c", "holla").
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDefaultValueValidField{FieldName: "c"},
 			},
 		},
@@ -69,7 +68,7 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 			file := &parser.File{Path: "test"}
 			rule := &DefaultValueValidField{}
 			obj := scope.NewObject(*test.input)
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -79,8 +78,8 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -95,7 +94,7 @@ func TestRule_UniqueDefaultValue(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "no duplicated default values",
@@ -115,7 +114,7 @@ func TestRule_UniqueDefaultValue(t *testing.T) {
 				Default("a", "hello").
 				Default("a", true).
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDuplicatedDefaultValue{FieldName: "a"},
 			},
 		},
@@ -129,7 +128,7 @@ func TestRule_UniqueDefaultValue(t *testing.T) {
 				Default("b", true).
 				Default("b", float64(5.5)).
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDuplicatedDefaultValue{FieldName: "a"},
 				errDuplicatedDefaultValue{FieldName: "b"},
 			},
@@ -139,7 +138,7 @@ func TestRule_UniqueDefaultValue(t *testing.T) {
 			file := &parser.File{Path: "test"}
 			rule := &UniqueDefaultValue{}
 			obj := scope.NewObject(*test.input)
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -149,8 +148,8 @@ func TestRule_UniqueDefaultValue(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -165,7 +164,7 @@ func TestRule_UniqueFieldName(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "no duplicated fields",
@@ -185,7 +184,7 @@ func TestRule_UniqueFieldName(t *testing.T) {
 				Field(utils.NewFieldBuilder("b").Result()).
 				Field(utils.NewFieldBuilder("a").Result()).
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDuplicatedFieldName{FieldName: "a"},
 			},
 		},
@@ -199,7 +198,7 @@ func TestRule_UniqueFieldName(t *testing.T) {
 				Field(utils.NewFieldBuilder("c").Result()).
 				Field(utils.NewFieldBuilder("c").Result()).
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDuplicatedFieldName{FieldName: "a"},
 				errDuplicatedFieldName{FieldName: "c"},
 			},
@@ -209,7 +208,7 @@ func TestRule_UniqueFieldName(t *testing.T) {
 			file := &parser.File{Path: "test"}
 			rule := &UniqueFieldName{}
 			obj := scope.NewObject(*test.input)
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -219,8 +218,8 @@ func TestRule_UniqueFieldName(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -235,7 +234,7 @@ func TestRule_ValidBaseType(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   []*parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid Base type",
@@ -263,7 +262,7 @@ func TestRule_ValidBaseType(t *testing.T) {
 					Modifier(token.Enum).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errWrongBaseType{TypeName: "Target"},
 			},
 		},
@@ -275,8 +274,8 @@ func TestRule_ValidBaseType(t *testing.T) {
 					Base("Target").
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
-				analyzer.ErrTypeNotFound{Name: "Target"},
+			wantErr: []AnalyzerErrorKind{
+				ErrTypeNotFound{Name: "Target"},
 			},
 		},
 	} {
@@ -289,7 +288,7 @@ func TestRule_ValidBaseType(t *testing.T) {
 				objs[obj.Name] = obj
 			}
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -297,8 +296,8 @@ func TestRule_ValidBaseType(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -313,7 +312,7 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "unique field indexes",
@@ -337,7 +336,7 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 				Field(utils.NewFieldBuilder("d").Result()).
 				Field(utils.NewFieldBuilder("e").Index(4).Result()).
 				Result(),
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errDuplicatedFieldIndex{FieldIndex: 1},
 			},
 		},
@@ -358,7 +357,7 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 			rule := &UniqueFieldIndex{}
 			obj := scope.NewObject(*test.input)
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -368,8 +367,8 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -384,7 +383,7 @@ func TestRule_ValidFieldType(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   []*parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid nexema fields",
@@ -431,8 +430,8 @@ func TestRule_ValidFieldType(t *testing.T) {
 					Field(utils.NewFieldBuilder("a").BasicValueType("Other", false).Result()).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
-				analyzer.ErrTypeNotFound{Name: "Other"},
+			wantErr: []AnalyzerErrorKind{
+				ErrTypeNotFound{Name: "Other"},
 			},
 		},
 		{
@@ -443,7 +442,7 @@ func TestRule_ValidFieldType(t *testing.T) {
 					Field(utils.NewFieldBuilder("a").BasicValueType("Test", false).Result()).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errTypeNotAllowed{},
 			},
 		},
@@ -457,7 +456,7 @@ func TestRule_ValidFieldType(t *testing.T) {
 				objs[obj.Name] = obj
 			}
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -465,8 +464,8 @@ func TestRule_ValidFieldType(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -481,7 +480,7 @@ func TestRule_ValidListArguments(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   []*parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid list field",
@@ -510,7 +509,7 @@ func TestRule_ValidListArguments(t *testing.T) {
 					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("list", "", []string{}, false)).Result()).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errInvalidListArgumentsLen{Given: 2},
 				errInvalidListArgumentsLen{Given: 0},
 			},
@@ -523,8 +522,8 @@ func TestRule_ValidListArguments(t *testing.T) {
 					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("list", "", []string{"Unknown"}, false)).Result()).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
-				analyzer.ErrTypeNotFound{Name: "Unknown"},
+			wantErr: []AnalyzerErrorKind{
+				ErrTypeNotFound{Name: "Unknown"},
 			},
 		},
 	} {
@@ -537,7 +536,7 @@ func TestRule_ValidListArguments(t *testing.T) {
 				objs[obj.Name] = obj
 			}
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -545,8 +544,8 @@ func TestRule_ValidListArguments(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -561,7 +560,7 @@ func TestRule_ValidMapArguments(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   []*parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid map field",
@@ -594,7 +593,7 @@ func TestRule_ValidMapArguments(t *testing.T) {
 					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"string", "bool", "varint"}, false)).Result()).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errInvalidMapArgumentsLen{Given: 1},
 				errInvalidMapArgumentsLen{Given: 0},
 				errInvalidMapArgumentsLen{Given: 3},
@@ -608,8 +607,8 @@ func TestRule_ValidMapArguments(t *testing.T) {
 					Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"string", "Unknown"}, false)).Result()).
 					Result(),
 			},
-			wantErr: []analyzer.AnalyzerErrorKind{
-				analyzer.ErrTypeNotFound{Name: "Unknown"},
+			wantErr: []AnalyzerErrorKind{
+				ErrTypeNotFound{Name: "Unknown"},
 			},
 		},
 	} {
@@ -622,7 +621,7 @@ func TestRule_ValidMapArguments(t *testing.T) {
 				objs[obj.Name] = obj
 			}
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -630,8 +629,8 @@ func TestRule_ValidMapArguments(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -646,7 +645,7 @@ func TestRule_ValidMapKey(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid map key",
@@ -678,7 +677,7 @@ func TestRule_ValidMapKey(t *testing.T) {
 				Field(utils.NewFieldBuilder("a").ValueType(utils.NewDeclStmt("map", "", []string{"Other", "string"}, false)).Result()).
 				Result(),
 
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errInvalidMapKey{GivenType: definition.Float32},
 				errInvalidMapKey{GivenType: definition.Float64},
 				errInvalidMapKey{GivenType: definition.Timestamp},
@@ -704,7 +703,7 @@ func TestRule_ValidMapKey(t *testing.T) {
 				Field(utils.NewFieldBuilder("a").ValueType(utils.NewFullDeclStmt("map", "", []parser.DeclStmt{*utils.NewSimpleDeclStmt("int64", true), *utils.NewSimpleDeclStmt("string", false)}, false)).Result()).
 				Result(),
 
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errInvalidMapKey{GivenType: definition.String},
 				errInvalidMapKey{GivenType: definition.Boolean},
 				errInvalidMapKey{GivenType: definition.Uint},
@@ -725,7 +724,7 @@ func TestRule_ValidMapKey(t *testing.T) {
 			rule := &ValidMapKey{}
 			obj := scope.NewObject(*test.input)
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -735,8 +734,8 @@ func TestRule_ValidMapKey(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -751,7 +750,7 @@ func TestRule_NonNullableUnionField(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid union fields",
@@ -773,7 +772,7 @@ func TestRule_NonNullableUnionField(t *testing.T) {
 				Field(utils.NewFieldBuilder("c").ValueType(utils.NewDeclStmt("bool", "", []string{}, true)).Result()).
 				Result(),
 
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errNonNullableUnionField{},
 				errNonNullableUnionField{},
 				errNonNullableUnionField{},
@@ -785,7 +784,7 @@ func TestRule_NonNullableUnionField(t *testing.T) {
 			rule := &NonNullableUnionField{}
 			obj := scope.NewObject(*test.input)
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -795,8 +794,8 @@ func TestRule_NonNullableUnionField(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 
@@ -811,7 +810,7 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		input   *parser.TypeStmt
-		wantErr []analyzer.AnalyzerErrorKind
+		wantErr []AnalyzerErrorKind
 	}{
 		{
 			name: "valid subsequent indexes",
@@ -834,7 +833,7 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 				Field(utils.NewFieldBuilder("a").Index(2).Result()).
 				Result(),
 
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errFirstFieldNotZero{Given: 1},
 			},
 		},
@@ -847,7 +846,7 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 				Field(utils.NewFieldBuilder("a").Index(4).Result()).
 				Result(),
 
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errNonSubsequentFieldIndex{FieldIndex: 2},
 				errNonSubsequentFieldIndex{FieldIndex: 4},
 			},
@@ -861,7 +860,7 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 				Field(utils.NewFieldBuilder("a").Index(4).Result()).
 				Result(),
 
-			wantErr: []analyzer.AnalyzerErrorKind{
+			wantErr: []AnalyzerErrorKind{
 				errNonSubsequentFieldIndex{FieldIndex: 2},
 				errNonSubsequentFieldIndex{FieldIndex: 4},
 			},
@@ -872,7 +871,7 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 			rule := &SubsequentFieldIndex{}
 			obj := scope.NewObject(*test.input)
 
-			context := analyzer.NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
+			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
 				obj.Name: obj,
 			}))
 
@@ -882,8 +881,8 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 			if len(test.wantErr) > 0 && errors.IsEmpty() {
 				t.Errorf("expected errors (%#v) but got none", test.wantErr)
 			} else if len(test.wantErr) > 0 && !errors.IsEmpty() {
-				gotErrors := make([]analyzer.AnalyzerErrorKind, 0)
-				errors.Iterate(func(err *analyzer.AnalyzerError) {
+				gotErrors := make([]AnalyzerErrorKind, 0)
+				errors.Iterate(func(err *AnalyzerError) {
 					gotErrors = append(gotErrors, err.Kind)
 				})
 

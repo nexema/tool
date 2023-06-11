@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
@@ -12,7 +11,7 @@ import (
 // ValidMapArguments checks if the value type defined as map contains exactly two type arguments and also they are a valid Nexema value type
 type ValidMapArguments struct{}
 
-func (self ValidMapArguments) Analyze(context *analyzer.AnalyzerContext) {
+func (self ValidMapArguments) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
 
@@ -34,8 +33,8 @@ func (self ValidMapArguments) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self ValidMapArguments) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self ValidMapArguments) Throws() RuleThrow {
+	return Error
 }
 
 func (self ValidMapArguments) Key() string {

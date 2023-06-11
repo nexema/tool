@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
@@ -11,7 +10,7 @@ import (
 // DefaultValueValidField checks if the field defined in a default value declaration exists
 type DefaultValueValidField struct{}
 
-func (self DefaultValueValidField) Analyze(context *analyzer.AnalyzerContext) {
+func (self DefaultValueValidField) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		if source.Defaults == nil || len(source.Defaults) == 0 {
 			return
@@ -34,8 +33,8 @@ func (self DefaultValueValidField) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self DefaultValueValidField) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self DefaultValueValidField) Throws() RuleThrow {
+	return Error
 }
 
 func (self DefaultValueValidField) Key() string {

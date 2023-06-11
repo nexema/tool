@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
@@ -12,7 +11,7 @@ import (
 // NonNullableUnionField checks if the fields defined in an union are not nullable
 type NonNullableUnionField struct{}
 
-func (self NonNullableUnionField) Analyze(context *analyzer.AnalyzerContext) {
+func (self NonNullableUnionField) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		if source.Modifier != token.Union {
 			return
@@ -30,8 +29,8 @@ func (self NonNullableUnionField) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self NonNullableUnionField) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self NonNullableUnionField) Throws() RuleThrow {
+	return Error
 }
 
 func (self NonNullableUnionField) Key() string {

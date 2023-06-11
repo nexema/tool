@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
@@ -11,7 +10,7 @@ import (
 // UniqueDefaultValue checks if the are no duplicated default values in a struct
 type UniqueDefaultValue struct{}
 
-func (self UniqueDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
+func (self UniqueDefaultValue) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		if source.Defaults == nil || len(source.Defaults) == 0 {
 			return
@@ -29,8 +28,8 @@ func (self UniqueDefaultValue) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self UniqueDefaultValue) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self UniqueDefaultValue) Throws() RuleThrow {
+	return Error
 }
 
 func (self UniqueDefaultValue) Key() string {

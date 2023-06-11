@@ -6,8 +6,6 @@ import (
 
 	"github.com/mitchellh/hashstructure/v2"
 	"tomasweigenast.com/nexema/tool/internal/definition"
-	"tomasweigenast.com/nexema/tool/internal/parser"
-	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
@@ -23,12 +21,6 @@ type Analyzer struct {
 	files          []definition.NexemaFile
 
 	rules map[string]AnalyzerRule // the list of rules. key is the name of the rule and the value the actual rule executor
-}
-
-// AnalyzerContext provides a method to report errors in an analyzer rule, as well provides the parsed scopes to the rule.
-type AnalyzerContext struct {
-	scope  *scope.LocalScope
-	errors *AnalyzerErrorCollection
 }
 
 // RuleThrow identifies the type of error thrown by a rule
@@ -55,13 +47,8 @@ var defaultRules map[string]AnalyzerRule
 func init() {
 	defaultRules = make(map[string]AnalyzerRule)
 
-	// uniqueFieldName := rules.UniqueFieldName{}
+	// uniqueFieldName := analyzer_rules.UniqueFieldName{}
 
-}
-
-// NewAnalyzerContext creates a new AnalyzerContext
-func NewAnalyzerContext(scope *scope.LocalScope) *AnalyzerContext {
-	return &AnalyzerContext{scope, NewAnalyzerErrorCollection()}
 }
 
 func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
@@ -118,44 +105,4 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 		panic(err)
 	}
 	self.files = append(self.files, nexFile)
-}
-
-// GetObject under the hood calls FindOjbect on self.currLocalScope and reports any error if any
-func (self *AnalyzerContext) GetObject(decl *parser.DeclStmt) *scope.Object {
-	name, alias := decl.Format()
-	obj, needAlias := self.scope.FindObject(name, alias)
-	if obj == nil {
-		if needAlias {
-			self.errors.Push(ErrNeedAlias{}, decl.Pos)
-		} else {
-			self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, decl.Pos)
-		}
-	} else {
-		// todo: may this check if obj is Base and don't allow it to use
-		return obj
-	}
-
-	return nil
-}
-
-func (self *AnalyzerContext) RunOver(callback func(object *scope.Object, source *parser.TypeStmt)) {
-	for _, obj := range *self.scope.Objects() {
-		callback(obj, obj.Source())
-	}
-}
-
-func (self *AnalyzerContext) RunRule(ruleName string) {
-
-}
-
-func (self *AnalyzerContext) Scope() *scope.LocalScope {
-	return self.scope
-}
-
-func (self *AnalyzerContext) ReportError(err AnalyzerErrorKind, at reference.Pos) {
-	self.errors.Push(err, at)
-}
-
-func (self *AnalyzerContext) Errors() *AnalyzerErrorCollection {
-	return self.errors
 }

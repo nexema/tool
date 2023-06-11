@@ -1,9 +1,8 @@
-package analyzer_rules
+package analyzer
 
 import (
 	"fmt"
 
-	"tomasweigenast.com/nexema/tool/internal/analyzer"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
@@ -12,7 +11,7 @@ import (
 // ValidBaseType checks if the extended type in a struct exists and is a valid Base type.
 type ValidBaseType struct{}
 
-func (self ValidBaseType) Analyze(context *analyzer.AnalyzerContext) {
+func (self ValidBaseType) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		src := object.Source()
 		if src.BaseType == nil {
@@ -26,8 +25,8 @@ func (self ValidBaseType) Analyze(context *analyzer.AnalyzerContext) {
 	})
 }
 
-func (self ValidBaseType) Throws() analyzer.RuleThrow {
-	return analyzer.Error
+func (self ValidBaseType) Throws() RuleThrow {
+	return Error
 }
 
 func (self ValidBaseType) Key() string {
