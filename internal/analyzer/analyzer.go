@@ -1,10 +1,6 @@
 package analyzer
 
 import (
-	"fmt"
-	"path"
-
-	"github.com/mitchellh/hashstructure/v2"
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
@@ -13,7 +9,7 @@ import (
 // Also, if analysis succeed, a definition is built
 type Analyzer struct {
 	scopes []*scope.Scope
-	errors *AnalyzerErrorCollection
+	errors []*AnalyzerError
 
 	currScope      *scope.Scope
 	currLocalScope *scope.LocalScope
@@ -47,14 +43,35 @@ var defaultRules map[string]AnalyzerRule
 func init() {
 	defaultRules = make(map[string]AnalyzerRule)
 
-	// uniqueFieldName := analyzer_rules.UniqueFieldName{}
+	defaultValueValidField := &DefaultValueValidField{}
+	nonNullableUnion := &NonNullableUnionField{}
+	subsequentFieldIndex := &SubsequentFieldIndex{}
+	uniqueDefaultValue := &UniqueDefaultValue{}
+	uniqueFieldIndex := &UniqueFieldIndex{}
+	uniqueFieldName := &UniqueFieldName{}
+	validBaseType := &ValidBaseType{}
+	validFieldType := &ValidFieldType{}
+	validListArguments := &ValidListArguments{}
+	validMapArguments := &ValidMapArguments{}
+	validMapKey := &ValidMapKey{}
 
+	defaultRules[defaultValueValidField.Key()] = defaultValueValidField
+	defaultRules[nonNullableUnion.Key()] = nonNullableUnion
+	defaultRules[subsequentFieldIndex.Key()] = subsequentFieldIndex
+	defaultRules[uniqueDefaultValue.Key()] = uniqueDefaultValue
+	defaultRules[uniqueFieldIndex.Key()] = uniqueFieldIndex
+	defaultRules[uniqueFieldName.Key()] = uniqueFieldName
+	defaultRules[validBaseType.Key()] = validBaseType
+	defaultRules[validFieldType.Key()] = validFieldType
+	defaultRules[validListArguments.Key()] = validListArguments
+	defaultRules[validMapArguments.Key()] = validMapArguments
+	defaultRules[validMapKey.Key()] = validMapKey
 }
 
 func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 	analyzer := &Analyzer{
 		scopes: scopes,
-		errors: NewAnalyzerErrorCollection(),
+		errors: make([]*AnalyzerError, 0),
 		files:  make([]definition.NexemaFile, 0),
 		rules:  defaultRules,
 	}
@@ -78,12 +95,6 @@ func (self *Analyzer) analyzeScope(s *scope.Scope) {
 
 func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 	self.currLocalScope = ls
-	file := ls.File()
-	nexFile := definition.NexemaFile{
-		Types:       make([]definition.TypeDefinition, 0),
-		Path:        file.Path,
-		PackageName: path.Base(file.Path),
-	}
 
 	for _, obj := range *ls.Objects() {
 		self.currTypeId = obj.Id
@@ -94,15 +105,7 @@ func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
 				errors: NewAnalyzerErrorCollection(),
 			}
 			rule.Analyze(context)
+			self.errors = append(self.errors, *context.Errors()...)
 		}
 	}
-
-	var err error
-	var hashcode uint64
-	hashcode, err = hashstructure.Hash(&nexFile, hashstructure.FormatV2, nil)
-	nexFile.Id = fmt.Sprint(hashcode)
-	if err != nil {
-		panic(err)
-	}
-	self.files = append(self.files, nexFile)
 }
