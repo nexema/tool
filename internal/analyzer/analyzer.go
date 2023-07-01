@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
@@ -14,7 +13,6 @@ type Analyzer struct {
 	currScope      *scope.Scope
 	currLocalScope *scope.LocalScope
 	currTypeId     string
-	files          []definition.NexemaFile
 
 	rules map[string]AnalyzerRule // the list of rules. key is the name of the rule and the value the actual rule executor
 }
@@ -72,14 +70,13 @@ func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 	analyzer := &Analyzer{
 		scopes: scopes,
 		errors: make([]*AnalyzerError, 0),
-		files:  make([]definition.NexemaFile, 0),
 		rules:  defaultRules,
 	}
 
 	return analyzer
 }
 
-// Analyze starts analyzing and logs any error encountered
+// Analyze starts analyzing and records any error encountered
 func (self *Analyzer) Analyze() {
 	for _, scope := range self.scopes {
 		self.analyzeScope(scope)
