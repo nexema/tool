@@ -1,6 +1,10 @@
 package scope
 
-import "tomasweigenast.com/nexema/tool/internal/parser"
+import (
+	"fmt"
+
+	"tomasweigenast.com/nexema/tool/internal/parser"
+)
 
 // Scope represents a collection of local scopes, a.k.a .nex files.
 // So, Scope is a Nexema package.
@@ -48,6 +52,29 @@ func (self *LocalScope) ResolvedScopes() *map[*Scope]*Import {
 
 func (self *LocalScope) File() *parser.File {
 	return self.file
+}
+
+// MustFindObject searches for an object named name with an alias in the current local scope. If the object is not found, it will throw an error.
+// Useful when scopes are analyzed first.
+func (self *LocalScope) MustFindObject(name, alias string) *Object {
+	// if alias is empty, lookup locally
+	if len(alias) == 0 {
+		localObj, ok := self.objects[name]
+		if ok {
+			return localObj
+		}
+	}
+
+	if len(self.resolvedScopes) > 0 {
+		for resolvedScope := range self.resolvedScopes {
+			matches := resolvedScope.FindObjects(name)
+			if len(matches) > 0 {
+				return matches[0]
+			}
+		}
+	}
+
+	panic(fmt.Errorf("could not find any object named %s with alias %s, please, fill an issue because this should not happen", name, alias))
 }
 
 func (self *LocalScope) FindObject(name, alias string) (obj *Object, needAlias bool) {
