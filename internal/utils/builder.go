@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
@@ -221,4 +222,24 @@ func NewLiteralStmt(value any) parser.LiteralStmt {
 	} else {
 		panic(fmt.Sprintf("unable to handle value %v when creating a LiteralStmt", value))
 	}
+}
+
+func NewUseStmt(path, alias string) *parser.UseStmt {
+	stmt := &parser.UseStmt{
+		Token: *token.NewToken(token.Use, "use"),
+		Path: parser.LiteralStmt{
+			Token: *token.NewToken(token.String),
+			Kind:  parser.MakeStringLiteral(path),
+		},
+	}
+
+	if len(alias) > 0 {
+		stmt.Alias = NewIdentStmt(alias)
+	}
+
+	return stmt
+}
+
+func NewImport(stmt *parser.UseStmt) *scope.Import {
+	return scope.NewImport(stmt)
 }

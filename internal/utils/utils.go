@@ -26,3 +26,7 @@ func ToInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
 }
+
+func StringPtr(s string) *string {
+	return &s
+}

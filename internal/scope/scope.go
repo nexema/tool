@@ -74,7 +74,7 @@ func (self *LocalScope) MustFindObject(name, alias string) *Object {
 		}
 	}
 
-	panic(fmt.Errorf("could not find any object named %s with alias %s, please, fill an issue because this should not happen", name, alias))
+	panic(fmt.Errorf("could not find any object named %s (alias=%s), please, fill an issue because this should not happen", name, alias))
 }
 
 func (self *LocalScope) FindObject(name, alias string) (obj *Object, needAlias bool) {

@@ -107,6 +107,10 @@ func (self *SchemaBuilder) buildFile(localScope *scope.LocalScope) *definition.N
 }
 
 func getComments(stmts *[]parser.CommentStmt) []string {
+	if len(*stmts) == 0 {
+		return nil
+	}
+
 	array := make([]string, len(*stmts))
 	for i, stmt := range *stmts {
 		array[i] = strings.TrimSpace(stmt.Token.Literal)
@@ -116,6 +120,10 @@ func getComments(stmts *[]parser.CommentStmt) []string {
 }
 
 func getAnnotations(stmts *[]parser.AnnotationStmt) definition.Assignments {
+	if len(*stmts) == 0 {
+		return nil
+	}
+
 	assignments := make(definition.Assignments, len(*stmts))
 	for _, stmt := range *stmts {
 		assignments[stmt.Assigment.Left.Token.Literal] = stmt.Assigment.Right.Kind.Value()
@@ -124,6 +132,10 @@ func getAnnotations(stmts *[]parser.AnnotationStmt) definition.Assignments {
 }
 
 func getDefaults(stmts *[]parser.AssignStmt) definition.Assignments {
+	if len(*stmts) == 0 {
+		return nil
+	}
+
 	assignments := make(definition.Assignments, len(*stmts))
 	for _, stmt := range *stmts {
 		assignments[stmt.Left.Token.Literal] = stmt.Right.Kind.Value()
