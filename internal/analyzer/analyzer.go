@@ -8,7 +8,7 @@ import (
 // Also, if analysis succeed, a definition is built
 type Analyzer struct {
 	scopes []*scope.Scope
-	errors []*AnalyzerError
+	errors AnalyzerErrorCollection
 
 	currScope      *scope.Scope
 	currLocalScope *scope.LocalScope
@@ -81,6 +81,14 @@ func (self *Analyzer) Analyze() {
 	for _, scope := range self.scopes {
 		self.analyzeScope(scope)
 	}
+}
+
+func (self *Analyzer) HasAnalysisErrors() bool {
+	return len(self.errors) > 0
+}
+
+func (self *Analyzer) Errors() *AnalyzerErrorCollection {
+	return &self.errors
 }
 
 func (self *Analyzer) analyzeScope(s *scope.Scope) {
