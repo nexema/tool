@@ -27,6 +27,16 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: nil,
 		},
 		{
+			name: "valid link 2",
+			input: func() *parser.ParseTree {
+				tree := parser.NewParseTree()
+				tree.Insert("common", newAst("common/entity.nex", []string{"Address", "Coordinates"}, []string{}))
+				tree.Insert("identity", newAst("identity/user.nex", []string{"User", "AccountType"}, []string{"common"}))
+				return tree
+			},
+			wantErrs: nil,
+		},
+		{
 			name: "self import",
 			input: func() *parser.ParseTree {
 				tree := parser.NewParseTree()

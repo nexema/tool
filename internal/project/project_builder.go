@@ -177,12 +177,13 @@ func (self *ProjectBuilder) parseFile(p string) error {
 
 	// todo: may reuse parser
 	packagePath, _ := filepath.Rel(self.inputPath, path.Dir(p))
+	filePath, _ := filepath.Rel(self.inputPath, p)
 	if packagePath == "." {
 		packagePath = "root"
 	}
 
-	parser := parser.NewParser(bytes.NewBuffer(fileContents), &parser.File{Path: packagePath})
-	parser.Begin()
+	parser := parser.NewParser(bytes.NewBuffer(fileContents), &parser.File{Path: filePath})
+	parser.Reset()
 
 	ast := parser.Parse()
 	self.parseTree.Insert(packagePath, ast)

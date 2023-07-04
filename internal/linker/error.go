@@ -83,7 +83,7 @@ func (self *LinkerErrorCollection) IsEmpty() bool {
 func (self *LinkerErrorCollection) Display() string {
 	out := make([]string, len(*self))
 	for i, err := range *self {
-		out[i] = fmt.Sprintf("%d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+		out[i] = fmt.Sprintf("[linker] %d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
 	}
 
 	return strings.Join(out, "\n")
