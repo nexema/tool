@@ -148,6 +148,262 @@ func TestProjectBuilder(t *testing.T) {
 				}, snapshot.Files)
 			},
 		},
+		{
+			name:      "nested paths",
+			inputPath: "./test1",
+			before: func() {
+				writeNexYaml("./test1", project.ProjectConfig{
+					Version: 1,
+				})
+				writeFile("./test1/common/entity.nex", `
+				type Entity base {
+					id string
+					created_at timestamp
+					modified_at timestamp?
+					deleted_at timestamp?
+				}
+				`)
+				writeFile("./test1/identity/user/user.nex", `
+				use "common"
+
+				type User extends Entity {
+					first_name string
+					last_name string
+					email string
+					phone_number string?
+					tags list(string)
+					preferences map(string,bool)
+				}
+				`)
+			},
+			after: func(t *testing.T, projectBuilder *project.ProjectBuilder) {
+				err := projectBuilder.Discover()
+				require.NoError(t, err)
+
+				err = projectBuilder.Build()
+				require.NoError(t, err)
+
+				err = projectBuilder.BuildSnapshot()
+				require.NoError(t, err)
+
+				snapshot := projectBuilder.GetSnapshot()
+				require.NotNil(t, snapshot)
+				require.Equal(t, []definition.NexemaFile{
+					{
+						Id:          "17079104774682735149",
+						PackageName: "common",
+						Path:        "common/entity.nex",
+						Types: []definition.TypeDefinition{
+							{
+								Id:       "7757690481152332",
+								Name:     "Entity",
+								Modifier: token.Base,
+								Fields: []*definition.FieldDefinition{
+									{
+										Index: 0,
+										Name:  "id",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 1,
+										Name:  "created_at",
+										Type:  definition.PrimitiveValueType{Primitive: definition.Timestamp},
+									},
+									{
+										Index: 2,
+										Name:  "modified_at",
+										Type:  definition.PrimitiveValueType{Primitive: definition.Timestamp, Nullable: true},
+									},
+									{
+										Index: 3,
+										Name:  "deleted_at",
+										Type:  definition.PrimitiveValueType{Primitive: definition.Timestamp, Nullable: true},
+									},
+								},
+							},
+						},
+					},
+					{
+						Id:          "405816346727507453",
+						PackageName: "user",
+						Path:        "identity/user/user.nex",
+						Types: []definition.TypeDefinition{
+							{
+								Id:       "6841242565540347458",
+								Name:     "User",
+								Modifier: token.Struct,
+								BaseType: utils.StringPtr("7757690481152332"),
+								Fields: []*definition.FieldDefinition{
+									{
+										Index: 0,
+										Name:  "first_name",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 1,
+										Name:  "last_name",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 2,
+										Name:  "email",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 3,
+										Name:  "phone_number",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String, Nullable: true},
+									},
+									{
+										Index: 4,
+										Name:  "tags",
+										Type: definition.PrimitiveValueType{Primitive: definition.List, Arguments: []definition.BaseValueType{
+											definition.PrimitiveValueType{Primitive: definition.String},
+										}},
+									},
+									{
+										Index: 5,
+										Name:  "preferences",
+										Type: definition.PrimitiveValueType{Primitive: definition.Map, Arguments: []definition.BaseValueType{
+											definition.PrimitiveValueType{Primitive: definition.String},
+											definition.PrimitiveValueType{Primitive: definition.Boolean},
+										}},
+									},
+								},
+							},
+						},
+					},
+				}, snapshot.Files)
+			},
+		},
+		{
+			name:      "import two level path",
+			inputPath: "./test2",
+			before: func() {
+				writeNexYaml("./test2", project.ProjectConfig{
+					Version: 1,
+				})
+				writeFile("./test2/common/entity/entity.nex", `
+				type Entity base {
+					id string
+					created_at timestamp
+					modified_at timestamp?
+					deleted_at timestamp?
+				}
+				`)
+				writeFile("./test2/identity/user.nex", `
+				use "common/entity"
+
+				type User extends Entity {
+					first_name string
+					last_name string
+					email string
+					phone_number string?
+					tags list(string)
+					preferences map(string,bool)
+				}
+				`)
+			},
+			after: func(t *testing.T, projectBuilder *project.ProjectBuilder) {
+				err := projectBuilder.Discover()
+				require.NoError(t, err)
+
+				err = projectBuilder.Build()
+				require.NoError(t, err)
+
+				err = projectBuilder.BuildSnapshot()
+				require.NoError(t, err)
+
+				snapshot := projectBuilder.GetSnapshot()
+				require.NotNil(t, snapshot)
+				require.Equal(t, []definition.NexemaFile{
+					{
+						Id:          "14273616186087467498",
+						PackageName: "entity",
+						Path:        "common/entity/entity.nex",
+						Types: []definition.TypeDefinition{
+							{
+								Id:       "7757690481152332",
+								Name:     "Entity",
+								Modifier: token.Base,
+								Fields: []*definition.FieldDefinition{
+									{
+										Index: 0,
+										Name:  "id",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 1,
+										Name:  "created_at",
+										Type:  definition.PrimitiveValueType{Primitive: definition.Timestamp},
+									},
+									{
+										Index: 2,
+										Name:  "modified_at",
+										Type:  definition.PrimitiveValueType{Primitive: definition.Timestamp, Nullable: true},
+									},
+									{
+										Index: 3,
+										Name:  "deleted_at",
+										Type:  definition.PrimitiveValueType{Primitive: definition.Timestamp, Nullable: true},
+									},
+								},
+							},
+						},
+					},
+					{
+						Id:          "14275443586636360348",
+						PackageName: "identity",
+						Path:        "identity/user.nex",
+						Types: []definition.TypeDefinition{
+							{
+								Id:       "6841242565540347458",
+								Name:     "User",
+								Modifier: token.Struct,
+								BaseType: utils.StringPtr("7757690481152332"),
+								Fields: []*definition.FieldDefinition{
+									{
+										Index: 0,
+										Name:  "first_name",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 1,
+										Name:  "last_name",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 2,
+										Name:  "email",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String},
+									},
+									{
+										Index: 3,
+										Name:  "phone_number",
+										Type:  definition.PrimitiveValueType{Primitive: definition.String, Nullable: true},
+									},
+									{
+										Index: 4,
+										Name:  "tags",
+										Type: definition.PrimitiveValueType{Primitive: definition.List, Arguments: []definition.BaseValueType{
+											definition.PrimitiveValueType{Primitive: definition.String},
+										}},
+									},
+									{
+										Index: 5,
+										Name:  "preferences",
+										Type: definition.PrimitiveValueType{Primitive: definition.Map, Arguments: []definition.BaseValueType{
+											definition.PrimitiveValueType{Primitive: definition.String},
+											definition.PrimitiveValueType{Primitive: definition.Boolean},
+										}},
+									},
+								},
+							},
+						},
+					},
+				}, snapshot.Files)
+			},
+		},
 	}
 
 	for _, testcase := range tests {
