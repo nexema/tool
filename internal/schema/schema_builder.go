@@ -55,7 +55,7 @@ func (self *SchemaBuilder) buildFile(localScope *scope.LocalScope) *definition.N
 	physicalFile := localScope.File()
 	file := &definition.NexemaFile{
 		Path:        physicalFile.Path,
-		PackageName: path.Base(physicalFile.Path),
+		PackageName: path.Base(path.Dir(physicalFile.Path)),
 		Types:       make([]definition.TypeDefinition, len(*localScope.Objects())),
 	}
 

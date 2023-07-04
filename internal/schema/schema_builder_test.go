@@ -58,11 +58,11 @@ func TestBuilderSnapshot(t *testing.T) {
 	snapshot := schemaBuilder.BuildSnapshot()
 	require.Equal(t, definition.NexemaSnapshot{
 		Version:  1,
-		Hashcode: "5133706252517793543",
+		Hashcode: "4615945776689608383",
 		Files: []definition.NexemaFile{
 			{
-				Id:          "10629871956429266386",
-				PackageName: "common.nex",
+				Id:          "17508018077741971311",
+				PackageName: ".",
 				Path:        "./common.nex",
 				Types: []definition.TypeDefinition{
 					{
@@ -86,8 +86,8 @@ func TestBuilderSnapshot(t *testing.T) {
 				},
 			},
 			{
-				Id:          "9662408754454631521",
-				PackageName: "users.nex",
+				Id:          "18199152698152961954",
+				PackageName: "identity",
 				Path:        "./identity/users.nex",
 				Types: []definition.TypeDefinition{
 					{
