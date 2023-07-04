@@ -68,10 +68,6 @@ func (self *ProjectBuilder) Discover() error {
 		return fmt.Errorf("unknown Nexema builder version %d", self.config.Version)
 	}
 
-	if len(self.config.Generators) == 0 {
-		return fmt.Errorf("you must specify at least one generator in nexema.yaml")
-	}
-
 	return nil
 }
 
