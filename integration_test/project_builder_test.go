@@ -407,14 +407,15 @@ func TestProjectBuilder(t *testing.T) {
 	}
 
 	for _, testcase := range tests {
-		t.Cleanup(func() {
-			// cleanup
-			err := os.RemoveAll(testcase.inputPath)
-			if err != nil {
-				t.Errorf("could not cleanup test %q: %v", testcase.name, err)
-			}
-		})
+
 		t.Run(testcase.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				// cleanup
+				err := os.RemoveAll(testcase.inputPath)
+				if err != nil {
+					t.Errorf("could not cleanup test %q: %v", testcase.name, err)
+				}
+			})
 			os.Mkdir(testcase.inputPath, os.ModePerm)
 			testcase.before()
 			projectBuilder := project.NewProjectBuilder(testcase.inputPath)

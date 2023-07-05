@@ -1,8 +1,0 @@
-
-				type Entity base {
-					id string
-					created_at timestamp
-					modified_at timestamp?
-					deleted_at timestamp?
-				}
-				
