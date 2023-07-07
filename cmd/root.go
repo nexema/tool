@@ -175,6 +175,8 @@ func init() {
 func Execute() {
 	nexema.Init()
 
+	logrus.SetLevel(logrus.TraceLevel)
+
 	err := app.Run(context.Background(), os.Args)
 	if err != nil {
 		fmt.Println(err)

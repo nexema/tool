@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
 )
 
 // Plugin contains information about a Nexema generator plugin
@@ -31,6 +32,12 @@ func (p *Plugin) Run(blob []byte, arguments []string, env []string) (*PluginResu
 	cmd.Stderr = respBuffer
 	cmd.Env = env
 	err := cmd.Run()
+
+	logrus.Debugf("Command %s (args: %s) ran. Error: %s\n", p.BinPath, arguments, err)
+	if respBuffer.Len() != 0 {
+		logrus.Debugf("Response buffer: %s\n", respBuffer.String())
+	}
+
 	if err != nil {
 		return nil, err
 	}

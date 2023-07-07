@@ -19,6 +19,10 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
 
+var (
+	ErrEmptyParseTree error = errors.New("parsetree empty")
+)
+
 // ProjectBuilder builds a Nexema project.
 //
 // The steps to build a project are the following:
@@ -55,6 +59,9 @@ func NewProjectBuilder(inputPath string) *ProjectBuilder {
 func (self *ProjectBuilder) Discover() error {
 	buf, err := os.ReadFile(filepath.Join(self.inputPath, "nexema.yaml"))
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("not in a Nexema project directory")
+		}
 		return fmt.Errorf("nexema.yaml could not be read. Error: %v", err)
 	}
 
@@ -108,6 +115,10 @@ func (self *ProjectBuilder) Build() error {
 		return self.parseErrs.AsError()
 	}
 
+	if self.parseTree.IsEmpty() {
+		return ErrEmptyParseTree
+	}
+
 	// link everything
 	linker := linker.NewLinker(self.parseTree)
 	linker.Link()
@@ -127,6 +138,16 @@ func (self *ProjectBuilder) Build() error {
 	}
 
 	return nil
+}
+
+// GetConfig returns the discovered project config
+func (self *ProjectBuilder) GetConfig() *ProjectConfig {
+	return self.config
+}
+
+// HasSnapshot returns true if builder built something
+func (self *ProjectBuilder) HasSnapshot() bool {
+	return self.builtSnapshot != nil && self.builtSnapshot.Hashcode != "0"
 }
 
 // BuildSnapshot creates a Nexema snapshot of a built project that can be saved to a file
