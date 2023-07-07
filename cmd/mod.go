@@ -67,26 +67,9 @@ func modAddGenerator(ctx *cli.Context) error {
 
 	binPath := ctx.String("bin-path")
 
-	// read config first
-	config := project.ProjectConfig{}
-	workingDir, err := os.Getwd()
+	config, projectFile, err := readCfg()
 	if err != nil {
 		return err
-	}
-
-	projectFile := path.Join(workingDir, "nexema.yaml")
-	fileContent, err := ioutil.ReadFile(projectFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("not in a nexema project directory")
-		}
-
-		return fmt.Errorf("could not read nexema.yaml, error: %s", err)
-	}
-
-	err = yaml.Unmarshal(fileContent, &config)
-	if err != nil {
-		return fmt.Errorf("failed to read nexema.yaml, error: %s", err)
 	}
 
 	if _, ok := config.Generators[pluginName]; ok {
@@ -128,26 +111,9 @@ func modRemoveGenerator(ctx *cli.Context) error {
 		return fmt.Errorf("the name of the plugin is required")
 	}
 
-	// read config first
-	config := project.ProjectConfig{}
-	workingDir, err := os.Getwd()
+	config, projectFile, err := readCfg()
 	if err != nil {
 		return err
-	}
-
-	projectFile := path.Join(workingDir, "nexema.yaml")
-	fileContent, err := ioutil.ReadFile(projectFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("not in a nexema project directory")
-		}
-
-		return fmt.Errorf("could not read nexema.yaml, error: %s", err)
-	}
-
-	err = yaml.Unmarshal(fileContent, &config)
-	if err != nil {
-		return fmt.Errorf("failed to read nexema.yaml, error: %s", err)
 	}
 
 	_, ok := config.Generators[pluginName]
@@ -171,4 +137,30 @@ func modRemoveGenerator(ctx *cli.Context) error {
 	logrus.Infof("Generator for plugin %q added", pluginName)
 
 	return nil
+}
+
+func readCfg() (config *project.ProjectConfig, projectFile string, err error) {
+	// read config first
+	config = &project.ProjectConfig{}
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	projectFile = path.Join(workingDir, "nexema.yaml")
+	fileContent, err := ioutil.ReadFile(projectFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, "", fmt.Errorf("not in a nexema project directory")
+		}
+
+		return nil, "", fmt.Errorf("could not read nexema.yaml, error: %s", err)
+	}
+
+	err = yaml.Unmarshal(fileContent, config)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read nexema.yaml, error: %s", err)
+	}
+
+	return config, projectFile, nil
 }
