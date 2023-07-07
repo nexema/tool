@@ -234,10 +234,15 @@ func GetInstalledPlugins() map[string]PluginInfo {
 	return singleton.config.InstalledPlugins
 }
 
+// GetNexemaFolder returns the path to the Nexema folder
+func GetNexemaFolder() string {
+	return singleton.nexemaFolder
+}
+
 func downloadPlugin(name string) error {
 	log.Debug("Downloading plugin ", name)
 
-	if singleton.discoveredPlugins == nil {
+	if singleton.discoveredPlugins == nil || len(*singleton.discoveredPlugins) == 0 {
 		err := DiscoverWellKnownPlugins()
 		if err != nil {
 			return err
