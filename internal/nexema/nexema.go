@@ -2,15 +2,16 @@ package nexema
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
-	"runtime"
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -40,7 +41,11 @@ type (
 	}
 )
 
-var singleton *Nexema
+var (
+	singleton *Nexema
+
+	ErrPluginUpgrade error = errors.New("plugin upgrade")
+)
 
 func newNexema() (*Nexema, error) {
 	dir, err := os.UserConfigDir()
@@ -162,6 +167,10 @@ func Exit() {
 // DiscoverWellKnownPlugins looks up for Nexema's well known repository and extracts its information
 // for later usage.
 func DiscoverWellKnownPlugins() error {
+	if singleton.discoveredPlugins != nil && len(*singleton.discoveredPlugins) > 0 {
+		return nil
+	}
+
 	resp, err := http.Get(pluginDiscoverUrl)
 	if err != nil {
 		return fmt.Errorf("could not get information of discover url, error: %s", err)
@@ -218,15 +227,46 @@ func GetPluginInfo(name string) *PluginInfo {
 func InstallPlugin(name string) error {
 	pluginInfo := GetPluginInfo(name)
 	if pluginInfo != nil {
-		return fmt.Errorf("Plugin %s already installed", name)
+		err := DiscoverWellKnownPlugins()
+		if err != nil {
+			return err
+		}
+
+		wkpVersion := (*singleton.discoveredPlugins)[name].Version
+		logrus.Debugf("Current plugin version [%s] - New version [%s]\n", pluginInfo.Version, wkpVersion)
+		if pluginInfo.Version.LessThan(&wkpVersion) {
+			return ErrPluginUpgrade
+		}
+
+		return fmt.Errorf("Plugin %q already installed", name)
 	}
 
-	err := downloadPlugin(name)
+	err := downloadPlugin(name, true)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// UpgradePlugin upgrades an already installed Nexema plugin
+func UpgradePlugin(name string) error {
+	pluginInfo := GetPluginInfo(name)
+	if pluginInfo == nil {
+		return fmt.Errorf("plugin %q is not installed", name)
+	}
+
+	err := DiscoverWellKnownPlugins()
+	if err != nil {
+		return err
+	}
+
+	wkpVersion := (*singleton.discoveredPlugins)[name].Version
+	if pluginInfo.Version.LessThan(&wkpVersion) {
+		return downloadPlugin(name, true)
+	}
+
+	return fmt.Errorf("plugin %q has already the latest version", name)
 }
 
 // GetInstalledPlugins returns the list of installed Nexema, well known plugins.
@@ -239,14 +279,12 @@ func GetNexemaFolder() string {
 	return singleton.nexemaFolder
 }
 
-func downloadPlugin(name string) error {
+func downloadPlugin(name string, isUpgrade bool) error {
 	log.Debug("Downloading plugin ", name)
 
-	if singleton.discoveredPlugins == nil || len(*singleton.discoveredPlugins) == 0 {
-		err := DiscoverWellKnownPlugins()
-		if err != nil {
-			return err
-		}
+	err := DiscoverWellKnownPlugins()
+	if err != nil {
+		return err
 	}
 
 	// get the well known plugin info
@@ -257,7 +295,14 @@ func downloadPlugin(name string) error {
 
 	// create an output folder for it
 	pluginFolder := path.Join(singleton.pluginsFolder, name)
-	err := os.MkdirAll(pluginFolder, os.ModePerm)
+	if isUpgrade {
+		err = os.RemoveAll(pluginFolder)
+		if err != nil {
+			return fmt.Errorf("could not remove plugin %q folder before upgrading, error: %s", name, err)
+		}
+	}
+
+	err = os.MkdirAll(pluginFolder, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("could not create output folder for plugin %q, error: %s", name, err)
 	}
@@ -265,7 +310,7 @@ func downloadPlugin(name string) error {
 	log.Debug("Running installation steps...")
 	for _, step := range wkp.InstallSteps {
 		step = strings.ReplaceAll(step, "%packageName%", wkp.PackageName)
-		step = strings.ReplaceAll(step, "%version%", wkp.Version)
+		step = strings.ReplaceAll(step, "%version%", wkp.Version.String())
 		step = strings.ReplaceAll(step, "%pluginFolder%", pluginFolder)
 
 		log.Debug("Going to run: ", step)
@@ -274,11 +319,12 @@ func downloadPlugin(name string) error {
 
 		var cmd *exec.Cmd
 
-		if runtime.GOOS == "windows" {
-			cmd = exec.Command(toks[0], toks[1:]...)
-		} else {
-			cmd = exec.Command("sudo", toks...)
-		}
+		// if runtime.GOOS == "windows" {
+		// 	cmd = exec.Command(toks[0], toks[1:]...)
+		// } else {
+		// 	cmd = exec.Command("sudo", toks...)
+		// }
+		cmd = exec.Command(toks[0], toks[1:]...)
 		cmd.Dir = pluginFolder
 		cmd.Stderr = os.Stderr
 		output, err := cmd.Output()
@@ -299,7 +345,7 @@ func downloadPlugin(name string) error {
 	}
 	singleton.writeConfig()
 
-	log.Debugln("Plugin installed succesfully")
+	log.Infoln("Plugin installed succesfully")
 
 	return nil
 }

@@ -3,6 +3,7 @@ module tomasweigenast.com/nexema/tool
 go 1.18
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/google/go-cmp v0.5.9
 	github.com/json-iterator/go v1.1.12
 	github.com/karrick/godirwalk v1.17.0

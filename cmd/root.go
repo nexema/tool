@@ -157,6 +157,12 @@ func init() {
 						ArgsUsage: "[plugin-name]",
 						Action:    pluginInstall,
 					},
+					{
+						Name:      "upgrade",
+						Usage:     "Upgrades a installed Nexema well-known plugin",
+						ArgsUsage: "[plugin-name]",
+						Action:    pluginUpgrade,
+					},
 				},
 			},
 			{

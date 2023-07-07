@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -45,5 +46,21 @@ func pluginInstall(ctx *cli.Context) error {
 		return fmt.Errorf("plugin name is required")
 	}
 
-	return nexema.InstallPlugin(pluginName)
+	err := nexema.InstallPlugin(pluginName)
+	if err != nil {
+		if errors.Is(err, nexema.ErrPluginUpgrade) {
+			return fmt.Errorf("plugin needs an upgrade, run nexema plugin upgrade %s", pluginName)
+		}
+	}
+
+	return err
+}
+
+func pluginUpgrade(ctx *cli.Context) error {
+	pluginName := ctx.Args().Get(0)
+	if len(pluginName) == 0 {
+		return fmt.Errorf("plugin name is required")
+	}
+
+	return nexema.UpgradePlugin(pluginName)
 }
