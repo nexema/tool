@@ -33,9 +33,9 @@ func (p *Plugin) Run(blob []byte, arguments []string, env []string) (*PluginResu
 	cmd.Env = env
 	err := cmd.Run()
 
-	logrus.Debugf("Command %s (args: %s) ran. Error: %s\n", p.BinPath, arguments, err)
+	logrus.Tracef("Command %s (args: %s) ran. Error: %s\n", p.BinPath, arguments, err)
 	if respBuffer.Len() != 0 {
-		logrus.Debugf("Response buffer: %s\n", respBuffer.String())
+		logrus.Tracef("Response buffer: %s\n", respBuffer.String())
 	}
 
 	if err != nil {
