@@ -13,10 +13,20 @@ type UniqueFieldName struct{}
 func (self UniqueFieldName) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		check := map[string]bool{}
+		baseFields := map[string]bool{}
+		if source.BaseType != nil {
+			base := context.GetObject(source.BaseType)
+			for _, baseField := range base.Source().Fields {
+				baseFields[baseField.Name.Token.Literal] = true
+			}
+		}
+
 		for _, stmt := range source.Fields {
 			fieldName := stmt.Name.Token.Literal
 			if _, ok := check[fieldName]; ok {
 				context.ReportError(errDuplicatedFieldName{FieldName: fieldName}, stmt.Name.Pos)
+			} else if _, ok := baseFields[fieldName]; ok {
+				context.ReportError(errDuplicatedFieldName{FieldName: fieldName, IsFromBase: true}, stmt.Name.Pos)
 			} else {
 				check[fieldName] = true
 			}
@@ -33,9 +43,14 @@ func (self UniqueFieldName) Key() string {
 }
 
 type errDuplicatedFieldName struct {
-	FieldName string
+	FieldName  string
+	IsFromBase bool
 }
 
 func (e errDuplicatedFieldName) Message() string {
-	return fmt.Sprintf("field %s already defined", e.FieldName)
+	if e.IsFromBase {
+		return fmt.Sprintf("field %q is already defined in the base type", e.FieldName)
+	} else {
+		return fmt.Sprintf("field %q already defined", e.FieldName)
+	}
 }
