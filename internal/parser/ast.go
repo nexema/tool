@@ -136,7 +136,7 @@ func (self FloatLiteral) Value() interface{} {
 }
 
 func (self StringLiteral) Literal() string {
-	return self.value
+	return fmt.Sprintf(`"%s"`, self.value)
 }
 
 func (self StringLiteral) Value() interface{} {
@@ -145,7 +145,7 @@ func (self StringLiteral) Value() interface{} {
 
 func (self ListLiteral) Literal() string {
 	return fmt.Sprintf("[%v]", strings.Join(mapArray(self, func(elem LiteralStmt) string {
-		return fmt.Sprint(elem.Kind.Value())
+		return fmt.Sprint(elem.Kind.Literal())
 	}), ", "))
 }
 
@@ -158,7 +158,7 @@ func (self ListLiteral) Value() interface{} {
 func (self MapLiteral) Literal() string {
 	out := make([]string, len(self))
 	for _, v := range self {
-		out = append(out, fmt.Sprintf("(%v: %v)", v.Key.Kind.Value(), v.Value.Kind.Value()))
+		out = append(out, fmt.Sprintf("(%v: %v)", v.Key.Kind.Literal(), v.Value.Kind.Literal()))
 	}
 
 	return fmt.Sprintf("[%s]", strings.Join(out, ", "))

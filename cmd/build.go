@@ -191,11 +191,34 @@ func generate(ctx *cli.Context) error {
 }
 
 func format(ctx *cli.Context) error {
-	path := ctx.String("path")
-	if path == "" {
-		return cli.Exit("path is required", 1)
+	inputPath := ctx.Args().First()
+	if len(inputPath) == 0 {
+		var err error
+		inputPath, err = os.Getwd()
+		if err != nil {
+			return err
+		}
 	}
-	fmt.Printf("Formatting code for the project at %s...\n", path)
+
+	projectBuilder := project.NewProjectBuilder(inputPath)
+	err := projectBuilder.Discover()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Building...")
+	err = projectBuilder.Build()
+	if err != nil {
+		return err
+	}
+
+	err = projectBuilder.BuildSnapshot()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Formatting...")
+	projectBuilder.Format()
 	return nil
 }
 

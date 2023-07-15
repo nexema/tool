@@ -190,6 +190,17 @@ func (self *ProjectBuilder) GetSnapshot() *definition.NexemaSnapshot {
 	return self.builtSnapshot
 }
 
+// Format formats a project based on the currently built snapshot
+func (self *ProjectBuilder) Format() error {
+	context := FormatterContext{parseTree: self.parseTree}
+
+	self.parseTree.Root().Iter(func(pkgName string, node *parser.ParseNode) {
+		context.formatNode(pkgName, node)
+	})
+
+	return nil
+}
+
 func (self *ProjectBuilder) parseFile(p string) error {
 	fileContents, err := os.ReadFile(p)
 	if err != nil {

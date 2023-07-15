@@ -123,17 +123,17 @@ func init() {
 				},
 				Action: generate,
 			},
-			{
-				Name:  "format",
-				Usage: "Format all .nex files in the specified project",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "path",
-						Usage: "Path to the project directory",
-					},
-				},
-				Action: format,
-			},
+			// {
+			// 	Name:  "format",
+			// 	Usage: "Format all .nex files in the specified project",
+			// 	Flags: []cli.Flag{
+			// 		&cli.StringFlag{
+			// 			Name:  "path",
+			// 			Usage: "Path to the project directory",
+			// 		},
+			// 	},
+			// 	Action: format,
+			// },
 			{
 				Name:  "plugin",
 				Usage: "Manage Nexema plugins",
