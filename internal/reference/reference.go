@@ -1,6 +1,8 @@
 package reference
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Reference contains information about a file and a position within that file
 type Reference struct {

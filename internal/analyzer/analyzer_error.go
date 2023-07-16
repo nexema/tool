@@ -3,6 +3,7 @@ package analyzer
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"tomasweigenast.com/nexema/tool/internal/reference"
@@ -78,6 +79,8 @@ func NewAnalyzerErrorCollection() *AnalyzerErrorCollection {
 	return &collection
 }
 
+var errTypeNotFoundKind = reflect.TypeOf(ErrTypeNotFound{})
+
 func (self *AnalyzerErrorCollection) Push(kind AnalyzerErrorKind, at reference.Pos) {
 	(*self) = append((*self), NewAnalyzerError(kind, at))
 }
@@ -93,12 +96,24 @@ func (self *AnalyzerErrorCollection) Iterate(f func(err *AnalyzerError)) {
 }
 
 func (self *AnalyzerErrorCollection) Display() string {
-	out := make([]string, len(*self))
-	for i, err := range *self {
-		out[i] = fmt.Sprintf("%d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+	out := make(map[string]bool, len(*self))
+	for _, err := range *self {
+		format := fmt.Sprintf("%d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+		if ok := out[format]; ok {
+			continue
+		}
+
+		out[format] = true
 	}
 
-	return strings.Join(out, "\n")
+	values := make([]string, len(out))
+	i := 0
+	for key := range out {
+		values[i] = key
+		i++
+	}
+
+	return strings.Join(values, "\n")
 }
 
 func (self *AnalyzerErrorCollection) AsError() error {

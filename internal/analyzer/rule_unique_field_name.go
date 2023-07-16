@@ -16,8 +16,10 @@ func (self UniqueFieldName) Analyze(context *AnalyzerContext) {
 		baseFields := map[string]bool{}
 		if source.BaseType != nil {
 			base := context.GetObject(source.BaseType)
-			for _, baseField := range base.Source().Fields {
-				baseFields[baseField.Name.Token.Literal] = true
+			if base != nil {
+				for _, baseField := range base.Source().Fields {
+					baseFields[baseField.Name.Token.Literal] = true
+				}
 			}
 		}
 
