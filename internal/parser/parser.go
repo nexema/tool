@@ -65,6 +65,10 @@ func (self *Parser) Parse() *Ast {
 		self.next()
 	}
 
+	if self.currentToken != nil {
+		self.pushError(ErrUnexpectedToken{Got: *self.currentToken.token}, self.currentToken.position)
+	}
+
 	return &Ast{
 		File:           self.file,
 		UseStatements:  useStmts,

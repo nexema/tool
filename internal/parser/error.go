@@ -63,7 +63,11 @@ func (ErrUnexpectedEOF) Message() string {
 }
 
 func (u ErrUnexpectedToken) Message() string {
-	return fmt.Sprintf("expected token to be %s, got %s instead", u.Expected, u.Got)
+	if u.Expected == token.Illegal {
+		return fmt.Sprintf("unexpected token %q", u.Got.Literal)
+	}
+
+	return fmt.Sprintf("expected %q token, got %q instead", u.Expected, u.Got.Literal)
 }
 
 func (u ErrTokenizer) Message() string {
