@@ -10,6 +10,7 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/scope"
+	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
 const (
@@ -88,7 +89,10 @@ func (self *SchemaBuilder) buildFile(localScope *scope.LocalScope) *definition.N
 				Index:         fieldIndex,
 				Documentation: getComments(&field.Documentation),
 				Annotations:   getAnnotations(&field.Annotations),
-				Type:          getValueType(localScope, field.ValueType),
+			}
+
+			if stmt.Modifier != token.Enum {
+				typeDef.Fields[i].Type = getValueType(localScope, field.ValueType)
 			}
 
 			fieldIndex++

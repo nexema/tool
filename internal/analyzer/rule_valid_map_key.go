@@ -30,7 +30,7 @@ func (self ValidMapKey) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
 
-			if !stmt.ValueType.Is(definition.Map) {
+			if stmt.ValueType == nil || !stmt.ValueType.Is(definition.Map) {
 				continue
 			}
 

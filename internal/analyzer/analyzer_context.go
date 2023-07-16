@@ -31,8 +31,10 @@ func (self *AnalyzerContext) GetObject(decl *parser.DeclStmt) *scope.Object {
 }
 
 func (self *AnalyzerContext) RunOver(callback func(object *scope.Object, source *parser.TypeStmt)) {
+
 	for _, obj := range *self.scope.Objects() {
-		callback(obj, obj.Source())
+		src := obj.Source()
+		callback(obj, src)
 	}
 }
 

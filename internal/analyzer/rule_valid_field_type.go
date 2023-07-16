@@ -12,6 +12,10 @@ type ValidFieldType struct{}
 func (self ValidFieldType) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
+			if stmt.ValueType == nil {
+				continue
+			}
+
 			verifyFieldType(stmt.ValueType, context, object)
 		}
 	})

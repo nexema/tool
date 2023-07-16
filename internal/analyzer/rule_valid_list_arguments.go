@@ -14,6 +14,9 @@ type ValidListArguments struct{}
 func (self ValidListArguments) Analyze(context *AnalyzerContext) {
 	context.RunOver(func(object *scope.Object, source *parser.TypeStmt) {
 		for _, stmt := range source.Fields {
+			if stmt.ValueType == nil {
+				continue
+			}
 
 			if !stmt.ValueType.Is(definition.List) {
 				continue
