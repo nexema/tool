@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"tomasweigenast.com/nexema/tool/internal/reference"
 )
 
 func TestParseTree_Insert(t *testing.T) {
@@ -26,7 +27,7 @@ func TestParseTree_Insert(t *testing.T) {
 
 func newAst(path string) *Ast {
 	return &Ast{
-		File: &File{
+		File: &reference.File{
 			Path: path,
 		},
 	}

@@ -9,14 +9,8 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
-// File represents a physical file
-type File struct {
-	// Path the full path to the file, including its name, relative to the nexema.yaml file.
-	Path string
-}
-
 type Ast struct {
-	File           *File
+	File           *reference.File
 	UseStatements  []UseStmt
 	TypeStatements []TypeStmt
 }

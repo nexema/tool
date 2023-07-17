@@ -12,7 +12,7 @@ import (
 
 type Parser struct {
 	tokenizer             tokenizer.Tokenizer
-	file                  *File
+	file                  *reference.File
 	currentToken          *tokenBuf
 	nextToken             *tokenBuf
 	errors                *ParserErrorCollection
@@ -25,7 +25,7 @@ type tokenBuf struct {
 	position *reference.Pos
 }
 
-func NewParser(input io.Reader, file *File) *Parser {
+func NewParser(input io.Reader, file *reference.File) *Parser {
 	return &Parser{
 		file:         file,
 		eof:          false,
