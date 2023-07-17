@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/reference"
+	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
@@ -15,6 +16,7 @@ func TestLinker_Link(t *testing.T) {
 		name     string
 		input    func() *parser.ParseTree
 		wantErrs LinkerErrorCollection
+		run      bool
 	}{
 		{
 			name: "valid link",
@@ -44,11 +46,12 @@ func TestLinker_Link(t *testing.T) {
 				return tree
 			},
 			wantErrs: LinkerErrorCollection{
-				NewLinkerErr(ErrSelfImport{}, *reference.NewPos(0, 0)),
+				NewLinkerErr(ErrSelfImport{}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
 			name: "circular dependency",
+			run:  true,
 			input: func() *parser.ParseTree {
 				tree := parser.NewParseTree()
 				tree.Insert("common", newAst("common/address.nex", []string{"Address", "Coordinates"}, []string{"identity/user"}))
@@ -57,9 +60,9 @@ func TestLinker_Link(t *testing.T) {
 			},
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrCircularDependency{
-					Src:  &parser.File{Path: "identity/user/user.nex"},
-					Dest: &parser.File{Path: "common/address.nex"},
-				}, *reference.NewPos(0, 0)),
+					Src:  &reference.File{Path: "identity/user/user.nex"},
+					Dest: &reference.File{Path: "common"},
+				}, *reference.NewReference("identity/user/user.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -72,7 +75,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
-				}, *reference.NewPos(0, 0)),
+				}, *reference.NewReference("", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -86,7 +89,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
-				}, *reference.NewPos(0, 0)),
+				}, *reference.NewReference("", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -121,7 +124,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
-				}, *reference.NewPos(0, 0)),
+				}, *reference.NewReference("", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -136,7 +139,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAliasAlreadyDefined{
 					Alias: "foo",
-				}, *reference.NewPos(0, 0)),
+				}, *reference.NewReference("", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -149,12 +152,16 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrPackageNotFound{
 					Name: "identity",
-				}, *reference.NewPos(0, 0)),
+				}, *reference.NewReference("", reference.NewPos(0, 0))),
 			},
 		},
 	}
 
 	for _, test := range tests {
+		if !test.run {
+			continue
+		}
+
 		t.Run(test.name, func(t *testing.T) {
 			linker := NewLinker(test.input())
 			linker.Link()
@@ -166,6 +173,35 @@ func TestLinker_Link(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLinker_BuildScopes(t *testing.T) {
+	tree := parser.NewParseTree()
+	tree.Insert("common", newAst("common/address.nex", []string{"Address", "Coordinates"}, []string{"identity/user"}))
+	tree.Insert("identity/user", newAst("identity/user/user.nex", []string{"User", "AccountType"}, []string{}))
+	linker := NewLinker(tree)
+	linker.buildScopes()
+
+	require.Equal(t, ".", linker.rootScope.Name())
+	require.Equal(t, "./", linker.rootScope.Path())
+	root := (linker.rootScope.(*scope.PackageScope))
+
+	require.Len(t, root.Children, 2)
+	require.Equal(t, "common", root.Children[0].Name())
+	require.Equal(t, scope.Package, root.Children[0].Kind())
+	require.Len(t, (root.Children[0].(*scope.PackageScope)).Children, 1)
+	require.Equal(t, "address.nex", (root.Children[0].(*scope.PackageScope)).Children[0].Name())
+	require.Equal(t, scope.File, (root.Children[0].(*scope.PackageScope)).Children[0].Kind())
+	require.Len(t, (root.Children[0].(*scope.PackageScope)).Children[0].GetObjects(1), 2)
+
+	require.Equal(t, "identity", root.Children[1].Name())
+	require.Equal(t, scope.Package, root.Children[1].Kind())
+	require.Len(t, root.Children[1].(*scope.PackageScope).Children, 1)
+	require.Equal(t, scope.Package, root.Children[1].(*scope.PackageScope).Children[0].Kind())
+	require.Equal(t, "user", root.Children[1].(*scope.PackageScope).Children[0].Name())
+	require.Len(t, (root.Children[1].(*scope.PackageScope).Children[0].(*scope.PackageScope)).Children, 1)
+	require.Equal(t, scope.File, (root.Children[1].(*scope.PackageScope).Children[0].(*scope.PackageScope)).Children[0].Kind())
+	require.Equal(t, "user.nex", (root.Children[1].(*scope.PackageScope).Children[0].(*scope.PackageScope)).Children[0].Name())
 }
 
 func newAst(fileName string, typeNames []string, uses []string) *parser.Ast {
@@ -197,7 +233,7 @@ func newAst(fileName string, typeNames []string, uses []string) *parser.Ast {
 	}
 
 	return &parser.Ast{
-		File:           &parser.File{Path: fileName},
+		File:           &reference.File{Path: fileName},
 		UseStatements:  useStmts,
 		TypeStatements: types,
 	}

@@ -22,6 +22,16 @@ func Contains[T comparable](arr *[]T, elem T) bool {
 	return false
 }
 
+func ContainsFunc[T any](arr *[]T, elem T, comparator func(a, b T) bool) bool {
+	for _, item := range *arr {
+		if comparator(item, elem) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func ToInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i

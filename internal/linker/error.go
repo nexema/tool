@@ -6,12 +6,11 @@ import (
 	"reflect"
 	"strings"
 
-	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/reference"
 )
 
 type LinkerError struct {
-	At   reference.Pos
+	At   reference.Reference
 	Kind LinkerErrorKind
 }
 
@@ -31,8 +30,8 @@ type (
 	}
 
 	ErrCircularDependency struct {
-		Src  *parser.File
-		Dest *parser.File
+		Src  *reference.File
+		Dest *reference.File
 	}
 
 	ErrAliasAlreadyDefined struct {
@@ -60,7 +59,7 @@ func (e ErrAliasAlreadyDefined) Message() string {
 	return fmt.Sprintf("alias %q already defined", e.Alias)
 }
 
-func NewLinkerErr(err LinkerErrorKind, at reference.Pos) LinkerError {
+func NewLinkerErr(err LinkerErrorKind, at reference.Reference) LinkerError {
 	return LinkerError{at, err}
 }
 
@@ -83,7 +82,7 @@ func (self *LinkerErrorCollection) IsEmpty() bool {
 func (self *LinkerErrorCollection) Display() string {
 	out := make([]string, len(*self))
 	for i, err := range *self {
-		out[i] = fmt.Sprintf("[linker] %d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+		out[i] = fmt.Sprintf("[linker] %s -> %s", err.At, err.Kind.Message())
 	}
 
 	return strings.Join(out, "\n")

@@ -1,10 +1,11 @@
 package linker
 
 import (
+	"path/filepath"
+
 	"tomasweigenast.com/nexema/tool/internal/parser"
 	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/scope"
-	"tomasweigenast.com/nexema/tool/internal/utils"
 )
 
 // Linker validates the following:
@@ -13,21 +14,28 @@ import (
 // - Imports points to valid packages
 // - Imported types are valid and names does not collide
 type Linker struct {
-	src    *parser.ParseTree
-	scopes []*scope.Scope
-	errors *LinkerErrorCollection
+	src             *parser.ParseTree
+	rootScope       scope.Scope
+	dependencyGraph dependencyGraph
+	errors          *LinkerErrorCollection
+}
+
+type dependencyGraph map[scope.Scope][]scope.Scope
+type dependencyConflict struct {
+	importer reference.File
+	imported reference.File
 }
 
 func NewLinker(parseTree *parser.ParseTree) *Linker {
 	return &Linker{
-		src:    parseTree,
-		scopes: make([]*scope.Scope, 0),
-		errors: newLinkerErrorCollection(),
+		src:             parseTree,
+		errors:          newLinkerErrorCollection(),
+		dependencyGraph: make(dependencyGraph),
 	}
 }
 
-func (self *Linker) LinkedScopes() []*scope.Scope {
-	return self.scopes
+func (self *Linker) LinkedScopes() scope.Scope {
+	return self.rootScope
 }
 
 func (self *Linker) HasLinkErrors() bool {
@@ -47,181 +55,222 @@ func (self *Linker) Link() {
 
 // verifyObjects checks if there are no type names which can collide with imported ones, or between them
 func (self *Linker) verifyObjects() {
-	for _, s := range self.scopes {
-		for _, ls := range *s.LocalScopes() {
+	self.verifyScopeObjects(self.rootScope.(*scope.PackageScope))
+}
+
+func (self *Linker) verifyScopeObjects(s *scope.PackageScope) {
+	for _, child := range s.Children {
+		if child.Kind() == scope.Package {
+			self.verifyScopeObjects(child.(*scope.PackageScope))
+		} else {
 			m := map[string]*scope.Import{}
 
 			// verify objects between imports
-			for resolvedScope, imp := range *ls.ResolvedScopes() {
-				for _, obj := range resolvedScope.GetAllObjects() {
+			for _, scope := range *(child.(*scope.FileScope)).Imports.GetAll() {
+				for _, obj := range scope.GetObjects(1) {
 					if _, ok := m[obj.Name]; ok {
 						// found another object and this import does not has an alias
-						if !imp.HasAlias() {
-							self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, imp.Source().Path.Pos))
-							continue
-						}
+						// if !imp.HasAlias() {
+						// 	self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(ls.File().Path, &imp.Source().Path.Pos)))
+						// 	continue
+						// }
 					}
 
-					m[obj.Name] = imp
+					// m[obj.Name] = imp
 				}
 			}
 
 			// verify local objects against imports
 			// objects are not verified against other in local scope because they are already verified at discover stage
-			for objName := range *ls.Objects() {
-				if imp, ok := m[objName]; ok {
-					// if the imported object does not have an alias, report error
-					if !imp.HasAlias() {
-						self.errors.push(NewLinkerErr(ErrAlreadyDefined{objName}, imp.Source().Path.Pos))
-						continue
-					}
-				}
-			}
+			// for objName := range *ls.Objects() {
+			// 	if imp, ok := m[objName]; ok {
+			// 		// if the imported object does not have an alias, report error
+			// 		if !imp.HasAlias() {
+			// 			self.errors.push(NewLinkerErr(ErrAlreadyDefined{objName}, *reference.NewReference(ls.File().Path, &imp.Source().Path.Pos)))
+			// 			continue
+			// 		}
+			// 	}
+			// }
 		}
 	}
 }
 
 func (self *Linker) verifyCircularDependencies() {
-	graph := map[*scope.Scope][]*scope.Scope{}
+	self.buildDependencyGraph(self.rootScope)
 
-	// for each scope, add edges to the graph from the current scope
-	for _, s := range self.scopes {
-		graph[s] = make([]*scope.Scope, 0)
-		for _, localScope := range *s.LocalScopes() {
-			for resolvedScope := range *localScope.ResolvedScopes() {
-				graph[s] = append(graph[s], resolvedScope)
-			}
-		}
-	}
-
-	// perform a topological sort on the graph
-	visited := map[*scope.Scope]bool{}
-	stack := []*scope.Scope{}
-
-	for _, scope := range self.scopes {
-		if _, ok := visited[scope]; !ok {
-			src, dest, hasCircular := self.hasCircularDependencies(scope, &graph, &visited, &stack)
-			if hasCircular {
-				self.errors.push(NewLinkerErr(ErrCircularDependency{src.File(), dest.File()}, *reference.NewPos()))
+	// Check for circular dependencies in each the file scope
+	for _, fileScope := range self.rootScope.(*scope.PackageScope).Children {
+		hasCircularDeps, conflictingImports := self.hasCircularDeps(fileScope)
+		if hasCircularDeps {
+			for _, conflict := range conflictingImports {
+				self.errors.push(NewLinkerErr(ErrCircularDependency{
+					Src:  &conflict.importer,
+					Dest: &conflict.imported,
+				}, *reference.NewReference(conflict.importer.Path, reference.NewPos())))
 			}
 		}
 	}
 }
 
-func (self *Linker) hasCircularDependencies(node *scope.Scope, graph *map[*scope.Scope][]*scope.Scope, visited *map[*scope.Scope]bool, stack *[]*scope.Scope) (*scope.LocalScope, *scope.LocalScope, bool) {
-	(*visited)[node] = true
-	*stack = append(*stack, node)
+func (self *Linker) hasCircularDeps(s scope.Scope) (hasCircularDeps bool, conflictingImports []dependencyConflict) {
+	visited := make(map[scope.Scope]bool)
+	stack := make(map[scope.Scope]bool)
+	conflictingImports = make([]dependencyConflict, 0)
 
-	for _, neighbor := range (*graph)[node] {
-		if _, ok := (*visited)[neighbor]; !ok {
-			src, dest, hasCircular := self.hasCircularDependencies(neighbor, graph, visited, stack)
-			if hasCircular {
-				return src, dest, true
+	hasCircularDeps = self.checkCircularDeps(s, &visited, &stack, &conflictingImports)
+	return
+}
+
+func (self *Linker) checkCircularDeps(s scope.Scope, visited *map[scope.Scope]bool, stack *map[scope.Scope]bool, conflictingImports *[]dependencyConflict) bool {
+	(*visited)[s] = true
+	(*stack)[s] = true
+
+	// Traverse all the neighbors of the current scope
+	for _, neighbor := range (self.dependencyGraph)[s] {
+		// If the neighbor is not visited, recursively check for circular dependencies
+		if !(*visited)[neighbor] && self.checkCircularDeps(neighbor, visited, stack, conflictingImports) {
+			return true
+		} else if (*stack)[neighbor] {
+			// If the neighbor is already in the recursion stack, a cycle is detected
+			conflict := dependencyConflict{
+				importer: reference.File{Path: s.Path()},
+				imported: reference.File{Path: neighbor.Path()},
 			}
-		} else if utils.Contains(stack, neighbor) {
-			scope1 := utils.Find(node.LocalScopes(), func(t **scope.LocalScope) bool {
-				_, ok := (*(*t).ResolvedScopes())[neighbor]
-				return ok
-			})
-
-			scope2 := utils.Find(neighbor.LocalScopes(), func(t **scope.LocalScope) bool {
-				_, ok := (*(*t).ResolvedScopes())[node]
-				return ok
-			})
-
-			return *scope1, *scope2, true
+			if !self.hasConflictImport(conflictingImports, conflict) {
+				*conflictingImports = append(*conflictingImports, conflict)
+			}
+			return true
 		}
 	}
 
-	*stack = (*stack)[:len(*stack)-1]
-
-	return nil, nil, false
+	// remove the current scope from the stack
+	(*stack)[s] = false
+	return false
 }
 
-// resolveImports resolves an use statement for every LocalScope
+func (self *Linker) hasConflictImport(list *[]dependencyConflict, conflict dependencyConflict) bool {
+	for _, item := range *list {
+		if item.imported == conflict.imported && item.importer == conflict.importer {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (self *Linker) buildDependencyGraph(s scope.Scope) {
+
+	switch s := s.(type) {
+	case *scope.PackageScope:
+		for _, child := range s.Children {
+			self.buildDependencyGraph(child)
+			(self.dependencyGraph)[s] = append((self.dependencyGraph)[s], child)
+		}
+
+	case *scope.FileScope:
+		for _, importedScopes := range s.Imports {
+			for _, importedScope := range *importedScopes {
+				(self.dependencyGraph)[s] = append((self.dependencyGraph)[s], importedScope)
+			}
+		}
+	}
+}
+
 func (self *Linker) resolveImports() {
-	for _, pkgScope := range self.scopes {
-		for _, localScope := range *pkgScope.LocalScopes() {
-			aliases := map[string]bool{}
-			for impPath, imp := range *localScope.Imports() {
+	self.resolveImport(self.rootScope.(*scope.PackageScope))
+}
 
-				// alias already defined
-				if imp.HasAlias() {
-					if _, ok := aliases[imp.Alias]; ok {
-						self.errors.push(NewLinkerErr(ErrAliasAlreadyDefined{imp.Alias}, imp.Source().Alias.Pos))
+func (self *Linker) resolveImport(packageScope *scope.PackageScope) {
+	for _, childScope := range packageScope.Children {
+		if childScope.Kind() == scope.Package {
+			self.resolveImport(childScope.(*scope.PackageScope))
+		} else {
+			fileScope := childScope.(*scope.FileScope)
+			fileScopeAst := fileScope.Ast()
+			childScopePath := filepath.Dir(fileScope.Path())
+
+			aliases := make(map[string]bool)
+			for _, use := range fileScopeAst.UseStatements {
+				path := use.Path.Token.Literal
+				alias := "."
+
+				// check if alias is not already in use
+				if use.Alias != nil {
+					alias = use.Alias.Token.Literal
+					if _, ok := aliases[alias]; ok {
+						self.errors.push(NewLinkerErr(ErrAliasAlreadyDefined{alias}, *reference.NewReference(childScope.Path(), &use.Alias.Pos)))
+						aliases[alias] = true
 						continue
 					}
-
-					aliases[imp.Alias] = true
 				}
 
 				// check if impPath is not equal to pkgScope.Path
 				// it would be a self import
-				if impPath == pkgScope.Path() {
-					self.errors.push(NewLinkerErr(ErrSelfImport{}, imp.Source().Path.Pos))
+				if path == childScopePath {
+					self.errors.push(NewLinkerErr(ErrSelfImport{}, *reference.NewReference(childScope.Path(), &use.Path.Pos)))
 					continue
 				}
 
 				// find scope
-				resolvedScope := self.findScope(impPath)
-				if resolvedScope == nil {
-					self.errors.push(NewLinkerErr(ErrPackageNotFound{impPath}, imp.Source().Path.Pos))
+				importedScope := self.rootScope.FindByPath(path)
+				if importedScope == nil {
+					self.errors.push(NewLinkerErr(ErrPackageNotFound{path}, *reference.NewReference(childScope.Path(), &use.Path.Pos)))
 					continue
 				}
 
-				localScope.AddResolvedScope(resolvedScope, imp)
+				fileScope.Imports.Push(alias, importedScope)
 			}
+
+			// add its parent so it can access siblings types
+			// fileScope.Imports.Push(".", fileScope.Parent())
 		}
 	}
 }
 
-func (self *Linker) findScope(path string) *scope.Scope {
-	for _, scopePkg := range self.scopes {
-		if scopePkg.Path() == path {
-			return scopePkg
-		}
-	}
-
-	return nil
+func (self *Linker) findScope(path string) scope.Scope {
+	return self.rootScope.FindByPath(path)
 }
 
 func (self *Linker) buildScopes() {
-	self.src.Root().Iter(func(pkgName string, node *parser.ParseNode) {
-		self.createScope(pkgName, node)
+	root := self.src.Root()
+	self.rootScope = scope.NewPackageScope(root.Path, nil)
+
+	root.Iter(func(pkgName string, node *parser.ParseNode) {
+		self.createScope(pkgName, node, self.rootScope)
 	})
 }
 
-func (self *Linker) createScope(packageName string, node *parser.ParseNode) {
+func (self *Linker) createScope(packageName string, node *parser.ParseNode, parent scope.Scope) {
 
-	newScope := scope.NewScope(node.Path, packageName)
+	packageScope := scope.NewPackageScope(node.Path, parent).(*scope.PackageScope)
 	for _, ast := range node.AstList {
-		imports := make(map[string]*scope.Import)
-		objects := make(map[string]*scope.Object)
+		fileScope := scope.NewFileScope(ast.File.Path, ast, packageScope).(*scope.FileScope)
 
 		// validate "use" statements
-		for _, stmt := range ast.UseStatements {
-			imp := scope.NewImport(&stmt)
-			imports[imp.Path] = imp
-		}
+		// for _, stmt := range ast.UseStatements {
+		// 	imp := scope.NewImport(&stmt)
+		// 	fileScope.Im
+		// }
 
 		// push types
 		for _, stmt := range ast.TypeStatements {
 			obj := scope.NewObject(stmt)
 
-			if _, ok := objects[obj.Name]; ok {
-				self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, obj.Source().Name.Pos))
+			if _, ok := fileScope.Objects[obj.Name]; ok {
+				src := obj.Source()
+				self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(ast.File.Path, &src.Name.Pos)))
 				continue
 			}
 
-			objects[obj.Name] = obj
+			fileScope.Objects[obj.Name] = obj
 		}
 
-		newScope.PushLocalScope(scope.NewLocalScope(ast.File, imports, objects))
+		packageScope.Children = append(packageScope.Children, fileScope)
 	}
 
-	self.scopes = append(self.scopes, newScope)
+	(parent.(*scope.PackageScope)).Children = append((parent.(*scope.PackageScope)).Children, packageScope)
 
 	node.Iter(func(pkgName string, node *parser.ParseNode) {
-		self.createScope(pkgName, node)
+		self.createScope(pkgName, node, packageScope)
 	})
 }

@@ -2,189 +2,218 @@ package scope
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"tomasweigenast.com/nexema/tool/internal/parser"
 )
 
-// Scope represents a collection of local scopes, a.k.a .nex files.
-// So, Scope is a Nexema package.
-// Scope forgets any folder structure until it was created. That is done
-// because any LocalScope can import any Scope
-type Scope struct {
-	path        string
-	name        string
-	localScopes []*LocalScope
+type ScopeKind int
+
+const (
+	Package ScopeKind = iota
+	File
+)
+
+type importCollection map[string]*[]Scope
+
+type Scope interface {
+	Name() string
+	Path() string
+	Kind() ScopeKind
+	Parent() Scope
+	FindByPath(path string) Scope
+	FindObject(name string) *Object
+	GetObjects(maxDepth int) []*Object
 }
 
-// LocalScope represents a Nexema file, which contains a list of objects
-// an may import other Scopes
-type LocalScope struct {
-	file           *parser.File
-	imports        map[string]*Import
-	objects        map[string]*Object
-	resolvedScopes map[*Scope]*Import
+type PackageScope struct {
+	name     string
+	path     string
+	parent   Scope
+	Children []Scope
 }
 
-func NewLocalScope(file *parser.File, imports map[string]*Import, objects map[string]*Object) *LocalScope {
-	return &LocalScope{
-		file:           file,
-		imports:        imports,
-		objects:        objects,
-		resolvedScopes: make(map[*Scope]*Import),
+type FileScope struct {
+	name    string
+	path    string
+	parent  Scope
+	ast     *parser.Ast
+	Objects map[string]*Object // list of objects, where the key is the name of the object
+	Imports importCollection   // imported scopes, where the key is the alias (dot "." when no alias is specified) and the value the list of scopes under the same alias
+}
+
+func NewPackageScope(path string, parent Scope) Scope {
+	if path == "" {
+		path = "./"
+	}
+	return &PackageScope{
+		name:     filepath.Base(path),
+		path:     path,
+		parent:   parent,
+		Children: make([]Scope, 0),
 	}
 }
 
-func (self *LocalScope) Objects() *map[string]*Object {
-	return &self.objects
+func NewFileScope(path string, ast *parser.Ast, parent Scope) Scope {
+	return &FileScope{
+		name:    filepath.Base(path),
+		path:    path,
+		parent:  parent,
+		ast:     ast,
+		Objects: make(map[string]*Object),
+		Imports: make(importCollection),
+	}
 }
 
-func (self *LocalScope) Imports() *map[string]*Import {
-	return &self.imports
+func (self *PackageScope) Name() string {
+	return self.name
 }
 
-func (self *LocalScope) AddResolvedScope(scope *Scope, imp *Import) {
-	self.resolvedScopes[scope] = imp
+func (self *PackageScope) Path() string {
+	return self.path
 }
 
-func (self *LocalScope) ResolvedScopes() *map[*Scope]*Import {
-	return &self.resolvedScopes
+func (self *PackageScope) Kind() ScopeKind {
+	return Package
 }
 
-func (self *LocalScope) File() *parser.File {
-	return self.file
+func (self *PackageScope) Parent() Scope {
+	return self.parent
 }
 
-// MustFindObject searches for an object named name with an alias in the current local scope. If the object is not found, it will throw an error.
-// Useful when scopes are analyzed first.
-func (self *LocalScope) MustFindObject(name, alias string) *Object {
-	// if alias is empty, lookup locally
-	if len(alias) == 0 {
-		localObj, ok := self.objects[name]
-		if ok {
-			return localObj
+func (self *PackageScope) FindByPath(path string) Scope {
+	if self.path == path {
+		return self
+	}
+
+	for _, child := range self.Children {
+		scope := child.FindByPath(path)
+		if scope != nil {
+			return scope
 		}
 	}
 
-	if len(self.resolvedScopes) > 0 {
-		for resolvedScope := range self.resolvedScopes {
-			matches := resolvedScope.FindObjects(name)
-			if len(matches) > 0 {
-				return matches[0]
+	return nil
+}
+
+func (self *PackageScope) FindObject(name string) *Object {
+	for _, child := range self.Children {
+		obj := child.FindObject(name)
+		if obj != nil {
+			return obj
+		}
+	}
+
+	return nil
+}
+
+func (self *PackageScope) GetObjects(maxDepth int) []*Object {
+	objects := make([]*Object, 0)
+	self.getObjectsRecursive(maxDepth, &objects)
+	return objects
+}
+
+func (self *PackageScope) getObjectsRecursive(maxDepth int, objects *[]*Object) {
+	if maxDepth == 0 {
+		return
+	}
+
+	for _, child := range self.Children {
+		*objects = append(*objects, child.GetObjects(maxDepth-1)...)
+	}
+}
+
+func (self *FileScope) Name() string {
+	return self.name
+}
+
+func (self *FileScope) Path() string {
+	return self.path
+}
+
+func (self *FileScope) Kind() ScopeKind {
+	return File
+}
+
+func (self *FileScope) Parent() Scope {
+	return self.parent
+}
+
+func (self *FileScope) Ast() *parser.Ast {
+	return self.ast
+}
+
+func (self *FileScope) FindByPath(path string) Scope {
+	if self.path == path {
+		return self
+	}
+
+	return nil
+}
+
+func (self *FileScope) FindObject(name string) *Object {
+	visited := make(map[*FileScope]bool)
+	return self.searchObject(name, visited)
+}
+
+func (self *FileScope) GetObjects(maxDepth int) []*Object {
+	objects := make([]*Object, len(self.Objects))
+	i := 0
+	for _, obj := range self.Objects {
+		objects[i] = obj
+		i++
+	}
+
+	return objects
+}
+
+func (self *FileScope) searchObject(name string, visited map[*FileScope]bool) *Object {
+	if visited[self] {
+		return nil
+	}
+	visited[self] = true
+	matches := make([]*Object, 0)
+
+	if obj, ok := self.Objects[name]; ok {
+		matches = append(matches, obj)
+	}
+
+	for _, importedScopes := range self.Imports {
+		for _, scope := range *importedScopes {
+			if importedFileScope, ok := scope.(*FileScope); ok { // todo: add alias
+				if obj := importedFileScope.searchObject(name, visited); obj != nil {
+					matches = append(matches, obj)
+				}
 			}
 		}
 	}
 
-	panic(fmt.Errorf("could not find any object named %s (alias=%s), please, fill an issue because this should not happen", name, alias))
-}
-
-func (self *LocalScope) FindObject(name, alias string) (obj *Object, needAlias bool) {
-	candidates := make(match)
-
-	// if alias is empty, lookup locally
-	if len(alias) == 0 {
-		localObj, ok := self.objects[name]
-		if ok {
-			candidates.push("", localObj)
-		}
-	}
-
-	// lookup in imported types
-	if len(self.resolvedScopes) > 0 {
-		for resolvedScope, imp := range self.resolvedScopes {
-			matches := resolvedScope.FindObjects(name)
-			candidates.push(imp.Alias, matches...)
-		}
-	}
-
-	count := candidates.count()
-	if count == 0 {
-		return nil, false
-	} else if count == 1 {
-		return candidates.single(alias), false
-	} else {
-		// decide
-		if len(alias) == 0 {
-			return nil, true
-		}
-
-		return candidates.single(alias), false
+	switch len(matches) {
+	case 0:
+		return nil
+	case 1:
+		return matches[0]
+	default:
+		panic(fmt.Errorf("there are more than 1 match for %q object search, matches: %d", name, len(matches)))
 	}
 }
 
-func NewScope(path, packageName string) *Scope {
-	return &Scope{
-		path:        path,
-		name:        packageName,
-		localScopes: make([]*LocalScope, 0),
-	}
-}
-
-func (self *Scope) PushLocalScope(localScope *LocalScope) {
-	self.localScopes = append(self.localScopes, localScope)
-}
-
-func (self *Scope) LocalScopes() *[]*LocalScope {
-	return &self.localScopes
-}
-
-func (self *Scope) Path() string {
-	return self.path
-}
-
-func (self *Scope) GetAllObjects() []*Object {
-	arr := make([]*Object, 0)
-	for _, local := range self.localScopes {
-		for _, obj := range local.objects {
-			arr = append(arr, obj)
-		}
-	}
-
-	return arr
-}
-
-func (self *Scope) FindObjects(name string) []*Object {
-	arr := make([]*Object, 0)
-
-	for _, ls := range self.localScopes {
-		obj, ok := ls.objects[name]
-		if ok {
-			arr = append(arr, obj)
-		}
-	}
-
-	return arr
-}
-
-// match is a map where each key represents an alias and the value is the list of objects under that alias
-type match map[string][]*Object
-
-func (self *match) push(alias string, obj ...*Object) {
-	if _, ok := (*self)[alias]; !ok {
-		(*self)[alias] = make([]*Object, 0)
-	}
-
-	(*self)[alias] = append((*self)[alias], obj...)
-}
-
-func (self *match) count() int {
-	count := 0
-
-	for _, arr := range *self {
-		count += len(arr)
-	}
-
-	return count
-}
-
-func (self *match) single(alias string) *Object {
-	objs, ok := (*self)[alias]
+// Push adds a new scope to an alias key. If the entry does not exist, its created first, otherwise, it appends the scope
+func (self *importCollection) Push(alias string, scope Scope) {
+	scopes, ok := (*self)[alias]
 	if !ok {
-		return nil
+		scopes = new([]Scope)
+		(*self)[alias] = scopes
 	}
 
-	if len(objs) == 0 {
-		return nil
+	*scopes = append(*scopes, scope)
+}
+
+func (self *importCollection) GetAll() *[]Scope {
+	scopes := new([]Scope)
+	for _, group := range *self {
+		*scopes = append(*scopes, *group...)
 	}
 
-	return objs[0]
+	return scopes
 }
