@@ -7,202 +7,190 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/parser"
 )
 
-// func TestScope_FindObject(t *testing.T) {
-// 	tests := []struct {
-// 		name          string
-// 		localScope    *LocalScope
-// 		typeName      string
-// 		alias         string
-// 		wantObject    *Object
-// 		wantNeedAlias bool
-// 	}{
-// 		{
-// 			name:     "single local match",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				objects: map[string]*Object{
-// 					"A": {Name: "A"},
-// 				},
-// 			},
-// 			wantObject:    &Object{Name: "A"},
-// 			wantNeedAlias: false,
-// 		},
-// 		{
-// 			name:     "single local non match",
-// 			typeName: "B",
-// 			localScope: &LocalScope{
-// 				objects: map[string]*Object{
-// 					"A": {Name: "A"},
-// 				},
-// 			},
-// 			wantObject:    nil,
-// 			wantNeedAlias: false,
-// 		},
-// 		{
-// 			name:     "single import match",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				resolvedScopes: map[*Scope]*Import{
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {},
-// 				},
-// 			},
-// 			wantObject:    &Object{Name: "A"},
-// 			wantNeedAlias: false,
-// 		},
-// 		{
-// 			name:     "single import with non matching alias",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				resolvedScopes: map[*Scope]*Import{
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {
-// 						Alias: "foo",
-// 					},
-// 				},
-// 			},
-// 			wantObject:    nil,
-// 			wantNeedAlias: false,
-// 		},
-// 		{
-// 			name:     "single import with alias match",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				resolvedScopes: map[*Scope]*Import{
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {
-// 						Alias: "foo",
-// 					},
-// 				},
-// 			},
-// 			alias:         "foo",
-// 			wantObject:    &Object{Name: "A"},
-// 			wantNeedAlias: false,
-// 		},
-// 		{
-// 			name:     "many imports without specifying alias",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				resolvedScopes: map[*Scope]*Import{
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {},
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {},
-// 				},
-// 			},
-// 			wantObject:    nil,
-// 			wantNeedAlias: true,
-// 		},
-// 		{
-// 			name:     "many imports specifying alias",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				resolvedScopes: map[*Scope]*Import{
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {
-// 						Alias: "first",
-// 					},
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {
-// 						Alias: "second",
-// 					},
-// 				},
-// 			},
-// 			alias:         "second",
-// 			wantObject:    &Object{Name: "A"},
-// 			wantNeedAlias: false,
-// 		},
-// 		{
-// 			name:     "many imports need alias",
-// 			typeName: "A",
-// 			localScope: &LocalScope{
-// 				resolvedScopes: map[*Scope]*Import{
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {
-// 						Alias: "first",
-// 					},
-// 					{
-// 						localScopes: []*LocalScope{
-// 							{
-// 								objects: map[string]*Object{
-// 									"A": {Name: "A"},
-// 								},
-// 							},
-// 						},
-// 					}: {
-// 						Alias: "second",
-// 					},
-// 				},
-// 			},
-// 			wantObject:    nil,
-// 			wantNeedAlias: true,
-// 		},
-// 	}
+func TestScope_FindObject(t *testing.T) {
+	tests := []struct {
+		name        string
+		scope       Scope
+		typeName    string
+		alias       string
+		wantObjects []*Object
+	}{
+		{
+			name:     "single local match",
+			typeName: "A",
+			scope: &FileScope{
+				Objects: map[string]*Object{
+					"A": {Name: "A"},
+				},
+			},
+			wantObjects: []*Object{{Name: "A"}},
+		},
+		{
+			name:     "single local non match",
+			typeName: "B",
+			scope: &FileScope{
+				Objects: map[string]*Object{
+					"A": {Name: "A"},
+				},
+			},
+			wantObjects: nil,
+		},
+		{
+			name:     "single import match",
+			typeName: "A",
+			scope: &FileScope{
+				Imports: importCollection{
+					"": &[]Import{
+						{
+							Alias: "",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantObjects: []*Object{{Name: "A"}},
+		},
+		{
+			name:     "single import with non matching alias",
+			typeName: "A",
+			scope: &FileScope{
+				Imports: importCollection{
+					"foo": &[]Import{
+						{
+							Alias: "foo",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantObjects: nil,
+		},
+		{
+			name:     "single import with alias match",
+			typeName: "A",
+			scope: &FileScope{
+				Imports: importCollection{
+					"foo": &[]Import{
+						{
+							Alias: "foo",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+				},
+			},
+			alias:       "foo",
+			wantObjects: []*Object{{Name: "A"}},
+		},
+		{
+			name:     "many imports without specifying alias",
+			typeName: "A",
+			scope: &FileScope{
+				Imports: importCollection{
+					"": &[]Import{
+						{
+							Alias: "",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+						{
+							Alias: "",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantObjects: []*Object{
+				{Name: "A"},
+				{Name: "A"},
+			},
+		},
+		{
+			name:     "many imports specifying alias",
+			typeName: "A",
+			scope: &FileScope{
+				Imports: importCollection{
+					"first": &[]Import{
+						{
+							Alias: "first",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+					"second": &[]Import{
+						{
+							Alias: "second",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+				},
+			},
+			alias:       "second",
+			wantObjects: []*Object{{Name: "A"}},
+		},
+		{
+			name:     "imports with alias does not matter",
+			typeName: "A",
+			scope: &FileScope{
+				Imports: importCollection{
+					"first": &[]Import{
+						{
+							Alias: "first",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+					"second": &[]Import{
+						{
+							Alias: "second",
+							ImportedScope: &FileScope{
+								Objects: map[string]*Object{
+									"A": {Name: "A"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantObjects: nil,
+		},
+	}
 
-// 	for _, test := range tests {
-// 		t.Run(test.name, func(t *testing.T) {
-// 			obj, needAlias := test.localScope.FindObject(test.typeName, test.alias)
-// 			require.Equal(t, test.wantObject, obj)
-// 			require.Equal(t, test.wantNeedAlias, needAlias)
-// 		})
-// 	}
-// }
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			objs := test.scope.FindObject(test.typeName, test.alias)
+			require.Equal(t, test.wantObjects, objs)
+		})
+	}
+}
 
 func TestScope_GetObjects(t *testing.T) {
 	root := NewPackageScope("./", nil).(*PackageScope)

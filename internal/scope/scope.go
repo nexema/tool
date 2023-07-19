@@ -1,7 +1,6 @@
 package scope
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"tomasweigenast.com/nexema/tool/internal/parser"
@@ -22,7 +21,13 @@ type Scope interface {
 	Kind() ScopeKind
 	Parent() Scope
 	FindByPath(path string) Scope
-	FindObject(name string) *Object
+
+	// FindObject returns an slice of the matching objects with name and alias.
+	// This always should return an slice of one object, but if there are more, it can be used
+	// to alert the user with an error.
+	FindObject(name, alias string) []*Object
+
+	// GetObjects returns an slice of objects defined in the scope.
 	GetObjects(maxDepth int) []*Object
 }
 
@@ -96,9 +101,9 @@ func (self *PackageScope) FindByPath(path string) Scope {
 	return nil
 }
 
-func (self *PackageScope) FindObject(name string) *Object {
+func (self *PackageScope) FindObject(name, alias string) []*Object {
 	for _, child := range self.Children {
-		obj := child.FindObject(name)
+		obj := child.FindObject(name, alias)
 		if obj != nil {
 			return obj
 		}
@@ -151,9 +156,48 @@ func (self *FileScope) FindByPath(path string) Scope {
 	return nil
 }
 
-func (self *FileScope) FindObject(name string) *Object {
+func (self *FileScope) FindObject(name, alias string) []*Object {
 	visited := make(map[*FileScope]bool)
-	return self.searchObject(name, visited)
+	return self.searchObject(name, alias, &visited)
+}
+
+func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]bool) []*Object {
+	if (*visited)[self] {
+		return nil
+	}
+	(*visited)[self] = true
+	matches := make([]*Object, 0)
+	hasAlias := len(alias) > 0 && alias != "."
+
+	// if alias is empty, lookup locally
+	if !hasAlias {
+		if obj, ok := self.Objects[name]; ok {
+			matches = append(matches, obj)
+		}
+	}
+
+	// lookup in imported types
+	for importsAlias, importedScopes := range self.Imports {
+		if (hasAlias && importsAlias != alias) || (!hasAlias && len(importsAlias) > 0) {
+			continue
+		}
+
+		for _, imp := range *importedScopes {
+			if importedFileScope, ok := imp.ImportedScope.(*FileScope); ok {
+				obj, ok := importedFileScope.Objects[name]
+				if ok {
+					matches = append(matches, obj)
+				}
+			}
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil
+	default:
+		return matches
+	}
 }
 
 func (self *FileScope) GetObjects(maxDepth int) []*Object {
@@ -165,37 +209,6 @@ func (self *FileScope) GetObjects(maxDepth int) []*Object {
 	}
 
 	return objects
-}
-
-func (self *FileScope) searchObject(name string, visited map[*FileScope]bool) *Object {
-	if visited[self] {
-		return nil
-	}
-	visited[self] = true
-	matches := make([]*Object, 0)
-
-	if obj, ok := self.Objects[name]; ok {
-		matches = append(matches, obj)
-	}
-
-	for _, importedScopes := range self.Imports {
-		for _, imp := range *importedScopes {
-			if importedFileScope, ok := imp.ImportedScope.(*FileScope); ok { // todo: add alias while searching
-				if obj := importedFileScope.searchObject(name, visited); obj != nil {
-					matches = append(matches, obj)
-				}
-			}
-		}
-	}
-
-	switch len(matches) {
-	case 0:
-		return nil
-	case 1:
-		return matches[0]
-	default:
-		panic(fmt.Errorf("there are more than 1 match for %q object search, matches: %d", name, len(matches)))
-	}
 }
 
 // Push adds a new scope to an alias key. If the entry does not exist, its created first, otherwise, it appends the scope
