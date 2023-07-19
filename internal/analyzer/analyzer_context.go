@@ -8,33 +8,29 @@ import (
 
 // AnalyzerContext provides a method to report errors in an analyzer rule, as well provides the parsed scopes to the rule.
 type AnalyzerContext struct {
-	scope  *scope.LocalScope
+	scope  scope.Scope
 	errors *AnalyzerErrorCollection
 }
 
 // GetObject under the hood calls FindOjbect on self.currLocalScope and reports any error if any
 func (self *AnalyzerContext) GetObject(decl *parser.DeclStmt) *scope.Object {
 	name, alias := decl.Format()
-	obj, needAlias := self.scope.FindObject(name, alias)
-	if obj == nil {
-		if needAlias {
-			self.errors.Push(ErrNeedAlias{}, decl.Pos)
-		} else {
-			self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, decl.Pos)
-		}
+	objects := self.scope.FindObject(name, alias)
+	if objects == nil {
+		self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, decl.Pos)
+		return nil
+	} else if len(objects) > 1 {
+		self.errors.Push(ErrNeedAlias{}, decl.Pos)
+		return nil
 	} else {
-		// todo: may this check if obj is Base and don't allow it to use
-		return obj
+		return objects[0]
 	}
-
-	return nil
 }
 
 func (self *AnalyzerContext) RunOver(callback func(object *scope.Object, source *parser.TypeStmt)) {
 
-	for _, obj := range *self.scope.Objects() {
-		src := obj.Source()
-		callback(obj, src)
+	for _, obj := range self.scope.GetObjects(1) {
+		callback(obj, obj.Source())
 	}
 }
 
@@ -42,7 +38,7 @@ func (self *AnalyzerContext) RunRule(ruleName string) {
 
 }
 
-func (self *AnalyzerContext) Scope() *scope.LocalScope {
+func (self *AnalyzerContext) Scope() scope.Scope {
 	return self.scope
 }
 
@@ -55,6 +51,6 @@ func (self *AnalyzerContext) Errors() *AnalyzerErrorCollection {
 }
 
 // NewAnalyzerContext creates a new AnalyzerContext
-func NewAnalyzerContext(scope *scope.LocalScope) *AnalyzerContext {
+func NewAnalyzerContext(scope scope.Scope) *AnalyzerContext {
 	return &AnalyzerContext{scope, NewAnalyzerErrorCollection()}
 }

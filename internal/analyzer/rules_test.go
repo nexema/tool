@@ -65,12 +65,12 @@ func TestRule_DefaultValueValidField(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &DefaultValueValidField{}
 			obj := scope.NewObject(*test.input)
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -135,12 +135,11 @@ func TestRule_UniqueDefaultValue(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &UniqueDefaultValue{}
 			obj := scope.NewObject(*test.input)
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -205,12 +204,11 @@ func TestRule_UniqueFieldName(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &UniqueFieldName{}
 			obj := scope.NewObject(*test.input)
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -280,16 +278,14 @@ func TestRule_ValidBaseType(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &ValidBaseType{}
-			objs := map[string]*scope.Object{}
+			objs := []*scope.Object{}
 			for _, stmt := range test.input {
 				obj := scope.NewObject(*stmt)
-				objs[obj.Name] = obj
+				objs = append(objs, obj)
 			}
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
-
+			context := newTestAnalyzerContext(objs)
 			rule.Analyze(context)
 			errors := context.Errors()
 
@@ -353,13 +349,12 @@ func TestRule_UniqueFieldIndex(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &UniqueFieldIndex{}
 			obj := scope.NewObject(*test.input)
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -448,16 +443,14 @@ func TestRule_ValidFieldType(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &ValidFieldType{}
-			objs := map[string]*scope.Object{}
+			objs := []*scope.Object{}
 			for _, stmt := range test.input {
 				obj := scope.NewObject(*stmt)
-				objs[obj.Name] = obj
+				objs = append(objs, obj)
 			}
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
-
+			context := newTestAnalyzerContext(objs)
 			rule.Analyze(context)
 			errors := context.Errors()
 
@@ -528,16 +521,14 @@ func TestRule_ValidListArguments(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &ValidListArguments{}
-			objs := map[string]*scope.Object{}
+			objs := []*scope.Object{}
 			for _, stmt := range test.input {
 				obj := scope.NewObject(*stmt)
-				objs[obj.Name] = obj
+				objs = append(objs, obj)
 			}
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
-
+			context := newTestAnalyzerContext(objs)
 			rule.Analyze(context)
 			errors := context.Errors()
 
@@ -613,16 +604,14 @@ func TestRule_ValidMapArguments(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &ValidMapArguments{}
-			objs := map[string]*scope.Object{}
+			objs := []*scope.Object{}
 			for _, stmt := range test.input {
 				obj := scope.NewObject(*stmt)
-				objs[obj.Name] = obj
+				objs = append(objs, obj)
 			}
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), objs))
-
+			context := newTestAnalyzerContext(objs)
 			rule.Analyze(context)
 			errors := context.Errors()
 
@@ -720,13 +709,12 @@ func TestRule_ValidMapKey(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &ValidMapKey{}
 			obj := scope.NewObject(*test.input)
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -780,13 +768,12 @@ func TestRule_NonNullableUnionField(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &NonNullableUnionField{}
 			obj := scope.NewObject(*test.input)
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -867,13 +854,12 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			file := &parser.File{Path: "test"}
 			rule := &SubsequentFieldIndex{}
 			obj := scope.NewObject(*test.input)
 
-			context := NewAnalyzerContext(scope.NewLocalScope(file, make(map[string]*scope.Import), map[string]*scope.Object{
-				obj.Name: obj,
-			}))
+			context := newTestAnalyzerContext([]*scope.Object{
+				obj,
+			})
 
 			rule.Analyze(context)
 			errors := context.Errors()
@@ -890,4 +876,13 @@ func TestRule_SubsequentFieldIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newTestAnalyzerContext(objects []*scope.Object) *AnalyzerContext {
+	fs := scope.NewFileScope("test", &parser.Ast{}, nil).(*scope.FileScope)
+	for _, obj := range objects {
+		fs.Objects[obj.Name] = obj
+	}
+
+	return NewAnalyzerContext(fs)
 }

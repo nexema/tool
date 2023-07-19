@@ -6,13 +6,13 @@ import (
 
 // Analyzer takes a linked list of built scopes and analyzes them syntactically.
 // Also, if analysis succeed, a definition is built
+// todo(tomas): add rule to check if there is any import that has the "self" alias
 type Analyzer struct {
-	scopes []*scope.Scope
+	root   scope.Scope
 	errors AnalyzerErrorCollection
 
-	currScope      *scope.Scope
-	currLocalScope *scope.LocalScope
-	currTypeId     string
+	currScope  scope.Scope
+	currTypeId string
 
 	rules map[string]AnalyzerRule // the list of rules. key is the name of the rule and the value the actual rule executor
 }
@@ -66,9 +66,9 @@ func init() {
 	defaultRules[validMapKey.Key()] = validMapKey
 }
 
-func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
+func NewAnalyzer(root scope.Scope) *Analyzer {
 	analyzer := &Analyzer{
-		scopes: scopes,
+		root:   root,
 		errors: make([]*AnalyzerError, 0),
 		rules:  defaultRules,
 	}
@@ -78,9 +78,7 @@ func NewAnalyzer(scopes []*scope.Scope) *Analyzer {
 
 // Analyze starts analyzing and records any error encountered
 func (self *Analyzer) Analyze() {
-	for _, scope := range self.scopes {
-		self.analyzeScope(scope)
-	}
+	self.analyzeScope(self.root)
 }
 
 func (self *Analyzer) HasAnalysisErrors() bool {
@@ -91,22 +89,25 @@ func (self *Analyzer) Errors() *AnalyzerErrorCollection {
 	return &self.errors
 }
 
-func (self *Analyzer) analyzeScope(s *scope.Scope) {
+func (self *Analyzer) analyzeScope(s scope.Scope) {
 	self.currScope = s
-	for _, localScope := range *s.LocalScopes() {
-		self.analyzeLocalScope(localScope)
+
+	if s.Kind() == scope.Package {
+		for _, child := range s.(*scope.PackageScope).Children {
+			self.analyzeScope(child)
+		}
+	} else {
+		self.analyzeFileScope(s.(*scope.FileScope))
 	}
 }
 
-func (self *Analyzer) analyzeLocalScope(ls *scope.LocalScope) {
-	self.currLocalScope = ls
-
-	for _, obj := range *ls.Objects() {
+func (self *Analyzer) analyzeFileScope(s *scope.FileScope) {
+	for _, obj := range s.GetObjects(1) {
 		self.currTypeId = obj.Id
 
 		for _, rule := range self.rules {
 			context := &AnalyzerContext{
-				scope:  ls,
+				scope:  s,
 				errors: NewAnalyzerErrorCollection(),
 			}
 			rule.Analyze(context)
