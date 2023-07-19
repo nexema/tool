@@ -66,31 +66,38 @@ func (self *Linker) verifyScopeObjects(s *scope.PackageScope) {
 			m := map[string]*scope.Import{}
 
 			// verify objects between imports
-			for _, scope := range *(child.(*scope.FileScope)).Imports.GetAll() {
-				for _, obj := range scope.GetObjects(1) {
-					if _, ok := m[obj.Name]; ok {
-						// found another object and this import does not has an alias
-						// if !imp.HasAlias() {
-						// 	self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(ls.File().Path, &imp.Source().Path.Pos)))
-						// 	continue
-						// }
-					}
+			for alias, imports := range (child.(*scope.FileScope)).Imports {
+				if alias == "self" {
+					continue
+				}
 
-					// m[obj.Name] = imp
+				for _, imp := range *imports {
+					for _, obj := range imp.ImportedScope.GetObjects(1) {
+						if _, ok := m[obj.Name]; ok {
+							// found another object and this import does not has an alias
+							if alias == "." || len(alias) == 0 {
+								self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(child.Path(), &imp.Pos)))
+								continue
+							}
+						}
+
+						m[obj.Name] = &imp
+					}
 				}
 			}
 
 			// verify local objects against imports
-			// objects are not verified against other in local scope because they are already verified at discover stage
-			// for objName := range *ls.Objects() {
-			// 	if imp, ok := m[objName]; ok {
-			// 		// if the imported object does not have an alias, report error
-			// 		if !imp.HasAlias() {
-			// 			self.errors.push(NewLinkerErr(ErrAlreadyDefined{objName}, *reference.NewReference(ls.File().Path, &imp.Source().Path.Pos)))
-			// 			continue
-			// 		}
-			// 	}
-			// }
+			// objects are not verified against other in the same file scope because they are already verified at discover stage
+			for _, obj := range child.GetObjects(1) {
+				if imp, ok := m[obj.Name]; ok {
+
+					// if the imported object does not have an alias, report error
+					if !imp.HasAlias() {
+						self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(child.Path(), &imp.Pos)))
+						continue
+					}
+				}
+			}
 		}
 	}
 }
@@ -168,9 +175,13 @@ func (self *Linker) buildDependencyGraph(s scope.Scope) {
 		}
 
 	case *scope.FileScope:
-		for _, importedScopes := range s.Imports {
+		for importsAlias, importedScopes := range s.Imports {
+			if importsAlias == "self" {
+				continue
+			}
+
 			for _, importedScope := range *importedScopes {
-				(self.dependencyGraph)[s] = append((self.dependencyGraph)[s], importedScope)
+				(self.dependencyGraph)[s] = append((self.dependencyGraph)[s], importedScope.ImportedScope)
 			}
 		}
 	}
@@ -199,9 +210,9 @@ func (self *Linker) resolveImport(packageScope *scope.PackageScope) {
 					alias = use.Alias.Token.Literal
 					if _, ok := aliases[alias]; ok {
 						self.errors.push(NewLinkerErr(ErrAliasAlreadyDefined{alias}, *reference.NewReference(childScope.Path(), &use.Alias.Pos)))
-						aliases[alias] = true
 						continue
 					}
+					aliases[alias] = true
 				}
 
 				// check if impPath is not equal to pkgScope.Path
@@ -218,11 +229,11 @@ func (self *Linker) resolveImport(packageScope *scope.PackageScope) {
 					continue
 				}
 
-				fileScope.Imports.Push(alias, importedScope)
+				fileScope.Imports.Push(alias, scope.NewImport(use.Path.Token.Literal, use.UnwrapAlias(), importedScope, use.Path.Pos))
 			}
 
 			// add its parent so it can access siblings types
-			// fileScope.Imports.Push(".", fileScope.Parent())
+			fileScope.Imports.Push("self", scope.NewImport(fileScope.Parent().Path(), "self", fileScope.Parent(), *reference.NewPos()))
 		}
 	}
 }
@@ -245,12 +256,6 @@ func (self *Linker) createScope(packageName string, node *parser.ParseNode, pare
 	packageScope := scope.NewPackageScope(node.Path, parent).(*scope.PackageScope)
 	for _, ast := range node.AstList {
 		fileScope := scope.NewFileScope(ast.File.Path, ast, packageScope).(*scope.FileScope)
-
-		// validate "use" statements
-		// for _, stmt := range ast.UseStatements {
-		// 	imp := scope.NewImport(&stmt)
-		// 	fileScope.Im
-		// }
 
 		// push types
 		for _, stmt := range ast.TypeStatements {

@@ -14,7 +14,7 @@ const (
 	File
 )
 
-type importCollection map[string]*[]Scope
+type importCollection map[string]*[]Import
 
 type Scope interface {
 	Name() string
@@ -179,8 +179,8 @@ func (self *FileScope) searchObject(name string, visited map[*FileScope]bool) *O
 	}
 
 	for _, importedScopes := range self.Imports {
-		for _, scope := range *importedScopes {
-			if importedFileScope, ok := scope.(*FileScope); ok { // todo: add alias
+		for _, imp := range *importedScopes {
+			if importedFileScope, ok := imp.ImportedScope.(*FileScope); ok { // todo: add alias while searching
 				if obj := importedFileScope.searchObject(name, visited); obj != nil {
 					matches = append(matches, obj)
 				}
@@ -199,21 +199,12 @@ func (self *FileScope) searchObject(name string, visited map[*FileScope]bool) *O
 }
 
 // Push adds a new scope to an alias key. If the entry does not exist, its created first, otherwise, it appends the scope
-func (self *importCollection) Push(alias string, scope Scope) {
+func (self *importCollection) Push(alias string, scopeImport Import) {
 	scopes, ok := (*self)[alias]
 	if !ok {
-		scopes = new([]Scope)
+		scopes = new([]Import)
 		(*self)[alias] = scopes
 	}
 
-	*scopes = append(*scopes, scope)
-}
-
-func (self *importCollection) GetAll() *[]Scope {
-	scopes := new([]Scope)
-	for _, group := range *self {
-		*scopes = append(*scopes, *group...)
-	}
-
-	return scopes
+	*scopes = append(*scopes, scopeImport)
 }

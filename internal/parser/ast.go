@@ -218,3 +218,12 @@ func MakeListLiteral(values ...LiteralStmt) ListLiteral {
 func MakeMapLiteral(values ...MapEntry) MapLiteral {
 	return values
 }
+
+// UnwrapAlias returns the alias' literal or an empty string if alias is nil
+func (self *UseStmt) UnwrapAlias() string {
+	if self.Alias == nil {
+		return ""
+	}
+
+	return self.Alias.Token.Literal
+}

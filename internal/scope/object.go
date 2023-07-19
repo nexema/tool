@@ -5,6 +5,7 @@ import (
 
 	"github.com/mitchellh/hashstructure/v2"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/reference"
 )
 
 // Object represents an Ast Type statement.
@@ -34,28 +35,21 @@ func (self *Object) Source() *parser.TypeStmt {
 
 // Import represents an `use` statement.
 type Import struct {
-	src   *parser.UseStmt
-	Path  string
-	Alias string
+	Pos           reference.Pos
+	Path          string
+	Alias         string
+	ImportedScope Scope
 }
 
-func NewImport(stmt *parser.UseStmt) *Import {
-	var alias string
-	if stmt.Alias != nil {
-		alias = stmt.Alias.Token.Literal
+func NewImport(path, alias string, scope Scope, pos reference.Pos) Import {
+	return Import{
+		Pos:           pos,
+		Path:          path,
+		ImportedScope: scope,
+		Alias:         alias,
 	}
-
-	return &Import{
-		src:   stmt,
-		Path:  stmt.Path.Token.Literal,
-		Alias: alias,
-	}
-}
-
-func (self *Import) Source() *parser.UseStmt {
-	return self.src
 }
 
 func (self *Import) HasAlias() bool {
-	return len(self.Alias) > 0
+	return self.Alias != "." && self.Alias != ""
 }
