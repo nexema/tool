@@ -15,6 +15,7 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/linker"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/schema"
 	"tomasweigenast.com/nexema/tool/internal/scope"
 )
@@ -38,10 +39,10 @@ type ProjectBuilder struct {
 
 	config *ProjectConfig
 
-	parseTree     *parser.ParseTree
-	linkedScopes  []*scope.Scope
-	builtSnapshot *definition.NexemaSnapshot
-	parseErrs     parser.ParserErrorCollection
+	parseTree       *parser.ParseTree
+	rootLinkedScope scope.Scope
+	builtSnapshot   *definition.NexemaSnapshot
+	parseErrs       parser.ParserErrorCollection
 }
 
 const builderVersion = 1
@@ -127,10 +128,10 @@ func (self *ProjectBuilder) Build() error {
 		return linker.Errors().AsError()
 	}
 
-	self.linkedScopes = linker.LinkedScopes()
+	self.rootLinkedScope = linker.LinkedScopes()
 
 	// run analyzer
-	analyzer := analyzer.NewAnalyzer(self.linkedScopes)
+	analyzer := analyzer.NewAnalyzer(self.rootLinkedScope)
 	analyzer.Analyze()
 
 	if analyzer.HasAnalysisErrors() {
@@ -152,7 +153,7 @@ func (self *ProjectBuilder) HasSnapshot() bool {
 
 // BuildSnapshot creates a Nexema snapshot of a built project that can be saved to a file
 func (self *ProjectBuilder) BuildSnapshot() error {
-	schemaBuilder := schema.NewSchemaBuilder(self.linkedScopes)
+	schemaBuilder := schema.NewSchemaBuilder(self.rootLinkedScope)
 	self.builtSnapshot = schemaBuilder.BuildSnapshot()
 
 	return nil
@@ -214,7 +215,7 @@ func (self *ProjectBuilder) parseFile(p string) error {
 		packagePath = "root"
 	}
 
-	parser := parser.NewParser(bytes.NewBuffer(fileContents), &parser.File{Path: filePath})
+	parser := parser.NewParser(bytes.NewBuffer(fileContents), &reference.File{Path: filePath})
 	parser.Reset()
 
 	ast := parser.Parse()
