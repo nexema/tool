@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"tomasweigenast.com/nexema/tool/internal/parser"
-	"tomasweigenast.com/nexema/tool/internal/scope"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
@@ -238,8 +237,4 @@ func NewUseStmt(path, alias string) *parser.UseStmt {
 	}
 
 	return stmt
-}
-
-func NewImport(stmt *parser.UseStmt) *scope.Import {
-	return scope.NewImport(stmt)
 }
