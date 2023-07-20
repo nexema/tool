@@ -13,8 +13,7 @@ import (
 var literalKindExporter = cmp.AllowUnexported(BooleanLiteral{}, StringLiteral{}, IntLiteral{}, FloatLiteral{})
 
 func TestParser_Parse(t *testing.T) {
-	input := `
-	use "path/to/my/pkg"
+	input := `use "path/to/my/pkg"
 	use "foo/bar" as foo_bar
 
 	// An enum with some values

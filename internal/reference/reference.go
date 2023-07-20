@@ -53,7 +53,15 @@ func NewPos(values ...int) *Pos {
 		endline = values[3]
 	}
 
-	return &Pos{values[0], values[1], line + 1, endline + 1}
+	if line == 0 {
+		line = 1
+	}
+
+	if endline == 0 {
+		endline = 1
+	}
+
+	return &Pos{values[0], values[1], line, endline}
 }
 
 func (self Pos) String() string {
