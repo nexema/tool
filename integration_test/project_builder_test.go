@@ -26,6 +26,9 @@ func TestProjectBuilder(t *testing.T) {
 			before: func() {
 				writeNexYaml("./test0", project.ProjectConfig{
 					Version: 1,
+					Generators: project.NexemaGenerators{
+						"js": {},
+					},
 				})
 				writeFile("./test0/common/entity.nex", `
 				type Entity base {
@@ -154,6 +157,9 @@ func TestProjectBuilder(t *testing.T) {
 			before: func() {
 				writeNexYaml("./test1", project.ProjectConfig{
 					Version: 1,
+					Generators: project.NexemaGenerators{
+						"js": {},
+					},
 				})
 				writeFile("./test1/common/entity.nex", `
 				type Entity base {
@@ -282,6 +288,9 @@ func TestProjectBuilder(t *testing.T) {
 			before: func() {
 				writeNexYaml("./test2", project.ProjectConfig{
 					Version: 1,
+					Generators: project.NexemaGenerators{
+						"js": {},
+					},
 				})
 				writeFile("./test2/common/entity/entity.nex", `
 				type Entity base {

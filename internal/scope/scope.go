@@ -162,6 +162,10 @@ func (self *FileScope) FindObject(name, alias string) []*Object {
 }
 
 func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]bool) []*Object {
+	if alias == "" {
+		alias = "."
+	}
+
 	if (*visited)[self] {
 		return nil
 	}
@@ -178,7 +182,7 @@ func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]
 
 	// lookup in imported types
 	for importsAlias, importedScopes := range self.Imports {
-		if (hasAlias && importsAlias != alias) || (!hasAlias && len(importsAlias) > 0) {
+		if (hasAlias && importsAlias != alias) || (!hasAlias && len(importsAlias) > 0 && importsAlias != ".") {
 			continue
 		}
 
