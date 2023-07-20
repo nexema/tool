@@ -15,30 +15,27 @@
         },
         "files": {
             "type": "array",
-            "description": "Age in years which must be equal to or greater than zero.",
+            "description": "List of files that need to be generated.",
             "items": { "$ref": "#/$defs/NexemaFile" }
         }
     },
     "$defs": {
         "NexemaFile": {
             "type": "object",
-            "required": ["id", "fileName", "packageName", "path", "types"],
+            "description": "Represents a Nexema definition file.",
+            "required": ["id", "packageName", "path", "types"],
             "properties": {
                 "id": {
-                    "type": "integer",
-                    "description": "The id of the file"
-                },
-                "fileName": {
                     "type": "string",
-                    "description": "The name of the file"
+                    "description": "The id of the file."
                 },
                 "packageName": {
                     "type": "string",
-                    "description": "The name of the package where the file is defined"
+                    "description": "The name of the package where the file is defined."
                 },
                 "path": {
                     "type": "string",
-                    "description": "The full path to the file"
+                    "description": "The full path to the file, relative to nexema.yaml."
                 },
                 "types": {
                     "type": "array",
@@ -49,43 +46,44 @@
         },
         "TypeDefinition": {
             "type": "object",
-            "required": ["id", "name", "documentation", "modifier", "annotations", "defaults", "fields"],
+            "description": "Represents a Nexema type.",
+            "required": ["id", "name", "modifier", "fields"],
             "properties": {
                 "id": {
-                    "type": "integer",
-                    "description": "The id of the type"
+                    "type": "string",
+                    "description": "The unique id of the type."
                 },
                 "name": {
                     "type": "string",
-                    "description": "The name of the type"
+                    "description": "The name of the type."
                 },
                 "documentation": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "description": "A list of comments defined as documentation"
+                    "description": "A list of comments defined as documentation."
                 },
                 "modifier": {
                     "type": "string",
-                    "description": "The modifier of the type"
+                    "description": "The type's modifier: struct, union or enum."
                 },
                 "baseType": {
-                    "type": "integer",
-                    "description": "The id of the base type"
+                    "type": "string",
+                    "description": "The unique id of the base type, if applies."
                 },
                 "annotations": {
                     "type": "object",
-                    "description": "A list of annotated key value pairs",
+                    "description": "A list of annotated key value pairs.",
                     "additionalProperties": true
                 },
                 "defaults": {
                     "type": "object",
-                    "description": "The default values for the fields in the type",
+                    "description": "The default values for the fields in the type.",
                     "additionalProperties": true
                 },
                 "fields": {
-                    "description": "The list of fields defined in the type",
+                    "description": "The list of fields defined in the type.",
                     "type": "array",
                     "items": { "$ref": "#/$defs/FieldDefinition" }
                 }
@@ -93,18 +91,18 @@
         },
         "FieldDefinition": {
             "type": "object",
-            "required": ["name", "index", "type", "documentation", "annotations"],
+            "required": ["name", "index", "type"],
             "properties": {
                 "name": {
-                    "description": "The name of the field",
+                    "description": "The name of the field.",
                     "type": "string"
                 },
                 "index": {
-                    "description": "The index of the field",
+                    "description": "The index of the field.",
                     "type": "integer"
                 },
                 "type": {
-                    "description": "The name of the field",
+                    "description": "The value type of the field.",
                     "oneOf": [
                         {
                             "$ref": "#/$defs/PrimitiveValueType"
@@ -119,27 +117,27 @@
                     "items": {
                         "type": "string"
                     },
-                    "description": "A list of comments defined as documentation"
+                    "description": "A list of comments defined as documentation."
                 },
                 "annotations": {
                     "type": "object",
-                    "description": "A list of annotated key value pairs",
+                    "description": "A list of annotated key value pairs.",
                     "additionalProperties": true
                 }
             }
         },
         "PrimitiveValueType": {
             "type": "object",
-            "description": "Defines a value type that is a primitive",
-            "required": ["primitive", "nullable", "arguments"],
+            "description": "Defines a value type that is a Nexema primitive.",
+            "required": ["primitive", "nullable"],
             "properties": {
                 "primitive": {
                     "type": "string",
-                    "description": "The primitive value type"
+                    "description": "The primitive's name."
                 },
                 "nullable": {
                     "type": "boolean",
-                    "description": "Indicates if the value can be NULL"
+                    "description": "A flag that indicates if the value can be NULL."
                 },
                 "arguments": {
                     "type": "array",
@@ -153,22 +151,22 @@
                             }
                         ]    
                     },
-                    "description": "A list of arguments if the type is generic"
+                    "description": "A list of arguments if the type is generic."
                 }
             }
         },
         "CustomValueType": {
-            "description": "Defines a value type that is a user defined type",
+            "description": "Defines a value type that is a user defined type.",
             "type": "object",
-            "required": [],
+            "required": ["nullable", "objectId"],
             "properties": {
                 "objectId": {
-                    "type": "integer",
-                    "description": "The id of the type"
+                    "type": "string",
+                    "description": "The id of the custom type."
                 },
                 "nullable": {
                     "type": "boolean",
-                    "description": "Indicates if the value can NULL"
+                    "description": "Indicates if the value can NULL."
                 }
             }
         }
