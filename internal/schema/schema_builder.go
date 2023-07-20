@@ -2,7 +2,6 @@ package schema
 
 import (
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 
@@ -19,11 +18,11 @@ const (
 
 // SchemaBuilder converts a already analyzed ast to a valid Nexema definition.
 type SchemaBuilder struct {
-	scopes []*scope.Scope
+	root scope.Scope
 }
 
-func NewSchemaBuilder(scopes []*scope.Scope) *SchemaBuilder {
-	return &SchemaBuilder{scopes}
+func NewSchemaBuilder(rootScope scope.Scope) *SchemaBuilder {
+	return &SchemaBuilder{rootScope}
 }
 
 // BuildSnapshot creates a Nexema Snapshot
@@ -34,14 +33,8 @@ func (self *SchemaBuilder) BuildSnapshot() *definition.NexemaSnapshot {
 	}
 
 	ids := make([]string, 0)
-	for _, scope := range self.scopes {
-		for _, localScope := range *scope.LocalScopes() {
-			file := self.buildFile(localScope)
-			snapshot.Files = append(snapshot.Files, *file)
-			ids = append(ids, file.Id)
-		}
-	}
 
+	self.buildPackage(self.root.(*scope.PackageScope), snapshot, &ids)
 	snapshotHashcode, err := hashstructure.Hash(&ids, hashstructure.FormatV2, &hashstructure.HashOptions{})
 	if err != nil {
 		panic(fmt.Errorf("could not calculate hash for snapshot. Please report this because this is not expected. Error: %v", err))
@@ -52,16 +45,28 @@ func (self *SchemaBuilder) BuildSnapshot() *definition.NexemaSnapshot {
 	return snapshot
 }
 
-func (self *SchemaBuilder) buildFile(localScope *scope.LocalScope) *definition.NexemaFile {
-	physicalFile := localScope.File()
+func (self *SchemaBuilder) buildPackage(s *scope.PackageScope, snapshot *definition.NexemaSnapshot, ids *[]string) {
+	for _, child := range s.Children {
+		if child.Kind() == scope.Package {
+			self.buildPackage(child.(*scope.PackageScope), snapshot, ids)
+		} else {
+			file := self.buildFile(child.(*scope.FileScope))
+			snapshot.Files = append(snapshot.Files, *file)
+			*ids = append(*ids, file.Id)
+		}
+	}
+}
+
+func (self *SchemaBuilder) buildFile(fs *scope.FileScope) *definition.NexemaFile {
+	physicalFile := fs.Path()
 	file := &definition.NexemaFile{
-		Path:        physicalFile.Path,
-		PackageName: path.Base(path.Dir(physicalFile.Path)),
-		Types:       make([]definition.TypeDefinition, len(*localScope.Objects())),
+		Path:        physicalFile,
+		PackageName: fs.Parent().Name(),
+		Types:       make([]definition.TypeDefinition, len(fs.Objects)),
 	}
 
 	idx := 0
-	for _, obj := range *localScope.Objects() {
+	for _, obj := range fs.Objects {
 		stmt := obj.Source()
 		typeDef := definition.TypeDefinition{
 			Id:            obj.Id,
@@ -75,7 +80,12 @@ func (self *SchemaBuilder) buildFile(localScope *scope.LocalScope) *definition.N
 
 		if stmt.BaseType != nil {
 			name, alias := stmt.BaseType.Format()
-			typeDef.BaseType = &localScope.MustFindObject(name, alias).Id
+			baseType := fs.FindObject(name, alias)
+			if baseType == nil || len(baseType) != 1 {
+				panic(fmt.Errorf("this should not happen, base type %s.%s not found", name, alias))
+			}
+
+			typeDef.BaseType = &baseType[0].Id
 		}
 
 		fieldIndex := 0
@@ -92,7 +102,7 @@ func (self *SchemaBuilder) buildFile(localScope *scope.LocalScope) *definition.N
 			}
 
 			if stmt.Modifier != token.Enum {
-				typeDef.Fields[i].Type = getValueType(localScope, field.ValueType)
+				typeDef.Fields[i].Type = getValueType(fs, field.ValueType)
 			}
 
 			fieldIndex++
@@ -147,7 +157,7 @@ func getDefaults(stmts *[]parser.AssignStmt) definition.Assignments {
 	return assignments
 }
 
-func getValueType(localScope *scope.LocalScope, stmt *parser.DeclStmt) definition.BaseValueType {
+func getValueType(localScope *scope.FileScope, stmt *parser.DeclStmt) definition.BaseValueType {
 	primitive, ok := definition.ParsePrimitive(stmt.Token.Literal)
 	if ok {
 		primitiveValueType := definition.PrimitiveValueType{
@@ -166,9 +176,12 @@ func getValueType(localScope *scope.LocalScope, stmt *parser.DeclStmt) definitio
 	}
 
 	name, alias := stmt.Format()
-	obj := localScope.MustFindObject(name, alias)
+	objs := localScope.FindObject(name, alias)
+	if objs == nil || len(objs) != 1 {
+		panic(fmt.Errorf("this should not happen, unable to find object %s.%s", alias, name))
+	}
 	return definition.CustomValueType{
 		Nullable: stmt.Nullable,
-		ObjectId: obj.Id,
+		ObjectId: objs[0].Id,
 	}
 }

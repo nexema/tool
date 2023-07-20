@@ -183,12 +183,18 @@ func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]
 		}
 
 		for _, imp := range *importedScopes {
-			if importedFileScope, ok := imp.ImportedScope.(*FileScope); ok {
-				obj, ok := importedFileScope.Objects[name]
+			if imp.ImportedScope.Kind() == File {
+				obj, ok := imp.ImportedScope.(*FileScope).Objects[name]
 				if ok {
 					matches = append(matches, obj)
 				}
+			} else {
+				objects := imp.ImportedScope.GetObjects(1)
+				for _, obj := range objects {
+					matches = append(matches, obj)
+				}
 			}
+
 		}
 	}
 
