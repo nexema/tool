@@ -170,19 +170,19 @@ func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]
 		return nil
 	}
 	(*visited)[self] = true
-	matches := make([]*Object, 0)
+	matches := make(map[string]*Object, 0)
 	hasAlias := len(alias) > 0 && alias != "."
 
 	// if alias is empty, lookup locally
 	if !hasAlias {
 		if obj, ok := self.Objects[name]; ok {
-			matches = append(matches, obj)
+			matches[obj.Id] = obj
 		}
 	}
 
 	// lookup in imported types
 	for importsAlias, importedScopes := range self.Imports {
-		if (hasAlias && importsAlias != alias) || (!hasAlias && len(importsAlias) > 0 && importsAlias != ".") {
+		if importsAlias != "self" && importsAlias != "." && ((hasAlias && importsAlias != alias) || (!hasAlias && len(importsAlias) > 0)) {
 			continue
 		}
 
@@ -190,12 +190,14 @@ func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]
 			if imp.ImportedScope.Kind() == File {
 				obj, ok := imp.ImportedScope.(*FileScope).Objects[name]
 				if ok {
-					matches = append(matches, obj)
+					matches[obj.Id] = obj
 				}
 			} else {
 				objects := imp.ImportedScope.GetObjects(1)
 				for _, obj := range objects {
-					matches = append(matches, obj)
+					if obj.Name == name {
+						matches[obj.Id] = obj
+					}
 				}
 			}
 
@@ -206,7 +208,14 @@ func (self *FileScope) searchObject(name, alias string, visited *map[*FileScope]
 	case 0:
 		return nil
 	default:
-		return matches
+		out := make([]*Object, len(matches))
+		i := 0
+		for _, obj := range matches {
+			out[i] = obj
+			i++
+		}
+
+		return out
 	}
 }
 

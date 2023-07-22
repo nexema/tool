@@ -20,7 +20,7 @@ func (self *AnalyzerContext) GetObject(decl *parser.DeclStmt) *scope.Object {
 		self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, decl.Pos)
 		return nil
 	} else if len(objects) > 1 {
-		self.errors.Push(ErrNeedAlias{}, decl.Pos)
+		self.errors.Push(ErrNeedAlias{ObjectName: name}, decl.Pos)
 		return nil
 	} else {
 		return objects[0]

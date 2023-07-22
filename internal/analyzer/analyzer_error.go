@@ -32,7 +32,9 @@ type (
 	}
 
 	// ErrNeedAlias is an error which indicates an import needs an alias, because of duplicated objects
-	ErrNeedAlias struct{}
+	ErrNeedAlias struct {
+		ObjectName string
+	}
 
 	// ErrTypeNotFound indicates that an object was not found
 	ErrTypeNotFound struct {
@@ -49,8 +51,8 @@ func (e ErrUnknownTypeModifier) Message() string {
 	return fmt.Sprintf("unknown type's modifier %s", e.Token)
 }
 
-func (ErrNeedAlias) Message() string {
-	return "more than one object is defined with the same name, try aliasing your imports"
+func (e ErrNeedAlias) Message() string {
+	return fmt.Sprintf("more than one object is defined with the name %q, try aliasing your imports", e.ObjectName)
 }
 
 func (e ErrAlreadyDefined) Message() string {
