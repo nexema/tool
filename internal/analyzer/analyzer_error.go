@@ -11,7 +11,7 @@ import (
 )
 
 type AnalyzerError struct {
-	At   reference.Pos
+	At   reference.Reference
 	Kind AnalyzerErrorKind
 }
 
@@ -70,7 +70,7 @@ func (e ErrTypeNotFound) Message() string {
 	return fmt.Sprintf("type %q not found, are you missing an import?", fullName)
 }
 
-func NewAnalyzerError(err AnalyzerErrorKind, at reference.Pos) *AnalyzerError {
+func NewAnalyzerError(err AnalyzerErrorKind, at reference.Reference) *AnalyzerError {
 	return &AnalyzerError{at, err}
 }
 
@@ -83,7 +83,7 @@ func NewAnalyzerErrorCollection() *AnalyzerErrorCollection {
 
 var errTypeNotFoundKind = reflect.TypeOf(ErrTypeNotFound{})
 
-func (self *AnalyzerErrorCollection) Push(kind AnalyzerErrorKind, at reference.Pos) {
+func (self *AnalyzerErrorCollection) Push(kind AnalyzerErrorKind, at reference.Reference) {
 	(*self) = append((*self), NewAnalyzerError(kind, at))
 }
 
@@ -100,7 +100,7 @@ func (self *AnalyzerErrorCollection) Iterate(f func(err *AnalyzerError)) {
 func (self *AnalyzerErrorCollection) Display() string {
 	out := make(map[string]bool, len(*self))
 	for _, err := range *self {
-		format := fmt.Sprintf("%d:%d -> %s", err.At.Line, err.At.Start, err.Kind.Message())
+		format := fmt.Sprintf("%s -> %s", err.At, err.Kind.Message())
 		if ok := out[format]; ok {
 			continue
 		}

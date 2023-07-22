@@ -215,7 +215,7 @@ func (self *ProjectBuilder) parseFile(p string) error {
 		packagePath = "root"
 	}
 
-	parser := parser.NewParser(bytes.NewBuffer(fileContents), &reference.File{Path: filePath})
+	parser := parser.NewParser(bytes.NewBuffer(fileContents), reference.File{Path: filePath})
 	parser.Reset()
 
 	ast := parser.Parse()

@@ -35,10 +35,10 @@ func TestTokenizer_Next(t *testing.T) {
 	tests := []struct {
 		input   string
 		wantTok *token.Token
-		wantPos *reference.Pos
+		wantPos reference.Pos
 		wantErr *TokenizerErr
 	}{
-		{"<", nil, nil, NewTokenizerErr(ErrUnknownToken, "<")},
+		{"<", nil, reference.NewPos(), NewTokenizerErr(ErrUnknownToken, "<")},
 		{"?", token.NewToken(token.QuestionMark, "?"), reference.NewPos(0, 1), nil},
 		// {" ", token.NewToken(token.EOF, ""), NewPos(0, 0), nil},
 		{"=", token.NewToken(token.Assign, "="), reference.NewPos(0, 1), nil},

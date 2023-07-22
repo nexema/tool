@@ -46,7 +46,7 @@ func TestBuilderSnapshot(t *testing.T) {
 			BasicValueType("string", true).
 			Result()).
 		Result())
-	usersScope.Imports.Push("", scope.NewImport("common", "", scope0, *reference.NewPos()))
+	usersScope.Imports.Push("", scope.NewImport("common", "", scope0, reference.NewPos()))
 	scope1.Children = append(scope1.Children, usersScope)
 
 	schemaBuilder := NewSchemaBuilder(root)

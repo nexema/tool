@@ -10,7 +10,7 @@ import (
 )
 
 type Ast struct {
-	File           *reference.File
+	File           reference.File
 	UseStatements  []UseStmt
 	TypeStatements []TypeStmt
 }

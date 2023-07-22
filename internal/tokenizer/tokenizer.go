@@ -35,7 +35,7 @@ func NewTokenizer(reader io.Reader) *Tokenizer {
 		reader:      bufio.NewReader(reader),
 		ch:          eof,
 		currentPos:  -1,
-		currentLine: 0,
+		currentLine: 1,
 	}
 
 	tokenizer.next()
@@ -43,10 +43,10 @@ func NewTokenizer(reader io.Reader) *Tokenizer {
 	return tokenizer
 }
 
-func (self *Tokenizer) Next() (tok *token.Token, pos *reference.Pos, err *TokenizerErr) {
+func (self *Tokenizer) Next() (tok *token.Token, pos reference.Pos, err *TokenizerErr) {
 	self.skipWhitespace()
 	if self.ch == eof {
-		return token.Token_EOF, nil, nil
+		return token.Token_EOF, reference.NewPos(), nil
 	}
 
 	pos = reference.NewPos(self.currentPos, self.currentPos+1, self.currentLine, self.currentLine)
@@ -114,7 +114,7 @@ func (self *Tokenizer) Next() (tok *token.Token, pos *reference.Pos, err *Tokeni
 			return
 		}
 
-		return nil, nil, NewTokenizerErr(ErrUnknownToken, string(self.ch))
+		return nil, reference.NewPos(), NewTokenizerErr(ErrUnknownToken, string(self.ch))
 	}
 
 	tok = token.NewToken(tokenKind, string(self.ch))
@@ -123,11 +123,11 @@ func (self *Tokenizer) Next() (tok *token.Token, pos *reference.Pos, err *Tokeni
 	return tok, pos, nil
 }
 
-func (self *Tokenizer) GetCurrentPosition() *reference.Pos {
+func (self *Tokenizer) GetCurrentPosition() reference.Pos {
 	return reference.NewPos(self.currentPos, self.currentPos, self.currentLine, self.currentLine)
 }
 
-func (self *Tokenizer) readIdentifier() (tok *token.Token, pos *reference.Pos, err *TokenizerErr) {
+func (self *Tokenizer) readIdentifier() (tok *token.Token, pos reference.Pos, err *TokenizerErr) {
 	result := new(strings.Builder)
 	result.WriteRune(self.ch)
 	startPos := self.currentPos
@@ -144,7 +144,7 @@ func (self *Tokenizer) readIdentifier() (tok *token.Token, pos *reference.Pos, e
 	return token.NewToken(token.Ident, result.String()), self.getPos(startPos), nil
 }
 
-func (self *Tokenizer) readComment() (tok *token.Token, pos *reference.Pos, err *TokenizerErr) {
+func (self *Tokenizer) readComment() (tok *token.Token, pos reference.Pos, err *TokenizerErr) {
 	result := new(strings.Builder)
 	startPos := self.currentPos
 	self.next() // initial / was read
@@ -168,7 +168,7 @@ func (self *Tokenizer) readComment() (tok *token.Token, pos *reference.Pos, err 
 		for {
 			ch := self.next()
 			if ch == eof {
-				return nil, nil, NewTokenizerErr(ErrInvalidMultilineComment)
+				return nil, reference.NewPos(), NewTokenizerErr(ErrInvalidMultilineComment)
 			}
 
 			if ch == '*' && self.peek() == '/' {
@@ -185,7 +185,7 @@ func (self *Tokenizer) readComment() (tok *token.Token, pos *reference.Pos, err 
 	}
 }
 
-func (self *Tokenizer) readNumber() (tok *token.Token, pos *reference.Pos, err *TokenizerErr) {
+func (self *Tokenizer) readNumber() (tok *token.Token, pos reference.Pos, err *TokenizerErr) {
 	isDecimal := self.ch == '.'
 	result := new(strings.Builder)
 	result.WriteRune(self.ch)
@@ -216,13 +216,13 @@ func (self *Tokenizer) readNumber() (tok *token.Token, pos *reference.Pos, err *
 	}
 }
 
-func (self *Tokenizer) readString() (tok *token.Token, pos *reference.Pos, err *TokenizerErr) {
+func (self *Tokenizer) readString() (tok *token.Token, pos reference.Pos, err *TokenizerErr) {
 	result := new(strings.Builder)
 	startPos := self.currentPos
 	for {
 		ch := self.next()
 		if ch == newline || ch == eof {
-			return nil, nil, NewTokenizerErr(ErrInvalidString)
+			return nil, reference.NewPos(), NewTokenizerErr(ErrInvalidString)
 		}
 
 		if ch == '"' {
@@ -289,7 +289,7 @@ func (self *Tokenizer) peek() rune {
 	return eof
 }
 
-func (self *Tokenizer) getPos(start int) *reference.Pos {
+func (self *Tokenizer) getPos(start int) reference.Pos {
 	return reference.NewPos(
 		start,
 		self.currentPos,

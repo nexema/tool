@@ -98,8 +98,8 @@ func (u ErrExpectedLiteral) Message() string {
 	return fmt.Sprintf("expected literal, got %s instead", u.Got)
 }
 
-func NewParserErr(err ParserErrorKind, at *reference.Reference) *ParserError {
-	return &ParserError{*at, err}
+func NewParserErr(err ParserErrorKind, at reference.Reference) *ParserError {
+	return &ParserError{at, err}
 }
 
 type ParserErrorCollection []*ParserError

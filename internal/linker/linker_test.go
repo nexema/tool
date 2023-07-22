@@ -45,7 +45,7 @@ func TestLinker_Link(t *testing.T) {
 				return tree
 			},
 			wantErrs: LinkerErrorCollection{
-				NewLinkerErr(ErrSelfImport{}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
+				NewLinkerErr(ErrSelfImport{}, reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -60,11 +60,11 @@ func TestLinker_Link(t *testing.T) {
 				NewLinkerErr(ErrCircularDependency{
 					Src:  &reference.File{Path: "identity/user/user.nex"},
 					Dest: &reference.File{Path: "common"},
-				}, *reference.NewReference("identity/user/user.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("identity/user/user.nex", reference.NewPos(0, 0))),
 				NewLinkerErr(ErrCircularDependency{
 					Src:  &reference.File{Path: "common/address.nex"},
 					Dest: &reference.File{Path: "identity/user"},
-				}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
-				}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -91,7 +91,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
-				}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -126,7 +126,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAlreadyDefined{
 					Name: "Address",
-				}, *reference.NewReference("foo/bar.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("foo/bar.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -141,7 +141,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrAliasAlreadyDefined{
 					Alias: "foo",
-				}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 		{
@@ -154,7 +154,7 @@ func TestLinker_Link(t *testing.T) {
 			wantErrs: LinkerErrorCollection{
 				NewLinkerErr(ErrPackageNotFound{
 					Name: "identity",
-				}, *reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
+				}, reference.NewReference("common/address.nex", reference.NewPos(0, 0))),
 			},
 		},
 	}
@@ -231,7 +231,7 @@ func newAst(fileName string, typeNames []string, uses []string) *parser.Ast {
 	}
 
 	return &parser.Ast{
-		File:           &reference.File{Path: fileName},
+		File:           reference.File{Path: fileName},
 		UseStatements:  useStmts,
 		TypeStatements: types,
 	}

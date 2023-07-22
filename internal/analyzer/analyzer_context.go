@@ -17,10 +17,10 @@ func (self *AnalyzerContext) GetObject(decl *parser.DeclStmt) *scope.Object {
 	name, alias := decl.Format()
 	objects := self.scope.FindObject(name, alias)
 	if objects == nil {
-		self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, decl.Pos)
+		self.errors.Push(ErrTypeNotFound{Name: name, Alias: alias}, reference.NewReference(self.scope.Path(), decl.Pos))
 		return nil
 	} else if len(objects) > 1 {
-		self.errors.Push(ErrNeedAlias{ObjectName: name}, decl.Pos)
+		self.errors.Push(ErrNeedAlias{ObjectName: name}, reference.NewReference(self.scope.Path(), decl.Pos))
 		return nil
 	} else {
 		return objects[0]
@@ -43,7 +43,7 @@ func (self *AnalyzerContext) Scope() scope.Scope {
 }
 
 func (self *AnalyzerContext) ReportError(err AnalyzerErrorKind, at reference.Pos) {
-	self.errors.Push(err, at)
+	self.errors.Push(err, reference.NewReference(self.scope.Path(), at))
 }
 
 func (self *AnalyzerContext) Errors() *AnalyzerErrorCollection {

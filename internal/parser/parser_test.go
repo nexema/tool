@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
@@ -62,7 +63,9 @@ func TestParser_Parse(t *testing.T) {
 	}`
 
 	want := &Ast{
-		File: nil,
+		File: reference.File{
+			Path: ":test:",
+		},
 		UseStatements: []UseStmt{
 			{
 				Token: *token.NewToken(token.Use),
@@ -277,7 +280,9 @@ func TestParser_Parse(t *testing.T) {
 }
 
 func newParser(i string) *Parser {
-	p := NewParser(bytes.NewBufferString(i), nil)
+	p := NewParser(bytes.NewBufferString(i), reference.File{
+		Path: ":test:",
+	})
 	p.Reset()
 
 	return p

@@ -103,7 +103,7 @@ func TestScope_FindObject(t *testing.T) {
 							Alias: "",
 							ImportedScope: &FileScope{
 								Objects: map[string]*Object{
-									"A": {Name: "A"},
+									"A": {Id: "2", Name: "A"},
 								},
 							},
 						},
@@ -111,7 +111,7 @@ func TestScope_FindObject(t *testing.T) {
 							Alias: "",
 							ImportedScope: &FileScope{
 								Objects: map[string]*Object{
-									"A": {Name: "A"},
+									"A": {Id: "1", Name: "A"},
 								},
 							},
 						},
@@ -119,8 +119,8 @@ func TestScope_FindObject(t *testing.T) {
 				},
 			},
 			wantObjects: []*Object{
-				{Name: "A"},
-				{Name: "A"},
+				{Name: "A", Id: "2"},
+				{Name: "A", Id: "1"},
 			},
 		},
 		{

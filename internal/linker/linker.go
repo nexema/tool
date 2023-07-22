@@ -76,7 +76,7 @@ func (self *Linker) verifyScopeObjects(s *scope.PackageScope) {
 						if _, ok := m[obj.Name]; ok {
 							// found another object and this import does not has an alias
 							if alias == "." || len(alias) == 0 {
-								self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(child.Path(), &imp.Pos)))
+								self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, reference.NewReference(child.Path(), imp.Pos)))
 								continue
 							}
 						}
@@ -93,7 +93,7 @@ func (self *Linker) verifyScopeObjects(s *scope.PackageScope) {
 
 					// if the imported object does not have an alias, report error
 					if !imp.HasAlias() {
-						self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(child.Path(), &imp.Pos)))
+						self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, reference.NewReference(child.Path(), imp.Pos)))
 						continue
 					}
 				}
@@ -113,7 +113,7 @@ func (self *Linker) verifyCircularDependencies() {
 				self.errors.push(NewLinkerErr(ErrCircularDependency{
 					Src:  &conflict.importer,
 					Dest: &conflict.imported,
-				}, *reference.NewReference(conflict.importer.Path, reference.NewPos())))
+				}, reference.NewReference(conflict.importer.Path, reference.NewPos())))
 			}
 		}
 	}
@@ -209,7 +209,7 @@ func (self *Linker) resolveImport(packageScope *scope.PackageScope) {
 				if use.Alias != nil {
 					alias = use.Alias.Token.Literal
 					if _, ok := aliases[alias]; ok {
-						self.errors.push(NewLinkerErr(ErrAliasAlreadyDefined{alias}, *reference.NewReference(childScope.Path(), &use.Alias.Pos)))
+						self.errors.push(NewLinkerErr(ErrAliasAlreadyDefined{alias}, reference.NewReference(childScope.Path(), use.Alias.Pos)))
 						continue
 					}
 					aliases[alias] = true
@@ -218,14 +218,14 @@ func (self *Linker) resolveImport(packageScope *scope.PackageScope) {
 				// check if impPath is not equal to pkgScope.Path
 				// it would be a self import
 				if path == childScopePath {
-					self.errors.push(NewLinkerErr(ErrSelfImport{}, *reference.NewReference(childScope.Path(), &use.Path.Pos)))
+					self.errors.push(NewLinkerErr(ErrSelfImport{}, reference.NewReference(childScope.Path(), use.Path.Pos)))
 					continue
 				}
 
 				// find scope
 				importedScope := self.rootScope.FindByPath(path)
 				if importedScope == nil {
-					self.errors.push(NewLinkerErr(ErrPackageNotFound{path}, *reference.NewReference(childScope.Path(), &use.Path.Pos)))
+					self.errors.push(NewLinkerErr(ErrPackageNotFound{path}, reference.NewReference(childScope.Path(), use.Path.Pos)))
 					continue
 				}
 
@@ -233,7 +233,7 @@ func (self *Linker) resolveImport(packageScope *scope.PackageScope) {
 			}
 
 			// add its parent so it can access siblings types
-			fileScope.Imports.Push("self", scope.NewImport(fileScope.Parent().Path(), "self", fileScope.Parent(), *reference.NewPos()))
+			fileScope.Imports.Push("self", scope.NewImport(fileScope.Parent().Path(), "self", fileScope.Parent(), reference.NewPos()))
 		}
 	}
 }
@@ -263,7 +263,7 @@ func (self *Linker) createScope(packageName string, node *parser.ParseNode, pare
 
 			if _, ok := fileScope.Objects[obj.Name]; ok {
 				src := obj.Source()
-				self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, *reference.NewReference(ast.File.Path, &src.Name.Pos)))
+				self.errors.push(NewLinkerErr(ErrAlreadyDefined{obj.Name}, reference.NewReference(ast.File.Path, src.Name.Pos)))
 				continue
 			}
 

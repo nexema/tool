@@ -18,7 +18,7 @@ type Pos struct {
 	Endline int
 }
 
-func NewReference(fileName string, pos *Pos) *Reference {
+func NewReference(fileName string, pos Pos) Reference {
 	if pos.Line == 0 {
 		pos.Line = 1
 	}
@@ -27,7 +27,7 @@ func NewReference(fileName string, pos *Pos) *Reference {
 		pos.Endline = 1
 	}
 
-	return &Reference{fileName, *pos}
+	return Reference{fileName, pos}
 }
 
 // NewPos creates a new Pos
@@ -37,7 +37,7 @@ func NewReference(fileName string, pos *Pos) *Reference {
 // End = values[1]
 // Line = values[2]
 // Endline = values[3]
-func NewPos(values ...int) *Pos {
+func NewPos(values ...int) Pos {
 	if len(values) > 4 {
 		panic("must provide less than 4 values")
 	} else if len(values) < 2 {
@@ -61,7 +61,7 @@ func NewPos(values ...int) *Pos {
 		endline = 1
 	}
 
-	return &Pos{values[0], values[1], line, endline}
+	return Pos{values[0], values[1], line, endline}
 }
 
 func (self Pos) String() string {

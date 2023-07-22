@@ -12,7 +12,7 @@ import (
 
 type Parser struct {
 	tokenizer             tokenizer.Tokenizer
-	file                  *reference.File
+	file                  reference.File
 	currentToken          *tokenBuf
 	nextToken             *tokenBuf
 	errors                *ParserErrorCollection
@@ -22,10 +22,10 @@ type Parser struct {
 
 type tokenBuf struct {
 	token    *token.Token
-	position *reference.Pos
+	position reference.Pos
 }
 
-func NewParser(input io.Reader, file *reference.File) *Parser {
+func NewParser(input io.Reader, file reference.File) *Parser {
 	return &Parser{
 		file:         file,
 		eof:          false,
@@ -252,7 +252,7 @@ func (self *Parser) parseFieldStmt(isEnum bool) *FieldStmt {
 	if self.currentTokenIs(token.Integer) {
 		fieldIndex = &IdentStmt{
 			Token: *self.currentToken.token,
-			Pos:   *self.currentToken.position,
+			Pos:   self.currentToken.position,
 		}
 		self.next()
 	}
@@ -341,7 +341,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 	}
 
 	currentToken := *self.currentToken.token
-	currentPos := *self.currentToken.position
+	currentPos := self.currentToken.position
 
 	if currentToken.Kind == token.Ident {
 		if self.nextToken == nil {
@@ -388,10 +388,10 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 					return nil
 				}
 
-				endPos := *self.currentToken.position
+				endPos := self.currentToken.position
 				return &DeclStmt{
 					Token:    currentToken,
-					Pos:      *reference.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
+					Pos:      reference.NewPos(currentPos.Start, endPos.End, currentPos.Line, endPos.Endline),
 					Args:     args,
 					Alias:    nil,
 					Nullable: self.nextTokenIsMove(token.QuestionMark),
@@ -410,7 +410,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 
 				return &DeclStmt{
 					Token: ident.Token,
-					Pos:   *reference.NewPos(currentPos.Start, ident.Pos.End, currentPos.Line, ident.Pos.Endline),
+					Pos:   reference.NewPos(currentPos.Start, ident.Pos.End, currentPos.Line, ident.Pos.Endline),
 					Args:  nil,
 					Alias: &IdentStmt{
 						Token: currentToken,
@@ -422,7 +422,7 @@ func (self *Parser) parseDeclStmt(reportErr bool) *DeclStmt {
 			default:
 				return &DeclStmt{
 					Token:    currentToken,
-					Pos:      *reference.NewPos(currentPos.Start, currentPos.End, currentPos.Line, currentPos.Endline),
+					Pos:      reference.NewPos(currentPos.Start, currentPos.End, currentPos.Line, currentPos.Endline),
 					Args:     nil,
 					Alias:    nil,
 					Nullable: self.nextTokenIsMove(token.QuestionMark),
@@ -477,7 +477,7 @@ func (self *Parser) parseAssignStmt() *AssignStmt {
 		Token: *token.NewToken(token.Assign),
 		Left:  *ident,
 		Right: *literal,
-		Pos:   *reference.NewPos(ident.Pos.Start, literal.Pos.End, ident.Pos.Line, literal.Pos.Endline),
+		Pos:   reference.NewPos(ident.Pos.Start, literal.Pos.End, ident.Pos.Line, literal.Pos.Endline),
 	}
 }
 
@@ -491,7 +491,7 @@ func (self *Parser) parseIdent() *IdentStmt {
 	if self.currentToken.token.Kind == token.Ident {
 		return &IdentStmt{
 			Token: *self.currentToken.token,
-			Pos:   *self.currentToken.position,
+			Pos:   self.currentToken.position,
 		}
 	}
 
@@ -506,7 +506,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 	}
 
 	literalToken := *self.currentToken.token
-	tokenPos := *self.currentToken.position
+	tokenPos := self.currentToken.position
 
 	var literalKind LiteralKind
 	literal := literalToken.Literal
@@ -577,7 +577,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		endPos := self.currentToken.position
-		tokenPos = *reference.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		tokenPos = reference.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
 		literalToken = *token.NewToken(token.List)
 
 	// map literal
@@ -631,7 +631,7 @@ func (self *Parser) parseLiteral() *LiteralStmt {
 		}
 
 		endPos := self.currentToken.position
-		tokenPos = *reference.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
+		tokenPos = reference.NewPos(tokenPos.Start, endPos.End, tokenPos.Line, endPos.Endline)
 		literalToken = *token.NewToken(token.Map)
 
 	default:
@@ -666,7 +666,7 @@ func (self *Parser) next() {
 	switch currToken.token.Kind {
 	case token.Comment:
 		line := currToken.position.Endline
-		self.pushComment(line, &CommentStmt{Token: *currToken.token, Pos: *currToken.position})
+		self.pushComment(line, &CommentStmt{Token: *currToken.token, Pos: currToken.position})
 
 		self.next()
 		return
@@ -812,7 +812,7 @@ func (self *Parser) resetAnnotationCommentsMap() {
 
 func (self *Parser) reportExpectedNextTokenErr(expected token.TokenKind) {
 	var nextToken token.Token
-	var pos *reference.Pos
+	var pos reference.Pos
 	if self.nextToken == nil {
 		nextToken = *token.Token_EOF
 		pos = self.tokenizer.GetCurrentPosition()
@@ -830,7 +830,7 @@ func (self *Parser) reportExpectedNextTokenErr(expected token.TokenKind) {
 
 func (self *Parser) reportExpectedCurrentTokenErr(expected token.TokenKind) {
 	var currentToken token.Token
-	var pos *reference.Pos
+	var pos reference.Pos
 	if self.currentToken == nil {
 		currentToken = *token.Token_EOF
 		pos = self.tokenizer.GetCurrentPosition()
@@ -846,12 +846,12 @@ func (self *Parser) reportExpectedCurrentTokenErr(expected token.TokenKind) {
 	}
 }
 
-func (self Parser) getReference(values ...int) *reference.Reference {
+func (self Parser) getReference(values ...int) reference.Reference {
 	return reference.NewReference(self.file.Path, reference.NewPos(values...))
 }
 
-func (self *Parser) pushError(err ParserErrorKind, pos ...*reference.Pos) {
-	var position *reference.Pos
+func (self *Parser) pushError(err ParserErrorKind, pos ...reference.Pos) {
+	var position reference.Pos
 	if len(pos) == 0 {
 		position = self.tokenizer.GetCurrentPosition()
 	} else {

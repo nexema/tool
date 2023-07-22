@@ -27,7 +27,7 @@ func TestParseTree_Insert(t *testing.T) {
 
 func newAst(path string) *Ast {
 	return &Ast{
-		File: &reference.File{
+		File: reference.File{
 			Path: path,
 		},
 	}
