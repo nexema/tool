@@ -65,12 +65,12 @@ func TestProjectBuilder(t *testing.T) {
 				require.NotNil(t, snapshot)
 				require.Equal(t, []definition.NexemaFile{
 					{
-						Id:          "17079104774682735149",
+						Id:          "2103581269702665950",
 						PackageName: "common",
 						Path:        "common/entity.nex",
 						Types: []definition.TypeDefinition{
 							{
-								Id:       "7757690481152332",
+								Id:       "15003517655388837643",
 								Name:     "Entity",
 								Modifier: token.Base,
 								Fields: []*definition.FieldDefinition{
@@ -99,15 +99,15 @@ func TestProjectBuilder(t *testing.T) {
 						},
 					},
 					{
-						Id:          "14275443586636360348",
+						Id:          "1889733971888950306",
 						PackageName: "identity",
 						Path:        "identity/user.nex",
 						Types: []definition.TypeDefinition{
 							{
-								Id:       "6841242565540347458",
+								Id:       "5459298949209608000",
 								Name:     "User",
 								Modifier: token.Struct,
-								BaseType: utils.StringPtr("7757690481152332"),
+								BaseType: utils.StringPtr("15003517655388837643"),
 								Fields: []*definition.FieldDefinition{
 									{
 										Index: 0,
@@ -196,12 +196,12 @@ func TestProjectBuilder(t *testing.T) {
 				require.NotNil(t, snapshot)
 				require.Equal(t, []definition.NexemaFile{
 					{
-						Id:          "17079104774682735149",
+						Id:          "2103581269702665950",
 						PackageName: "common",
 						Path:        "common/entity.nex",
 						Types: []definition.TypeDefinition{
 							{
-								Id:       "7757690481152332",
+								Id:       "15003517655388837643",
 								Name:     "Entity",
 								Modifier: token.Base,
 								Fields: []*definition.FieldDefinition{
@@ -230,15 +230,15 @@ func TestProjectBuilder(t *testing.T) {
 						},
 					},
 					{
-						Id:          "405816346727507453",
+						Id:          "17221215717106222999",
 						PackageName: "user",
 						Path:        "identity/user/user.nex",
 						Types: []definition.TypeDefinition{
 							{
-								Id:       "6841242565540347458",
+								Id:       "5459298949209608000",
 								Name:     "User",
 								Modifier: token.Struct,
-								BaseType: utils.StringPtr("7757690481152332"),
+								BaseType: utils.StringPtr("15003517655388837643"),
 								Fields: []*definition.FieldDefinition{
 									{
 										Index: 0,
@@ -327,12 +327,12 @@ func TestProjectBuilder(t *testing.T) {
 				require.NotNil(t, snapshot)
 				require.Equal(t, []definition.NexemaFile{
 					{
-						Id:          "14273616186087467498",
+						Id:          "14042452542832122385",
 						PackageName: "entity",
 						Path:        "common/entity/entity.nex",
 						Types: []definition.TypeDefinition{
 							{
-								Id:       "7757690481152332",
+								Id:       "15003517655388837643",
 								Name:     "Entity",
 								Modifier: token.Base,
 								Fields: []*definition.FieldDefinition{
@@ -361,15 +361,15 @@ func TestProjectBuilder(t *testing.T) {
 						},
 					},
 					{
-						Id:          "14275443586636360348",
+						Id:          "1889733971888950306",
 						PackageName: "identity",
 						Path:        "identity/user.nex",
 						Types: []definition.TypeDefinition{
 							{
-								Id:       "6841242565540347458",
+								Id:       "5459298949209608000",
 								Name:     "User",
 								Modifier: token.Struct,
-								BaseType: utils.StringPtr("7757690481152332"),
+								BaseType: utils.StringPtr("15003517655388837643"),
 								Fields: []*definition.FieldDefinition{
 									{
 										Index: 0,
