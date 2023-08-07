@@ -78,6 +78,9 @@ func (self *SchemaBuilder) buildFile(fs *scope.FileScope) *definition.NexemaFile
 			Fields:        make([]*definition.FieldDefinition, len(stmt.Fields)),
 		}
 
+		// the starting field index
+		fieldIndex := 0
+
 		if stmt.BaseType != nil {
 			name, alias := stmt.BaseType.Format()
 			baseType := fs.FindObject(name, alias)
@@ -85,10 +88,17 @@ func (self *SchemaBuilder) buildFile(fs *scope.FileScope) *definition.NexemaFile
 				panic(fmt.Errorf("this should not happen, base type %s.%s not found", name, alias))
 			}
 
+			baseTypeSrc := baseType[0].Source()
+
 			typeDef.BaseType = &baseType[0].Id
+			lastBaseField := baseTypeSrc.Fields[len(baseTypeSrc.Fields)-1]
+			if lastBaseField.Index != nil {
+				fieldIndex, _ = strconv.Atoi(lastBaseField.Index.Token.Literal)
+			} else {
+				fieldIndex = len(baseTypeSrc.Fields)
+			}
 		}
 
-		fieldIndex := 0
 		for i, field := range stmt.Fields {
 			if field.Index != nil {
 				fieldIndex, _ = strconv.Atoi(field.Index.Token.Literal)
