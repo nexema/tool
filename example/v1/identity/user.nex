@@ -1,0 +1,58 @@
+use "v1/common" as common
+use "v1/common/location"
+
+type User extends common.Entity {
+    first_name string
+    last_name string
+    email string
+
+    // List of tags
+    #obsolete = true
+    tags list(string?)?
+
+    #header = ["hola"]
+    preferences map(string,bool?)
+
+    account_type AccountType
+
+    account_details AccountDetails
+
+    address Address
+
+    image binary?
+
+    best_time duration
+
+    defaults {
+        first_name = "Tomas"
+        preferences = {
+            "cats": false,
+            "dogs": true
+        }
+    }
+}
+
+type AccountType enum {
+    unknown
+    admin
+    employee
+    customer
+}
+
+type AccountDetails union {
+    customer CustomerAccount
+    employee EmployeeAccount
+    admin AdminAccount
+}
+
+type CustomerAccount struct {
+    dni string
+}
+
+type EmployeeAccount struct {
+    permissions list(string)
+}
+
+type AdminAccount struct {
+    full_access bool
+}

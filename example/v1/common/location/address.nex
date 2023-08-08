@@ -1,0 +1,7 @@
+type Address struct {
+    id string
+    city string
+    region string
+    country string
+    coordinates Coordinates
+}
