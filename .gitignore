@@ -22,3 +22,4 @@ coverage/
 go.work
 dist/
 github_token.sh
+example/snapshots

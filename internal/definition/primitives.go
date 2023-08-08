@@ -18,6 +18,7 @@ const (
 	Uint64    ValuePrimitive = "uint64"
 	Float32   ValuePrimitive = "float32"
 	Float64   ValuePrimitive = "float64"
+	Binary    ValuePrimitive = "binary"
 	Map       ValuePrimitive = "map"
 	List      ValuePrimitive = "list"
 	Custom    ValuePrimitive = "custom" // User defined types
@@ -42,6 +43,7 @@ var mapping map[string]ValuePrimitive = map[string]ValuePrimitive{
 	"uint64":    Uint64,
 	"float32":   Float32,
 	"float64":   Float64,
+	"binary":    Binary,
 	"map":       Map,
 	"list":      List,
 	"timestamp": Timestamp,
