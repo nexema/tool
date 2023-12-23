@@ -2,7 +2,7 @@
 
 A simple Nexema file may look like this:
 
-```nex
+```go
 include "v1/a.nex";
 include "v1/foo/bar.nex" as foo_bar;
 include "v1/requests.nex" as requests;
