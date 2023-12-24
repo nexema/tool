@@ -58,3 +58,34 @@ service RegistrationService {
     bidirectional Message messages(request.MessagesRequest);
 }
 ```
+
+## Syntax
+
+### Imports
+
+```
+include [string] (as [identifier]);
+```
+
+### Type declaration
+
+```
+(#[identifier] = [literal])
+type [identifier] (base|enum|struct|union|extends [identifier]) {
+    (literal) [identifier] [identifier](?)
+    ...
+
+    (__defaults {
+        [map literal]
+    })
+}
+```
+
+### Service declaration
+
+```
+service [identifier] {
+    (#[identifier] = [literal])
+    (downstream|upstream|bidirectional) [identifier(?)|void] [identifier]( (identifier(?)) );
+}
+```
