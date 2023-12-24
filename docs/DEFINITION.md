@@ -61,13 +61,12 @@ service RegistrationService {
 
 ## Syntax
 
-### Imports
-
+### Imports 
 ```
 include [string] (as [identifier]);
 ```
 
-### Type declaration
+### Type declaration
 
 ```
 (#[identifier] = [literal])
@@ -75,13 +74,11 @@ type [identifier] (base|enum|struct|union|extends [identifier]) {
     (literal) [identifier] [identifier](?)
     ...
 
-    (__defaults {
-        [map literal]
-    })
+    (__defaults [map literal])
 }
 ```
 
-### Service declaration
+### Service declaration
 
 ```
 service [identifier] {
