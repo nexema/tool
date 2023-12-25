@@ -18,9 +18,9 @@ type User extends Entity {
     preferences     map(string, bool)
     account_type    AccountType
 
-    __defaults {
-        tags = ["plain_user"]
-        preferences = {
+    defaults {
+        "tags": ["plain_user"]
+        "preferences": {
             "cats": true,
             "dogs": false
         }
@@ -75,9 +75,7 @@ type [identifier] (base|enum|struct|union|extends [identifier]) {
     (literal) [identifier] [identifier](?)
     ...
 
-    (__defaults {
-        [map literal]
-    })
+    (defaults [map literal])
 }
 ```
 
