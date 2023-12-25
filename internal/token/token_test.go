@@ -19,7 +19,7 @@ func TestToken_ToKeyword(t *testing.T) {
 		{NewToken(Ident, "base"), NewToken(Base, "base")},
 		{NewToken(Ident, "extends"), NewToken(Extends, "extends")},
 		{NewToken(Ident, "defaults"), NewToken(Defaults, "defaults")},
-		{NewToken(Ident, "use"), NewToken(Use, "use")},
+		{NewToken(Ident, "include"), NewToken(Include, "include")},
 		{NewToken(Ident, "let"), nil},
 	}
 	for _, tt := range tests {

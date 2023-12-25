@@ -1,140 +1,55 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
-	"tomasweigenast.com/nexema/tool/internal/tokenizer"
 )
 
 type ParserError struct {
-	At   reference.Reference
+	At   reference.Pos
 	Kind ParserErrorKind
 }
 
 type ParserErrorKind interface {
+	parser()
 	Message() string
 }
 
 type (
-	ErrUnexpectedEOF struct{}
-
-	ErrUnexpectedToken struct {
+	UnexpectedTokenErrKind struct {
 		Expected token.TokenKind
-		Got      token.Token
+		Got      token.TokenKind
 	}
 
-	ErrTokenizer struct {
-		Err tokenizer.TokenizerErr
+	UnexpectedTokenExpectManyErrKind struct {
+		Expected []token.TokenKind
+		Got      token.TokenKind
 	}
 
-	ErrExpectedIdentifier struct {
-		Got token.Token
-	}
-
-	ErrNumberParse struct {
-		Wrapped error
-		Value   string
-	}
-
-	ErrInvalidLiteral struct {
-		Got token.Token
-	}
-
-	ErrUnexpectedValue struct {
-		Expected string
-		Got      token.Token
-	}
-
-	ErrExpectedDeclaration struct {
-		Got token.Token
-	}
-
-	ErrExpectedLiteral struct {
-		Got token.Token
+	TokenizerErrKind struct {
+		Msg string
 	}
 )
 
-func (ErrUnexpectedEOF) Message() string {
-	return "unexpected end of file"
+func (e UnexpectedTokenErrKind) parser() {}
+func (e UnexpectedTokenErrKind) Message() string {
+	return fmt.Sprintf("expected token to be %q but got %s instead", e.Expected, e.Got)
 }
 
-func (u ErrUnexpectedToken) Message() string {
-	if u.Expected == token.Illegal {
-		return fmt.Sprintf("unexpected token %q", u.Got.Literal)
+func (e UnexpectedTokenExpectManyErrKind) parser() {}
+func (e UnexpectedTokenExpectManyErrKind) Message() string {
+	values := make([]string, len(e.Expected))
+	for i, expect := range e.Expected {
+		values[i] = fmt.Sprintf(`"%s"`, expect.String())
 	}
+	expect := strings.Join(values, " or ")
 
-	return fmt.Sprintf("expected %q token, got %q instead", u.Expected, u.Got.Literal)
+	return fmt.Sprintf("expected token to be %s but got %s instead", expect, e.Got)
 }
-
-func (u ErrTokenizer) Message() string {
-	return u.Err.Error()
+func (e TokenizerErrKind) parser() {}
+func (e TokenizerErrKind) Message() string {
+	return e.Msg
 }
-
-func (u ErrExpectedIdentifier) Message() string {
-	return fmt.Sprintf("expected identifier, got %s instead", u.Got)
-}
-
-func (u ErrNumberParse) Message() string {
-	return fmt.Sprintf("%s is not a valid number", u.Value)
-}
-
-func (u ErrInvalidLiteral) Message() string {
-	return fmt.Sprintf("%s is not a valid literal value", u.Got)
-}
-
-func (u ErrUnexpectedValue) Message() string {
-	return fmt.Sprintf("expected %s, got %s instead", u.Expected, u.Got)
-}
-
-func (u ErrExpectedDeclaration) Message() string {
-	return fmt.Sprintf("expected declaration, got %s instead", u.Got)
-}
-
-func (u ErrExpectedLiteral) Message() string {
-	return fmt.Sprintf("expected literal, got %s instead", u.Got)
-}
-
-func NewParserErr(err ParserErrorKind, at reference.Reference) *ParserError {
-	return &ParserError{at, err}
-}
-
-type ParserErrorCollection []*ParserError
-
-func newParserErrorCollection() *ParserErrorCollection {
-	collection := make(ParserErrorCollection, 0)
-	return &collection
-}
-
-func (self *ParserErrorCollection) push(err *ParserError) {
-	(*self) = append((*self), err)
-}
-
-func (self *ParserErrorCollection) IsEmpty() bool {
-	return len(*self) == 0
-}
-
-func (self *ParserErrorCollection) Display() string {
-	out := make([]string, len(*self))
-	for i, err := range *self {
-		out[i] = fmt.Sprintf("%s -> %s", err.At, err.Kind.Message())
-	}
-
-	return strings.Join(out, "\n")
-}
-
-func (self *ParserErrorCollection) AsError() error {
-	return errors.New(self.Display())
-}
-
-// func (self *ParserErrorCollection) Clone() []ParserError {
-// 	clone := make([]ParserError, len(*self))
-// 	for i, elem := range *self {
-// 		clone[i] = *elem
-// 	}
-
-// 	return clone
-// }

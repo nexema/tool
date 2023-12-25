@@ -3,33 +3,12 @@ package tokenizer
 import (
 	"bufio"
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
-
-func TestTokenizerErr_IsErr(t *testing.T) {
-	tests := []struct {
-		name string
-		err  *TokenizerErr
-		is   error
-		want bool
-	}{
-		{"ErrInvalidMultilineComment matches", NewTokenizerErr(ErrInvalidMultilineComment), ErrInvalidMultilineComment, true},
-		{"ErrInvalidString matches", NewTokenizerErr(ErrInvalidString), ErrInvalidString, true},
-		{"ErrUnknownToken matches", NewTokenizerErr(ErrUnknownToken), ErrUnknownToken, true},
-		{"other error does not match", NewTokenizerErr(ErrUnknownToken), io.EOF, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.err.IsErr(tt.is)
-			require.Equal(t, tt.want, got)
-		})
-	}
-}
 
 func TestTokenizer_Next(t *testing.T) {
 	tests := []struct {
@@ -38,7 +17,7 @@ func TestTokenizer_Next(t *testing.T) {
 		wantPos reference.Pos
 		wantErr *TokenizerErr
 	}{
-		{"<", nil, reference.NewPos(), NewTokenizerErr(ErrUnknownToken, "<")},
+		{"<", nil, reference.NewPos(), NewTokenizerErr(errUnknownToken('<'), "<")},
 		{"?", token.NewToken(token.QuestionMark, "?"), reference.NewPos(0, 1), nil},
 		// {" ", token.NewToken(token.EOF, ""), NewPos(0, 0), nil},
 		{"=", token.NewToken(token.Assign, "="), reference.NewPos(0, 1), nil},

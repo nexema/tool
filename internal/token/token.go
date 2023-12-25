@@ -34,7 +34,7 @@ const (
 	Lparen
 	Assign
 	Colon
-	Use
+	Include
 	As
 	Comma
 	Period
@@ -73,7 +73,7 @@ var tokenKindMap map[TokenKind]string = map[TokenKind]string{
 	Lbrack:           "[",
 	Assign:           "=",
 	Colon:            ":",
-	Use:              "use",
+	Include:          "include",
 	As:               "as",
 	Comma:            ",",
 	Period:           ".",
@@ -119,8 +119,8 @@ func (self *Token) ToKeyword() *Token {
 		kind = Base
 	case "extends":
 		kind = Extends
-	case "use":
-		kind = Use
+	case "include":
+		kind = Include
 	case "defaults":
 		kind = Defaults
 	default:

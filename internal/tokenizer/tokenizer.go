@@ -114,7 +114,7 @@ func (self *Tokenizer) Next() (tok *token.Token, pos reference.Pos, err *Tokeniz
 			return
 		}
 
-		return nil, reference.NewPos(), NewTokenizerErr(ErrUnknownToken, string(self.ch))
+		return nil, reference.NewPos(), NewTokenizerErr(errUnknownToken(self.ch), string(self.ch))
 	}
 
 	tok = token.NewToken(tokenKind, string(self.ch))

@@ -1,6 +1,9 @@
 package tokenizer
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type TokenizerErr struct {
 	err       TokenizerErrKind
@@ -17,7 +20,6 @@ func (self TokenizerErr) Error() string {
 }
 
 var (
-	ErrUnknownToken            TokenizerErrKind = errors.New("unknown token")
 	ErrInvalidString           TokenizerErrKind = errors.New("string literals must start and end with a \"")
 	ErrInvalidMultilineComment TokenizerErrKind = errors.New("multiline comments must end with */")
 )
@@ -29,6 +31,6 @@ func NewTokenizerErr(err TokenizerErrKind, args ...string) *TokenizerErr {
 	}
 }
 
-func (self TokenizerErr) IsErr(kind TokenizerErrKind) bool {
-	return errors.Is(self.err, kind)
+func errUnknownToken(token rune) error {
+	return fmt.Errorf("unexpected token %q", token)
 }
