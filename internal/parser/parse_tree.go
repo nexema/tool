@@ -7,10 +7,12 @@ import (
 	"github.com/tidwall/btree"
 )
 
+// ParseTree represents a parsed Ast tree structure
 type ParseTree struct {
 	root *ParseNode
 }
 
+// ParseNode represents a list of Ast files under a specific package path, and may have children
 type ParseNode struct {
 	Path     string
 	AstList  []*Ast
@@ -24,6 +26,7 @@ func NewParseNode() *ParseNode {
 	}
 }
 
+// Insert inserts the new ast to the specified path
 func (self *ParseNode) Insert(path string, ast *Ast) {
 	parts := strings.Split(path, "/")
 	self.insert(parts, ast)
@@ -66,39 +69,20 @@ func NewParseTree() *ParseTree {
 	return &ParseTree{rootNode}
 }
 
+// Insert inserts the new ast to the specified path
 func (self *ParseTree) Insert(path string, ast *Ast) {
 	self.root.Insert(path, ast)
 }
 
+// Lookup looks up a ParseNode in the specified path
 func (self *ParseTree) Lookup(path string) *ParseNode {
 	return self.root.lookup(strings.Split(path, "/"))
 }
 
-func (self *ParseTree) Root() *ParseNode {
-	return self.root
-}
-
+// Iter iterates over every children in the ParseNode, executing f on each child
 func (self *ParseNode) Iter(f func(pkgName string, node *ParseNode)) {
 	self.Children.Scan(func(key string, value *ParseNode) bool {
 		f(key, value)
 		return true
 	})
-}
-
-func (self *ParseTree) IsEmpty() bool {
-	return self.root.IsEmpty()
-}
-
-func (self *ParseNode) IsEmpty() bool {
-	if self.Children.Len() == 0 {
-		return len(self.AstList) == 0
-	} else {
-		empty := false
-		self.Children.Scan(func(key string, value *ParseNode) bool {
-			empty = value.IsEmpty()
-			return true
-		})
-
-		return empty
-	}
 }
