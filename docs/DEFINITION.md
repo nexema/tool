@@ -67,7 +67,7 @@ service RegistrationService {
 include [string] (as [identifier]);
 ```
 
-### Type declaration
+### Type declaration
 
 ```
 (#[identifier] = [literal])
@@ -79,7 +79,7 @@ type [identifier] (base|enum|struct|union|extends [identifier]) {
 }
 ```
 
-### Service declaration
+### Service declaration
 
 ```
 service [identifier] {
