@@ -8,15 +8,17 @@ import (
 	"tomasweigenast.com/nexema/tool/internal/reference"
 )
 
-// Object represents an Ast Type statement.
+// Object represents an Ast TypeStatement
+//
+// It generates an unique id for it, based on the hashcode of the type
 type Object struct {
-	src  parser.TypeStmt
+	src  parser.TypeStatement
 	Id   string // calculated as the hashcode of src
 	Name string // extracted from src Name identifier
 }
 
 // NewObject creates a new Object from the given TypeStmt
-func NewObject(from parser.TypeStmt) *Object {
+func NewObject(from parser.TypeStatement) *Object {
 	name := from.Name.Token.Literal
 	hashcode, err := hashstructure.Hash(from, hashstructure.FormatV2, nil)
 	if err != nil {
@@ -29,11 +31,11 @@ func NewObject(from parser.TypeStmt) *Object {
 	}
 }
 
-func (self *Object) Source() *parser.TypeStmt {
+func (self *Object) Source() *parser.TypeStatement {
 	return &self.src
 }
 
-// Import represents an `use` statement.
+// Import represents an `include` statement that may be resolved
 type Import struct {
 	Pos           reference.Pos
 	Path          string
