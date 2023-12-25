@@ -86,3 +86,21 @@ func (self *ParseNode) Iter(f func(pkgName string, node *ParseNode)) {
 		return true
 	})
 }
+
+func (self *ParseTree) IsEmpty() bool {
+	return self.root.IsEmpty()
+}
+
+func (self *ParseNode) IsEmpty() bool {
+	if self.Children.Len() == 0 {
+		return len(self.AstList) == 0
+	} else {
+		empty := false
+		self.Children.Scan(func(key string, value *ParseNode) bool {
+			empty = value.IsEmpty()
+			return true
+		})
+
+		return empty
+	}
+}
