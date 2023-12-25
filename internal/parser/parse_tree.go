@@ -79,6 +79,11 @@ func (self *ParseTree) Lookup(path string) *ParseNode {
 	return self.root.lookup(strings.Split(path, "/"))
 }
 
+// Iter iterates over every children in the ParseTree, executing f on each child
+func (self *ParseTree) Iter(f func(pkgName string, node *ParseNode)) {
+	self.root.Iter(f)
+}
+
 // Iter iterates over every children in the ParseNode, executing f on each child
 func (self *ParseNode) Iter(f func(pkgName string, node *ParseNode)) {
 	self.Children.Scan(func(key string, value *ParseNode) bool {

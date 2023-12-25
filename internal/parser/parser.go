@@ -143,7 +143,7 @@ func (p *Parser) parseIncludeStatement() *IncludeStatement {
 
 	stmt.Path = LiteralStatement{
 		Token: *p.currentToken.token,
-		Value: StringLiteral{value: p.currentToken.token.Literal},
+		Value: StringLiteral{V: p.currentToken.token.Literal},
 	}
 
 	if p.peekTokenIs(token.As) {

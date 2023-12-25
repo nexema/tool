@@ -154,19 +154,19 @@ type Literal interface {
 }
 
 type BooleanLiteral struct {
-	value bool
+	V bool
 }
 
 type IntLiteral struct {
-	value int64
+	V int64
 }
 
 type FloatLiteral struct {
-	value float64
+	V float64
 }
 
 type StringLiteral struct {
-	value string
+	V string
 }
 
 type ListLiteral []Literal
@@ -177,17 +177,17 @@ type MapEntry struct {
 	Key, Value Literal
 }
 
-func (self BooleanLiteral) Literal() string    { return fmt.Sprint(self.value) }
-func (self BooleanLiteral) Value() interface{} { return self.value }
+func (self BooleanLiteral) Literal() string    { return fmt.Sprint(self.V) }
+func (self BooleanLiteral) Value() interface{} { return self.V }
 
-func (self IntLiteral) Literal() string    { return fmt.Sprint(self.value) }
-func (self IntLiteral) Value() interface{} { return self.value }
+func (self IntLiteral) Literal() string    { return fmt.Sprint(self.V) }
+func (self IntLiteral) Value() interface{} { return self.V }
 
-func (self FloatLiteral) Literal() string    { return fmt.Sprint(self.value) }
-func (self FloatLiteral) Value() interface{} { return self.value }
+func (self FloatLiteral) Literal() string    { return fmt.Sprint(self.V) }
+func (self FloatLiteral) Value() interface{} { return self.V }
 
-func (self StringLiteral) Literal() string    { return fmt.Sprintf(`"%s"`, self.value) }
-func (self StringLiteral) Value() interface{} { return self.value }
+func (self StringLiteral) Literal() string    { return fmt.Sprintf(`"%s"`, self.V) }
+func (self StringLiteral) Value() interface{} { return self.V }
 
 func (self ListLiteral) Literal() string {
 	return fmt.Sprintf("[%v]", strings.Join(mapArray(self, func(elem Literal) string { return fmt.Sprint(elem.Literal()) }), ", "))
@@ -220,28 +220,4 @@ func mapArray[T any, O any](in []T, f func(T) O) []O {
 	}
 
 	return out
-}
-
-func MakeBooleanLiteral(v bool) BooleanLiteral {
-	return BooleanLiteral{v}
-}
-
-func MakeStringLiteral(v string) StringLiteral {
-	return StringLiteral{v}
-}
-
-func MakeIntLiteral(v int64) IntLiteral {
-	return IntLiteral{v}
-}
-
-func MakeFloatLiteral(v float64) FloatLiteral {
-	return FloatLiteral{v}
-}
-
-func MakeListLiteral(values ...Literal) ListLiteral {
-	return values
-}
-
-func MakeMapLiteral(values ...MapEntry) MapLiteral {
-	return values
 }

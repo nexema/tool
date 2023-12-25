@@ -109,7 +109,6 @@ func TestParser_Parse(t *testing.T) {
 	if diff := cmp.Diff(want, ast, literalKindExporter); diff != "" {
 		t.Errorf("Parse(%s) mismatch (-want +got):\n%s", input, diff)
 	}
-
 }
 
 func TestParser_ParseInclude(t *testing.T) {
