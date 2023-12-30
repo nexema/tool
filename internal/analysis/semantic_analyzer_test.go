@@ -28,7 +28,26 @@ func TestSemanticAnalyzer_Analyze(t *testing.T) {
 		Statements: []parser.Statement{
 			utils.MakeTypeStatement("B", token.Enum, "", []parser.Statement{
 				utils.MakeFieldStatement("unknown", 0, ""),
-				utils.MakeFieldStatement("first", 1, ""),
+				utils.MakeFieldStatement("first", -1, ""),
+				utils.MakeFieldStatement("second", 2, ""),
+			}),
+			utils.MakeTypeStatement("C", token.Struct, "", []parser.Statement{
+				utils.MakeFieldStatement("unknown", 0, "string", true),
+				utils.MakeFieldStatement("first", 1, "varchar(2048)", true),
+				utils.MakeCustomFieldStatement("second", 2, &parser.DeclarationStatement{
+					Token:      *token.NewToken(token.Ident, "map"),
+					Identifier: &parser.IdentifierStatement{Token: *token.NewToken(token.Ident, "list")},
+					Arguments: []parser.DeclarationStatement{
+						{
+							Token:      *token.NewToken(token.Ident, "string"),
+							Identifier: &parser.IdentifierStatement{Token: *token.NewToken(token.Ident, "string")},
+						},
+						{
+							Token:      *token.NewToken(token.Ident, "bool"),
+							Identifier: &parser.IdentifierStatement{Token: *token.NewToken(token.Ident, "bool")},
+						},
+					},
+				}),
 			}),
 		},
 	})
