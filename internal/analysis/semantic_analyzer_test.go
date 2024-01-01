@@ -10,21 +10,24 @@ import (
 )
 
 func TestSemanticAnalyzer_Analyze(t *testing.T) {
+	// import paths must be relatives to nexema.yaml file, which is considered the root dir
 	tree := parser.NewParseTree()
-	tree.Insert("root", &parser.Ast{
-		File: reference.File{Path: "root/a.nex"},
+	tree.Insert("v1", &parser.Ast{
+		File: reference.File{Path: "v1/a.nex"},
 		Statements: []parser.Statement{
-			utils.MakeIncludeStatement("root/b.nex", ""),
+			utils.MakeIncludeStatement("v1/b.nex", ""),
+			utils.MakeIncludeStatement("v1/c.nex", "foo"),
 			utils.MakeAnnotationStatement("obsolete", true),
 			utils.MakeTypeStatement("A", token.Struct, "", []parser.Statement{
 				utils.MakeCommentStatement("Represents the name of a field"),
 				utils.MakeFieldStatement("field_name", 0, "string"),
 				utils.MakeFieldStatement("from_other", 1, "B"),
+				utils.MakeFieldStatement("from_other_2", 2, "foo.C"),
 			}),
 		},
 	})
-	tree.Insert("root", &parser.Ast{
-		File: reference.File{Path: "root/b.nex"},
+	tree.Insert("v1", &parser.Ast{
+		File: reference.File{Path: "v1/b.nex"},
 		Statements: []parser.Statement{
 			utils.MakeTypeStatement("B", token.Enum, "", []parser.Statement{
 				utils.MakeFieldStatement("unknown", 0, ""),
@@ -51,7 +54,17 @@ func TestSemanticAnalyzer_Analyze(t *testing.T) {
 			}),
 		},
 	})
+	tree.Insert("v1", &parser.Ast{
+		File: reference.File{Path: "v1/c.nex"},
+		Statements: []parser.Statement{
+			utils.MakeTypeStatement("C", token.Enum, "", []parser.Statement{
+				utils.MakeFieldStatement("unknown", 0, ""),
+				utils.MakeFieldStatement("first", -1, ""),
+				utils.MakeFieldStatement("second", 2, ""),
+			}),
+		},
+	})
 
-	analyzer := NewSemanticAnalyzer(tree)
+	analyzer := NewSemanticAnalyzer(tree, "/windows/")
 	analyzer.Analyze()
 }

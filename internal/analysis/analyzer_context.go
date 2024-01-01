@@ -2,23 +2,57 @@ package analysis
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"tomasweigenast.com/nexema/tool/internal/definition"
 	"tomasweigenast.com/nexema/tool/internal/parser"
+	"tomasweigenast.com/nexema/tool/internal/reference"
 	"tomasweigenast.com/nexema/tool/internal/token"
 )
 
+var validMapKeyTypes = map[definition.ValuePrimitive]bool{
+	definition.String:  true,
+	definition.Boolean: true,
+	definition.Uint:    true,
+	definition.Uint8:   true,
+	definition.Uint16:  true,
+	definition.Uint32:  true,
+	definition.Uint64:  true,
+	definition.Int:     true,
+	definition.Int8:    true,
+	definition.Int16:   true,
+	definition.Int32:   true,
+	definition.Int64:   true,
+}
+
 // analyzerContext groups related statements and analyzes them. In this case, an Ast
 type analyzerContext struct {
-	parent        *SemanticAnalyzer
-	ast           *parser.Ast // the ast that is being analyzed
-	parentContext context     // the parent context of the statement that is being analyzed
+	parent        *SemanticAnalyzer // the parent SemanticAnalyzer
+	ast           *parser.Ast       // the ast that is being analyzed
+	parentContext context           // the parent context of the statement that is being analyzed
 
 	includeStatementsRead bool                          // a flag that indicates if include statements were read
 	commentsForNext       []*parser.CommentStatement    // the list of comments (single line) that will be added to the next object
 	annotationsForNext    []*parser.AnnotationStatement // the list of annotations that will be added to the next object
-	typeNames             map[string]bool               // a map to keep track of type names read to detect duplicates
+	resolvedImports       []include                     // the list of imported Ast files (value is path to Ast)
+	aliases               map[string]bool               // a map to keep track of used aliases
+	unresolvedReferences  []unresolvedReference         // a list of unresolved references
+}
+
+type unresolvedReference struct {
+	source   *parser.DeclarationStatement
+	typeName string
+	alias    string
+}
+
+type include struct {
+	path  reference.File
+	alias string
+}
+
+func (ac *analyzerContext) Statement() parser.Statement {
+	return ac.ast
 }
 
 func (ac *analyzerContext) analyze() {
@@ -34,9 +68,7 @@ func (ac *analyzerContext) analyze() {
 func (ac *analyzerContext) analyzeStatement(statement parser.Statement) {
 	switch kind := statement.(type) {
 	case *parser.IncludeStatement:
-		if ac.includeStatementsRead {
-			panic("include statements read") // todo: change to err handle
-		}
+		ac.analyzeIncludeStatement(kind)
 
 	case *parser.TypeStatement: // todo: add ServiceStatement when added
 		ac.analyzeTypeStatement(kind)
@@ -59,6 +91,45 @@ func (ac *analyzerContext) analyzeStatement(statement parser.Statement) {
 	}
 }
 
+func (ac *analyzerContext) analyzeIncludeStatement(statement *parser.IncludeStatement) {
+	if ac.includeStatementsRead {
+		panic("include statements read") // todo: change to err handle
+	}
+
+	importPath := statement.Path.Value.Value().(string)
+	var alias string
+	if statement.Alias != nil {
+		alias = statement.Alias.Token.Literal
+
+		if alias == selfSymbols {
+			panic(fmt.Errorf("%s cannot be used as an alias because its a reserved keyword", selfSymbols))
+		}
+
+		if _, ok := ac.aliases[alias]; ok {
+			panic("alias already in use")
+		}
+
+		ac.aliases[alias] = true
+	}
+
+	importPath = filepath.Clean(importPath)
+	if filepath.IsAbs(importPath) {
+		rel, err := filepath.Rel(ac.parent.rootFolder, importPath)
+		if err != nil {
+			panic(err)
+		}
+
+		importPath = rel
+	}
+
+	nodepath := filepath.Clean(ac.ast.File.Path)
+	ac.parent.dependencies.addDependency(nodepath, importPath)
+	ac.resolvedImports = append(ac.resolvedImports, include{
+		path:  reference.File{Path: importPath},
+		alias: alias,
+	})
+}
+
 func (ac *analyzerContext) analyzeTypeStatement(statement *parser.TypeStatement) {
 	ac.includeStatementsRead = true
 	if ac.parentContext != nil {
@@ -68,13 +139,6 @@ func (ac *analyzerContext) analyzeTypeStatement(statement *parser.TypeStatement)
 	if statement.Name.Alias != nil {
 		panic("type name must not have an alias")
 	}
-
-	typeName := statement.Name.TokenLiteral()
-	if _, ok := ac.typeNames[typeName]; ok {
-		panic("Type already declared")
-	}
-
-	ac.typeNames[typeName] = true
 
 	ac.parentContext = &typeContext{
 		statement:    statement,
@@ -173,27 +237,17 @@ func (ac *analyzerContext) analyzeDefaultsStatement(statement *parser.DefaultsSt
 	parentContext.defaultsRead = true
 }
 
-var validMapKeyTypes = map[definition.ValuePrimitive]bool{
-	definition.String:  true,
-	definition.Boolean: true,
-	definition.Uint:    true,
-	definition.Uint8:   true,
-	definition.Uint16:  true,
-	definition.Uint32:  true,
-	definition.Uint64:  true,
-	definition.Int:     true,
-	definition.Int8:    true,
-	definition.Int16:   true,
-	definition.Int32:   true,
-	definition.Int64:   true,
-}
-
 func (ac *analyzerContext) analyzeDeclarationStatement(statement *parser.DeclarationStatement) {
 
 	primitive, ok := definition.ParsePrimitive(statement.TokenLiteral())
 	if !ok {
+		typeName, alias := statement.Get()
+		ac.unresolvedReferences = append(ac.unresolvedReferences, unresolvedReference{
+			source:   statement,
+			typeName: typeName,
+			alias:    alias,
+		})
 		return
-		// panic("non primitive check not implemented")
 	}
 
 	switch primitive {
@@ -202,6 +256,9 @@ func (ac *analyzerContext) analyzeDeclarationStatement(statement *parser.Declara
 		if len(statement.Arguments) != 1 {
 			panic("not one argument needed for list")
 		}
+
+		argument := statement.Arguments[0]
+		ac.analyzeDeclarationStatement(&argument)
 
 	case definition.Map:
 		// expect exactly two arguments
