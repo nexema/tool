@@ -23,6 +23,9 @@ type Ast struct {
 	Statements []Statement
 }
 
+func (stmt Ast) TokenLiteral() string { return "Ast" }
+func (Ast) statementNode()            {}
+
 // CommentStatement represents a single line or multi line comment
 type CommentStatement struct {
 	Token token.Token // the token.Comment or token.CommentMultiline token
@@ -98,6 +101,13 @@ type DeclarationStatement struct {
 
 func (stmt DeclarationStatement) TokenLiteral() string { return stmt.Token.Literal }
 func (DeclarationStatement) statementNode()            {}
+func (d *DeclarationStatement) Get() (typeName, alias string) {
+	typeName = d.Identifier.Token.Literal
+	if d.Identifier.Alias != nil {
+		alias = d.Identifier.Alias.Literal
+	}
+	return
+}
 
 // ExtendsStatement represents a "extends [typename]" syntax
 type ExtendsStatement struct {

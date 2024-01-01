@@ -29,6 +29,10 @@ type (
 		Got      token.TokenKind
 	}
 
+	DuplicatedMapKey struct {
+		KeyLiteral string
+	}
+
 	TokenizerErrKind struct {
 		Msg string
 	}
@@ -52,4 +56,9 @@ func (e UnexpectedTokenExpectManyErrKind) Message() string {
 func (e TokenizerErrKind) parser() {}
 func (e TokenizerErrKind) Message() string {
 	return e.Msg
+}
+
+func (e DuplicatedMapKey) parser() {}
+func (e DuplicatedMapKey) Message() string {
+	return fmt.Sprintf("duplicated key %q in map literal", e.KeyLiteral)
 }

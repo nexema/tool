@@ -353,6 +353,7 @@ func (p *Parser) parseLiteral(t *token.Token) Literal {
 
 	case token.Lbrace:
 		mapLiteral := MapLiteral{}
+		usedKeys := map[interface{}]bool{}
 
 		for !p.currTokenIs(token.Rbrace) && !p.currTokenIs(token.EOF) {
 			p.nextToken()
@@ -371,6 +372,13 @@ func (p *Parser) parseLiteral(t *token.Token) Literal {
 			if value == nil {
 				break
 			}
+
+			if _, ok := usedKeys[key.Value()]; ok {
+				p.err(DuplicatedMapKey{KeyLiteral: key.Literal()})
+				return nil
+			}
+
+			usedKeys[key.Value()] = true
 
 			mapLiteral = append(mapLiteral, MapEntry{key, value})
 

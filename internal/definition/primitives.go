@@ -24,6 +24,7 @@ const (
 	Custom    ValuePrimitive = "custom" // User defined types
 	Timestamp ValuePrimitive = "timestamp"
 	Duration  ValuePrimitive = "duration"
+	Varchar   ValuePrimitive = "varchar"
 )
 
 var mapping map[string]ValuePrimitive = map[string]ValuePrimitive{
@@ -48,6 +49,7 @@ var mapping map[string]ValuePrimitive = map[string]ValuePrimitive{
 	"list":      List,
 	"timestamp": Timestamp,
 	"duration":  Duration,
+	"varchar":   Varchar,
 }
 
 func ParsePrimitive(name string) (ValuePrimitive, bool) {
