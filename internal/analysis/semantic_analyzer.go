@@ -43,15 +43,6 @@ type context interface {
 }
 
 func (self *SemanticAnalyzer) Analyze() {
-	// TODO: maybe optimize to avoid two iterations over the ParseTree.
-	// It can be done by requesting contexts to other nodes of the tree, and if they don't available
-	// right now, create at request time. When the Node that uses that context is going to be analyzed,
-	// it can use the newly created context.
-
-	// first of all scan for symbols
-	self.tree.Iter(func(pkgName string, node *parser.ParseNode) {
-		self.scanSymbols(pkgName, node)
-	})
 
 	// scan to analyze
 	self.tree.Iter(func(pkgName string, node *parser.ParseNode) {
@@ -63,21 +54,6 @@ func (self *SemanticAnalyzer) Analyze() {
 
 	// resolve unresolved references
 	self.resolveReferences()
-}
-
-// scanSymbols scan top level Type statements of every Ast file and pushes them to the global symbolTable
-func (self *SemanticAnalyzer) scanSymbols(pkgName string, node *parser.ParseNode) {
-	for _, ast := range node.AstList {
-		for _, statement := range ast.Statements {
-			if typeStatement, ok := statement.(*parser.TypeStatement); ok {
-				self.symbolTable.push(ast.File, selfSymbols, newTypeSymbol(typeStatement))
-			}
-		}
-	}
-
-	node.Iter(func(pkgName string, node *parser.ParseNode) {
-		self.scanSymbols(pkgName, node)
-	})
 }
 
 func (self *SemanticAnalyzer) analyzeNode(pkgName string, node *parser.ParseNode) {

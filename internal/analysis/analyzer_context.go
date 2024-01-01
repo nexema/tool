@@ -140,6 +140,9 @@ func (ac *analyzerContext) analyzeTypeStatement(statement *parser.TypeStatement)
 		panic("type name must not have an alias")
 	}
 
+	// push symbol to symbolTable
+	ac.parent.symbolTable.push(ac.ast.File, selfSymbols, newTypeSymbol(statement))
+
 	ac.parentContext = &typeContext{
 		statement:    statement,
 		fieldNames:   make(map[string]bool),
